@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CentralHub - Reporte de Avances</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            color: #1a202c;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .header .subtitle {
+            font-size: 20px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .header .meta {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            text-align: center;
+        }
+
+        .meta-item .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            letter-spacing: 1px;
+        }
+
+        .meta-item .value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 6px;
+            height: 40px;
+            background: linear-gradient(180deg, #667eea, #764ba2);
+            border-radius: 3px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #e2e8f0;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .stat-card .icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        .stat-card .number {
+            font-size: 42px;
+            font-weight: 800;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .chart-container {
+            background: #f7fafc;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .progress-bar {
+            background: #e2e8f0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 15px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            transition: width 1s ease;
+        }
+
+        .feature-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .feature-item.completed {
+            border-left-color: #48bb78;
+        }
+
+        .feature-item.pending {
+            border-left-color: #ed8936;
+        }
+
+        .feature-item .status {
+            font-size: 24px;
+        }
+
+        .feature-item .text {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .footer {
+            background: #1a202c;
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .footer .logo {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+
+        .footer .info {
+            opacity: 0.8;
+            margin-bottom: 10px;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 CENTRALHUB</h1>
+            <div class="subtitle">Reporte de Avances del Proyecto</div>
+            <div class="meta">
+                <div class="meta-item">
+                    <div class="label">Cliente</div>
+                    <div class="value">Central Inmobiliaria</div>
+                </div>
+                <div class="meta-item">
+                    <div class="label">Fecha</div>
+                    <div class="value">14 Abril 2026</div>
+                </div>
+                <div class="meta-item">
+                    <div class="label">Versión</div>
+                    <div class="value">1.0.0</div>
+                </div>
+                <div class="meta-item">
+                    <div class="label">Estado</div>
+                    <div class="value">En Desarrollo</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Resumen Ejecutivo -->
+            <div class="section">
+                <h2 class="section-title">📊 Resumen Ejecutivo</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="icon">📁</div>
+                        <div class="number">30+</div>
+                        <div class="label">Archivos Creados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon">💾</div>
+                        <div class="number">12</div>
+                        <div class="label">Modelos de BD</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon">🔌</div>
+                        <div class="number">11</div>
+                        <div class="label">Endpoints API</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon">📝</div>
+                        <div class="number">1,500+</div>
+                        <div class="label">Líneas de Código</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progreso del Proyecto -->
+            <div class="section">
+                <h2 class="section-title">📈 Progreso del Proyecto</h2>
+                <div class="chart-container">
+                    <canvas id="progressChart"></canvas>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 20px; color: #4a5568;">Avance por Fase</h3>
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-weight: 600;">Fase 1: Core ERP (Semanas 1-6)</span>
+                            <span style="font-weight: 700; color: #667eea;">60%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 60%;">60%</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-weight: 600;">Fase 2: GIS & App Asesores (Semanas 7-9)</span>
+                            <span style="font-weight: 700; color: #667eea;">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%;">0%</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-weight: 600;">Fase 3: Portal B2C (Semanas 10-12)</span>
+                            <span style="font-weight: 700; color: #667eea;">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%;">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Funcionalidades Implementadas -->
+            <div class="section">
+                <h2 class="section-title">✅ Funcionalidades Completadas</h2>
+                <div class="feature-list">
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Infraestructura: Docker + PostgreSQL 16</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Base de Datos: 12 modelos normalizados con Prisma</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Autenticación: JWT con refresh tokens</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">API REST: Usuarios, Proyectos, Clientes</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Seguridad: Bcrypt, Rate Limiting, CORS, Helmet</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Sistema de Roles: Admin, Manager, Agent, Viewer</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Logging: Winston con archivos rotables</span>
+                    </div>
+                    <div class="feature-item completed">
+                        <span class="status">✅</span>
+                        <span class="text">Códigos Únicos: Sistema global CLI-000001</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Funcionalidades Pendientes -->
+            <div class="section">
+                <h2 class="section-title">⏳ Próximos Desarrollos</h2>
+                <div class="feature-list">
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Módulo de Lotes: Inventario con estados (Disponible, Apartado, Vendido)</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Módulo de Contratos: Generación automática de PDF</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Sistema de Pagos: Registro y conciliación automática</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Motor de Financiamiento: Cálculo automático 5/6/7 años</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Sistema de Apartados: Liberación automática a 2 semanas</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Control de Mora: 3 cuotas + 3 gracia → Rescisión</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Dashboard Directivo: Métricas en tiempo real</span>
+                    </div>
+                    <div class="feature-item pending">
+                        <span class="status">⏳</span>
+                        <span class="text">Migración de Datos: Importación de 12,000+ clientes desde Excel</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stack Tecnológico -->
+            <div class="section">
+                <h2 class="section-title">🛠️ Stack Tecnológico</h2>
+                <div class="chart-container">
+                    <canvas id="techChart"></canvas>
+                </div>
+                <div class="tech-stack" style="margin-top: 30px;">
+                    <div class="tech-badge">Node.js v24</div>
+                    <div class="tech-badge">TypeScript 5.5</div>
+                    <div class="tech-badge">Express 4</div>
+                    <div class="tech-badge">PostgreSQL 16</div>
+                    <div class="tech-badge">Prisma ORM</div>
+                    <div class="tech-badge">JWT Auth</div>
+                    <div class="tech-badge">Docker</div>
+                    <div class="tech-badge">Winston Logger</div>
+                    <div class="tech-badge">bcrypt</div>
+                    <div class="tech-badge">Helmet</div>
+                </div>
+            </div>
+
+            <!-- Métricas de Código -->
+            <div class="section">
+                <h2 class="section-title">📊 Métricas de Desarrollo</h2>
+                <div class="chart-container">
+                    <canvas id="metricsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Arquitectura de Base de Datos -->
+            <div class="section">
+                <h2 class="section-title">🗄️ Arquitectura de Base de Datos</h2>
+                <div class="chart-container">
+                    <canvas id="dbChart"></canvas>
+                </div>
+                <div style="margin-top: 20px; padding: 20px; background: #f7fafc; border-radius: 10px;">
+                    <p style="color: #4a5568; line-height: 1.8;">
+                        <strong>Base de datos normalizada</strong> con 12 tablas relacionales, diseñada para escalar hasta 50,000+ clientes. 
+                        Incluye sistema de códigos únicos globales (CLI-000001), manteniendo compatibilidad con códigos legacy de proyectos individuales (V001, C001). 
+                        Soporta clientes multi-proyecto con relaciones muchos-a-muchos.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="logo">SEVENTY SEVEN STUDIO</div>
+            <div class="info">info@seventyss.com</div>
+            <div class="info">Heroica Matamoros, Tamaulipas</div>
+            <div class="info" style="margin-top: 20px; font-size: 12px;">
+                © 2026 Seventy Seven Studio. Todos los derechos reservados.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Progress Chart
+        const progressCtx = document.getElementById('progressChart').getContext('2d');
+        new Chart(progressCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Completado', 'En Progreso', 'Pendiente'],
+                datasets: [{
+                    data: [35, 25, 40],
+                    backgroundColor: ['#48bb78', '#667eea', '#e2e8f0'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 14, weight: 'bold' },
+                            padding: 20
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Estado General del Proyecto',
+                        font: { size: 18, weight: 'bold' },
+                        padding: 20
+                    }
+                }
+            }
+        });
+
+        // Tech Stack Chart
+        const techCtx = document.getElementById('techChart').getContext('2d');
+        new Chart(techCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Backend', 'Base de Datos', 'Seguridad', 'DevOps', 'Testing'],
+                datasets: [{
+                    label: 'Completado (%)',
+                    data: [70, 90, 80, 60, 20],
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: '#667eea',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Avance por Componente Técnico',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                }
+            }
+        });
+
+        // Metrics Chart
+        const metricsCtx = document.getElementById('metricsChart').getContext('2d');
+        new Chart(metricsCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Arquitectura', 'Código Limpio', 'Documentación', 'Seguridad', 'Escalabilidad', 'Performance'],
+                datasets: [{
+                    label: 'Calidad del Código',
+                    data: [95, 90, 75, 95, 90, 80],
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderColor: '#667eea',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#667eea'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { stepSize: 20 }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Evaluación de Calidad',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                }
+            }
+        });
+
+        // Database Chart
+        const dbCtx = document.getElementById('dbChart').getContext('2d');
+        new Chart(dbCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Users', 'Projects', 'Clients', 'Lots', 'Contracts', 'Payments', 'Commissions', 'Expenses', 'Activities', 'Documents'],
+                datasets: [{
+                    label: 'Campos por Tabla',
+                    data: [12, 14, 18, 13, 18, 15, 11, 14, 10, 10],
+                    backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                    borderColor: '#764ba2',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Complejidad de Modelos (Campos por Tabla)',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

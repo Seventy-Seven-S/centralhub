@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTENTICACIÓN Y USUARIOS
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          UserRole    @default(AGENT)
+  status        UserStatus  @default(ACTIVE)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  lastLogin     DateTime?
+  
+  emailVerified Boolean     @default(false)
+  
+  refreshTokens RefreshToken[]
+  activities    Activity[]
+  expenses      Expense[]
+  commissions   Commission[]
+  documents     Document[]
+  paymentsCreated Payment[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// PROYECTOS/DESARROLLOS
+// ============================================================================
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+}
+
+model Project {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  name              String
+  description       String?
+  status            ProjectStatus @default(ACTIVE)
+  location          String
+  city              String
+  state             String
+  totalAreaM2       Float?
+  totalLots         Int
+  startDate         DateTime?
+  completionDate    DateTime?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  lots              Lot[]
+  contracts         Contract[]
+  clientProjects    ClientProject[]
+  expenses          Expense[]
+
+  @@map("projects")
+}
+
+// ============================================================================
+// CLIENTES
+// ============================================================================
+
+enum ClientStatus {
+  LEAD
+  PROSPECT
+  ACTIVE
+  INACTIVE
+}
+
+model Client {
+  id                String          @id @default(uuid())
+  globalCode        String          @unique
+  firstName         String
+  lastName          String
+  email             String?
+  phone             String
+  whatsappPhone     String?
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  
+  ine               String?
+  curp              String?
+  estadoCivil       String?
+  lugarNacimiento   String?
+  
+  status            ClientStatus    @default(LEAD)
+  notes             String?
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  projects          ClientProject[]
+  contracts         Contract[]
+  payments          Payment[]
+  activities        Activity[]
+
+  @@map("clients")
+}
+
+model ClientProject {
+  id              String   @id @default(uuid())
+  clientId        String
+  projectId       String
+  projectCode     String
+  registeredAt    DateTime @default(now())
+  active          Boolean  @default(true)
+  
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@unique([clientId, projectId])
+  @@map("client_projects")
+}
+
+// ============================================================================
+// INVENTARIO DE LOTES
+// ============================================================================
+
+enum LotStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  UNAVAILABLE
+}
+
+enum Orientation {
+  NORTH
+  SOUTH
+  EAST
+  WEST
+}
+
+model Lot {
+  id                  String       @id @default(uuid())
+  projectId           String
+  manzana             Int
+  lotNumber           String
+  areaM2              Float
+  orientation         Orientation?
+  
+  basePrice           Float
+  currentPrice        Float
+  
+  status              LotStatus    @default(AVAILABLE)
+  reservedAt          DateTime?
+  reservationExpiry   DateTime?
+  
+  features            Json?
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  
+  project             Project      @relation(fields: [projectId], references: [id])
+  contracts           ContractLot[]
+
+  @@unique([projectId, manzana, lotNumber])
+  @@map("lots")
+}
+
+// ============================================================================
+// CONTRATOS Y VENTAS
+// ============================================================================
+
+enum ContractStatus {
+  DRAFT
+  SIGNED
+  ACTIVE
+  COMPLETED
+  CANCELED
+  RESCISSION
+}
+
+enum PaymentPlanType {
+  CASH
+  INSTALLMENTS
+  BANK_FINANCING
+}
+
+model Contract {
+  id                  String           @id @default(uuid())
+  contractNumber      String           @unique
+  clientId            String
+  projectId           String
+  agentId             String?
+  
+  contractDate        DateTime
+  status              ContractStatus   @default(DRAFT)
+  
+  totalPrice          Float
+  downPayment         Float
+  financingAmount     Float
+  
+  paymentPlanType     PaymentPlanType  @default(INSTALLMENTS)
+  installmentCount    Int?
+  installmentAmount   Float?
+  interestRate        Float?
+  
+  startDate           DateTime?
+  endDate             DateTime?
+  
+  notes               String?
+  contractFileUrl     String?
+  
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  
+  client              Client           @relation(fields: [clientId], references: [id])
+  project             Project          @relation(fields: [projectId], references: [id])
+  lots                ContractLot[]
+  payments            Payment[]
+  paymentSchedules    PaymentSchedule[]
+  commissions         Commission[]
+
+  @@map("contracts")
+}
+
+model ContractLot {
+  id            String   @id @default(uuid())
+  contractId    String
+  lotId         String
+  priceAtSale   Float
+  createdAt     DateTime @default(now())
+  
+  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  lot           Lot      @relation(fields: [lotId], references: [id])
+
+  @@map("contract_lots")
+}
+
+// ============================================================================
+// PAGOS
+// ============================================================================
+
+enum PaymentType {
+  DOWN_PAYMENT
+  INSTALLMENT
+  EXTRA_PAYMENT
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CHECK
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  paymentNumber   String        @unique
+  contractId      String
+  clientId        String
+  
+  paymentType     PaymentType
+  paymentMethod   PaymentMethod
+  amount          Float
+  paymentDate     DateTime
+  concept         String
+  referenceNumber String?
+  
+  status          PaymentStatus @default(CONFIRMED)
+  balanceAfter    Float?
+  
+  notes           String?
+  receiptUrl      String?
+  
+  createdAt       DateTime      @default(now())
+  createdBy       String?
+  updatedAt       DateTime      @updatedAt
+  
+  contract        Contract      @relation(fields: [contractId], references: [id])
+  client          Client        @relation(fields: [clientId], references: [id])
+  createdByUser   User?         @relation(fields: [createdBy], references: [id])
+
+  @@map("payments")
+}
+
+model PaymentSchedule {
+  id                String        @id @default(uuid())
+  contractId        String
+  installmentNumber Int
+  dueDate           DateTime
+  expectedAmount    Float
+  
+  status            String        @default("PENDING")
+  paidAmount        Float?
+  paymentId         String?
+  
+  createdAt         DateTime      @default(now())
+  
+  contract          Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@map("payment_schedules")
+}
+
+// ============================================================================
+// COMISIONES
+// ============================================================================
+
+enum CommissionType {
+  SALE
+  REFERRAL
+  BONUS
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELED
+}
+
+model Commission {
+  id                String           @id @default(uuid())
+  contractId        String
+  agentId           String
+  
+  commissionType    CommissionType   @default(SALE)
+  percentage        Float?
+  baseAmount        Float
+  commissionAmount  Float
+  
+  status            CommissionStatus @default(PENDING)
+  paymentDate       DateTime?
+  
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  contract          Contract         @relation(fields: [contractId], references: [id])
+  agent             User             @relation(fields: [agentId], references: [id])
+
+  @@map("commissions")
+}
+
+// ============================================================================
+// GASTOS
+// ============================================================================
+
+model Expense {
+  id              String   @id @default(uuid())
+  projectId       String?
+  category        String
+  subcategory     String?
+  amount          Float
+  expenseDate     DateTime
+  description     String
+  vendorName      String?
+  invoiceNumber   String?
+  paymentMethod   String?
+  status          String   @default("PAID")
+  receiptUrl      String?
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  project         Project? @relation(fields: [projectId], references: [id])
+  user            User     @relation(fields: [createdBy], references: [id])
+
+  @@map("expenses")
+}
+
+// ============================================================================
+// ACTIVIDADES Y SEGUIMIENTO
+// ============================================================================
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  VISIT
+  NOTE
+  WHATSAPP
+}
+
+enum ActivityStatus {
+  PENDING
+  COMPLETED
+  CANCELED
+}
+
+model Activity {
+  id            String         @id @default(uuid())
+  clientId      String
+  userId        String
+  contractId    String?
+  
+  activityType  ActivityType
+  title         String
+  description   String?
+  activityDate  DateTime
+  status        ActivityStatus @default(PENDING)
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  client        Client         @relation(fields: [clientId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+
+  @@map("activities")
+}
+
+// ============================================================================
+// DOCUMENTOS
+// ============================================================================
+
+enum DocumentType {
+  CONTRACT
+  RECEIPT
+  ID
+  DEED
+  OTHER
+}
+
+model Document {
+  id              String       @id @default(uuid())
+  documentType    DocumentType
+  relatedEntity   String
+  relatedEntityId String
+  fileName        String
+  fileUrl         String
+  fileSize        Int?
+  mimeType        String?
+  
+  uploadedBy      String
+  createdAt       DateTime     @default(now())
+  
+  user            User         @relation(fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+}
