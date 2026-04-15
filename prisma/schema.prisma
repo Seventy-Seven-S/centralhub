@@ -8,7 +8,7 @@ datasource db {
 }
 
 // ============================================================================
-// AUTENTICACIÓN Y USUARIOS
+// AUTENTICACIÓN - EQUIPO INTERNO
 // ============================================================================
 
 enum UserRole {
@@ -59,6 +59,46 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
+}
+
+// ============================================================================
+// AUTENTICACIÓN - CLIENTES (PORTAL B2C)
+// ============================================================================
+
+enum ClientUserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model ClientUser {
+  id            String            @id @default(uuid())
+  clientId      String            @unique
+  email         String            @unique
+  password      String
+  
+  status        ClientUserStatus  @default(ACTIVE)
+  emailVerified Boolean           @default(false)
+  
+  lastLogin     DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  refreshTokens ClientRefreshToken[]
+  
+  @@map("client_users")
+}
+
+model ClientRefreshToken {
+  id            String       @id @default(uuid())
+  token         String       @unique
+  clientUserId  String
+  clientUser    ClientUser   @relation(fields: [clientUserId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  createdAt     DateTime     @default(now())
+  
+  @@map("client_refresh_tokens")
 }
 
 // ============================================================================
@@ -132,6 +172,7 @@ model Client {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   
+  clientUser        ClientUser?
   projects          ClientProject[]
   contracts         Contract[]
   payments          Payment[]

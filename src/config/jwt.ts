@@ -11,20 +11,69 @@ export interface JwtPayload {
   userId: string;
   email: string;
   role: string;
-  type?: 'access' | 'refresh';
+  type: 'access' | 'refresh';
+  authType: 'internal' | 'client'; // NUEVO: Diferencia entre equipo interno y clientes
 }
 
-export const generateAccessToken = (payload: Omit<JwtPayload, 'type'>): string => {
-  const signPayload: JwtPayload = { ...payload, type: 'access' };
+// ============================================================================
+// AUTENTICACIÓN INTERNA (Equipo)
+// ============================================================================
+
+export const generateAccessToken = (payload: Omit<JwtPayload, 'type' | 'authType'>): string => {
+  const signPayload: JwtPayload = {
+    ...payload,
+    type: 'access',
+    authType: 'internal',
+  };
+
   const options: SignOptions = { expiresIn: jwtConfig.expiresIn };
   return jwt.sign(signPayload, jwtConfig.secret, options);
 };
 
-export const generateRefreshToken = (payload: Omit<JwtPayload, 'type'>): string => {
-  const signPayload: JwtPayload = { ...payload, type: 'refresh' };
+export const generateRefreshToken = (payload: Omit<JwtPayload, 'type' | 'authType'>): string => {
+  const signPayload: JwtPayload = {
+    ...payload,
+    type: 'refresh',
+    authType: 'internal',
+  };
+
   const options: SignOptions = { expiresIn: jwtConfig.refreshExpiresIn };
   return jwt.sign(signPayload, jwtConfig.refreshSecret, options);
 };
+
+// ============================================================================
+// AUTENTICACIÓN CLIENTES (Portal B2C)
+// ============================================================================
+
+export const generateClientAccessToken = (payload: { userId: string; email: string; clientId: string }): string => {
+  const signPayload: JwtPayload = {
+    userId: payload.userId,
+    email: payload.email,
+    role: 'CLIENT', // Los clientes tienen un rol especial
+    type: 'access',
+    authType: 'client',
+  };
+
+  const options: SignOptions = { expiresIn: jwtConfig.expiresIn };
+  return jwt.sign(signPayload, jwtConfig.secret, options);
+};
+
+export const generateClientRefreshToken = (payload: { userId: string; email: string; clientId: string }): string => {
+  const signPayload: JwtPayload = {
+    userId: payload.userId,
+    email: payload.email,
+    role: 'CLIENT',
+    type: 'refresh',
+    authType: 'client',
+  };
+
+  const options: SignOptions = { expiresIn: jwtConfig.refreshExpiresIn };
+  return jwt.sign(signPayload, jwtConfig.refreshSecret, options);
+};
+
+// ============================================================================
+// VERIFICACIÓN
+// ============================================================================
 
 export const verifyAccessToken = (token: string): JwtPayload => {
   return jwt.verify(token, jwtConfig.secret) as JwtPayload;
@@ -32,4 +81,12 @@ export const verifyAccessToken = (token: string): JwtPayload => {
 
 export const verifyRefreshToken = (token: string): JwtPayload => {
   return jwt.verify(token, jwtConfig.refreshSecret) as JwtPayload;
+};
+
+export const decodeToken = (token: string): JwtPayload | null => {
+  try {
+    return jwt.decode(token) as JwtPayload;
+  } catch (error) {
+    return null;
+  }
 };
