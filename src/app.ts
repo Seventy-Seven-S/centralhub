@@ -11,6 +11,7 @@ import { logger } from './utils/logger';
 import authRoutes from './routes/auth.routes';
 import clientAuthRoutes from './routes/clientAuth.routes';
 import lotRoutes from './routes/lot.routes';
+import contractRoutes from './routes/contract.routes';
 import projectRoutes from './routes/project.routes';
 import clientRoutes from './routes/client.routes';
 
@@ -90,6 +91,7 @@ app.get(`/api/${API_VERSION}`, (req: Request, res: Response) => {
       projects: `/api/${API_VERSION}/projects`,
       clients: `/api/${API_VERSION}/clients`,
       lots: `/api/${API_VERSION}/lots`,
+      contracts: `/api/${API_VERSION}/contracts`,
       health: '/health',
     },
   });
@@ -101,6 +103,7 @@ app.use(`/api/${API_VERSION}/client-auth`, clientAuthRoutes);
 app.use(`/api/${API_VERSION}/projects`, projectRoutes);
 app.use(`/api/${API_VERSION}/clients`, clientRoutes);
 app.use(`/api/${API_VERSION}/lots`, lotRoutes);
+app.use(`/api/${API_VERSION}/contracts`, contractRoutes);
 
 // =============================================================================
 // Error Handling
