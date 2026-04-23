@@ -107,7 +107,7 @@ export class PaymentController {
         message: error.message || 'Error al obtener pagos del contrato',
       });
     }
-  }
+  } 
 }
 
 export default new PaymentController();
