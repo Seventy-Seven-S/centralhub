@@ -10,6 +10,7 @@ import { logger } from './utils/logger';
 // Import routes
 import authRoutes from './routes/auth.routes';
 import clientAuthRoutes from './routes/clientAuth.routes';
+import lotRoutes from './routes/lot.routes';
 import projectRoutes from './routes/project.routes';
 import clientRoutes from './routes/client.routes';
 
@@ -88,6 +89,7 @@ app.get(`/api/${API_VERSION}`, (req: Request, res: Response) => {
       // Recursos
       projects: `/api/${API_VERSION}/projects`,
       clients: `/api/${API_VERSION}/clients`,
+      lots: `/api/${API_VERSION}/lots`,
       health: '/health',
     },
   });
@@ -98,6 +100,7 @@ app.use(`/api/${API_VERSION}/auth`, authRoutes);
 app.use(`/api/${API_VERSION}/client-auth`, clientAuthRoutes);
 app.use(`/api/${API_VERSION}/projects`, projectRoutes);
 app.use(`/api/${API_VERSION}/clients`, clientRoutes);
+app.use(`/api/${API_VERSION}/lots`, lotRoutes);
 
 // =============================================================================
 // Error Handling
