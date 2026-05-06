@@ -141,6 +141,7 @@ model Project {
   contracts         Contract[]
   clientProjects    ClientProject[]
   expenses          Expense[]
+  compromisosTerreno CompromisoTerreno[]
 
   @@map("projects")
 }
@@ -291,7 +292,8 @@ model Contract {
   interestRate        Float?
   
   moraMonthsCount     Int              @default(0)
-  
+  codigoLegado        String?          @unique @map("codigo_legado")
+
   startDate           DateTime?
   endDate             DateTime?
   
@@ -308,6 +310,7 @@ model Contract {
   paymentSchedules    PaymentSchedule[]
   commissions         Commission[]
   coOwners            CoOwner[]
+  cuotas              Cuota[]
 
   @@map("contracts")
 }
@@ -416,9 +419,10 @@ model PaymentSchedule {
   status            String        @default("PENDING")
   paidAmount        Float?
   paymentId         String?
-  
+  mes               String?
+
   createdAt         DateTime      @default(now())
-  
+
   contract          Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@map("payment_schedules")
@@ -561,4 +565,98 @@ model Document {
   user            User         @relation(fields: [uploadedBy], references: [id])
 
   @@map("documents")
+}
+
+// ============================================================================
+// CUOTAS - SEGUIMIENTO MENSUAL DE PAGOS
+// ============================================================================
+
+enum CuotaStatus {
+  PENDIENTE
+  PAGADA
+  MORA
+}
+
+model Cuota {
+  id                String   @id @default(uuid())
+
+  // Relations
+  contractId        String   @map("contract_id")
+  contract          Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  // Cuota details
+  numeroCuota       Int      @map("numero_cuota")       // 1, 2, 3, ..., 60
+  mes               String                               // "Enero 2025", "Febrero 2025"
+
+  // Amounts
+  montoEsperado     Float    @map("monto_esperado")
+  montoPagado       Float    @default(0) @map("monto_pagado")
+
+  // Dates
+  fechaVencimiento  DateTime @map("fecha_vencimiento")
+  fechaPago         DateTime? @map("fecha_pago")
+
+  // Status
+  status            CuotaStatus @default(PENDIENTE)
+
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([contractId, numeroCuota])
+  @@index([contractId])
+  @@index([status])
+  @@map("cuotas")
+}
+
+// ============================================================================
+// COMPROMISOS TERRENO - PAGOS A PROPIETARIOS DE TIERRA
+// ============================================================================
+
+model CompromisoTerreno {
+  id                String   @id @default(uuid())
+
+  // Relations
+  projectId         String   @map("project_id")
+  project           Project  @relation(fields: [projectId], references: [id])
+  pagos             PagoTerreno[]
+
+  // Commitment details
+  concepto          String                               // "10H", "7.4H", "1.3H"
+  descripcion       String?
+  beneficiario      String                               // Land owner name
+
+  // Amounts
+  montoTotal        Float    @map("monto_total")
+  pagadoAcumulado   Float    @default(0) @map("pagado_acumulado")
+  pendiente         Float
+
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("compromisos_terreno")
+}
+
+// ============================================================================
+// PAGOS TERRENO - HISTORIAL DE PAGOS A PROPIETARIOS
+// ============================================================================
+
+model PagoTerreno {
+  id                String   @id @default(uuid())
+
+  // Relations
+  compromisoId      String   @map("compromiso_id")
+  compromiso        CompromisoTerreno @relation(fields: [compromisoId], references: [id], onDelete: Cascade)
+
+  // Payment details
+  fecha             DateTime
+  monto             Float
+  concepto          String?
+
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([compromisoId])
+  @@map("pagos_terreno")
 }

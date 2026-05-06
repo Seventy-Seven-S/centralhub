@@ -32,3 +32,14 @@ uploads/
 # Prisma
 prisma/migrations/*
 !prisma/migrations/.gitkeep
+
+# Google API credentials
+credentials/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# Documentos internos
+"CentralHub — Reporte de Avance.pdf"

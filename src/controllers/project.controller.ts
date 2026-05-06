@@ -5,11 +5,36 @@ import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
   const projects = await prisma.project.findMany({
     orderBy: { createdAt: 'desc' },
+    include: {
+      _count: { select: { contracts: true } },
+    },
   });
+
+  const enriched = await Promise.all(
+    projects.map(async (p) => {
+      const [lotesVendidos, lotesDisponibles, totalIngresos] = await Promise.all([
+        prisma.lot.count({ where: { projectId: p.id, status: 'SOLD' } }),
+        prisma.lot.count({ where: { projectId: p.id, status: 'AVAILABLE' } }),
+        prisma.payment.aggregate({
+          where: { contract: { projectId: p.id }, status: 'CONFIRMED' },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const { _count, ...project } = p;
+      return {
+        ...project,
+        totalContratos:   _count.contracts,
+        lotesVendidos,
+        lotesDisponibles,
+        totalIngresos:    totalIngresos._sum.amount ?? 0,
+      };
+    })
+  );
 
   res.status(200).json({
     status: 'success',
-    data: { projects },
+    data: { projects: enriched },
   });
 });
 
@@ -19,13 +44,7 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
-      lots: true,
-      _count: {
-        select: {
-          lots: true,
-          contracts: true,
-        },
-      },
+      _count: { select: { contracts: true } },
     },
   });
 
@@ -33,9 +52,27 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
     throw new ApiError(404, 'Project not found');
   }
 
+  const [lotesVendidos, lotesDisponibles, totalIngresos] = await Promise.all([
+    prisma.lot.count({ where: { projectId: id, status: 'SOLD' } }),
+    prisma.lot.count({ where: { projectId: id, status: 'AVAILABLE' } }),
+    prisma.payment.aggregate({
+      where: { contract: { projectId: id }, status: 'CONFIRMED' },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const { _count, ...rest } = project;
+  const enriched = {
+    ...rest,
+    totalContratos:   _count.contracts,
+    lotesVendidos,
+    lotesDisponibles,
+    totalIngresos:    totalIngresos._sum.amount ?? 0,
+  };
+
   res.status(200).json({
     status: 'success',
-    data: { project },
+    data: { project: enriched },
   });
 });
 
