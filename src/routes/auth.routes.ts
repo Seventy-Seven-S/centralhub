@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { authRateLimiter } from '../middlewares/rateLimiter';
-import { register, login } from '../controllers/auth.controller';
+import { register, login, verify2fa } from '../controllers/auth.controller';
 
 const router = Router();
 
@@ -27,6 +27,16 @@ router.post(
     body('password').notEmpty().withMessage('Password is required'),
   ],
   login
+);
+
+router.post(
+  '/verify-2fa',
+  authRateLimiter,
+  [
+    body('email').isEmail().normalizeEmail(),
+    body('code').isLength({ min: 6, max: 6 }).isNumeric(),
+  ],
+  verify2fa
 );
 
 export default router;

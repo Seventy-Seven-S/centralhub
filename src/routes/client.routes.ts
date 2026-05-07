@@ -1,3 +1,4 @@
+// src/routes/client.routes.ts
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { authenticate, authorize } from '../middlewares/auth';
@@ -11,12 +12,16 @@ import {
 
 const router = Router();
 
-router.get('/', authenticate, getAllClients);
-router.get('/:id', authenticate, getClientById);
+router.use(authenticate);
+
+const adminOrManager = authorize('ADMIN', 'MANAGER');
+
+router.get('/',    adminOrManager, getAllClients);
+router.get('/:id', adminOrManager, getClientById);
 
 router.post(
   '/',
-  authenticate,
+  adminOrManager,
   [
     body('firstName').trim().notEmpty().withMessage('First name is required'),
     body('lastName').trim().notEmpty().withMessage('Last name is required'),
@@ -25,7 +30,7 @@ router.post(
   createClient
 );
 
-router.put('/:id', authenticate, updateClient);
-router.delete('/:id', authenticate, authorize('ADMIN'), deleteClient);
+router.put('/:id',    adminOrManager,        updateClient);
+router.delete('/:id', authorize('ADMIN'),     deleteClient);
 
 export default router;

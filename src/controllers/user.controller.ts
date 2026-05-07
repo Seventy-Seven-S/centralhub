@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { UserRole } from '@prisma/client';
 import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 
-const INTERNAL_ROLES = ['ADMIN', 'MANAGER', 'AGENT'];
+const INTERNAL_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'AGENT'];
 
 export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
   const users = await prisma.user.findMany({

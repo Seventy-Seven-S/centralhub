@@ -38,8 +38,10 @@ model User {
   updatedAt     DateTime    @updatedAt
   lastLogin     DateTime?
   
-  emailVerified Boolean     @default(false)
-  
+  emailVerified    Boolean     @default(false)
+  twoFactorCode    String?
+  twoFactorExpiry  DateTime?
+
   refreshTokens RefreshToken[]
   activities    Activity[]
   expenses      Expense[]

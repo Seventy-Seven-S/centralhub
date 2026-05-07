@@ -36,6 +36,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "node-cron": "^4.2.1",
+    "resend": "^6.12.3",
     "winston": "^3.14.2",
     "xlsx": "^0.18.5"
   },

@@ -1,20 +1,24 @@
 // src/routes/lot.routes.ts
 import { Router } from 'express';
 import lotController from '../controllers/lot.controller';
-import { authenticate } from '../middlewares/auth';
+import { authenticate, authorize } from '../middlewares/auth';
+
 const router = Router();
 
-// Todas las rutas requieren autenticación
 router.use(authenticate);
 
-// CRUD de lotes
-router.post('/', lotController.create);
-router.get('/', lotController.getAll);
-router.get('/:id', lotController.getById);
-router.put('/:id', lotController.update);
+const adminOrManager = authorize('ADMIN', 'MANAGER');
 
-// Apartados
-router.post('/:id/reserve', lotController.reserve);
-router.delete('/:id/reserve', lotController.releaseReservation);
+// Lectura — todos los roles autenticados pueden ver lotes
+router.get('/',    lotController.getAll);
+router.get('/:id', lotController.getById);
+
+// Escritura — solo ADMIN y MANAGER
+router.post('/',   adminOrManager, lotController.create);
+router.put('/:id', adminOrManager, lotController.update);
+
+// Apartados — solo ADMIN y MANAGER
+router.post('/:id/reserve',   adminOrManager, lotController.reserve);
+router.delete('/:id/reserve', adminOrManager, lotController.releaseReservation);
 
 export default router;
