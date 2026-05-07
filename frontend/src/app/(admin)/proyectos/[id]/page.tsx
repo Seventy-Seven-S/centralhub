@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, FileText, LayoutGrid, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useProyectoById } from '@/hooks/useProyectos';
+import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -80,6 +81,7 @@ export default function ProyectoDetallePage({ params }: { params: Promise<{ id: 
   const [page,   setPage]   = useState(1);
   const [sortBy, setSortBy] = useState('reciente');
 
+  const { canOnlyViewLots } = useRole();
   const { data: proyecto, isLoading: loadingProyecto, isError } = useProyectoById(id);
   const { data: contratos = [], isLoading: loadingContratos }   = useContratosByProject(id);
 
@@ -133,10 +135,10 @@ export default function ProyectoDetallePage({ params }: { params: Promise<{ id: 
       {/* ── SECCIÓN 2: KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total contratos',   value: proyecto.totalContratos,              icon: <FileText className="w-5 h-5" />,   color: '#0F1F3D' },
-          { label: 'Lotes disponibles', value: proyecto.lotesDisponibles,            icon: <LayoutGrid className="w-5 h-5" />, color: '#0F1F3D' },
-          { label: 'Lotes vendidos',    value: proyecto.lotesVendidos,               icon: <LayoutGrid className="w-5 h-5" />, color: '#C9972C' },
-          { label: 'Ingresos totales',  value: formatCurrency(proyecto.totalIngresos), icon: <TrendingUp className="w-5 h-5" />, color: '#166534', wide: true },
+          { label: 'Total contratos',   value: proyecto.totalContratos,                                            icon: <FileText className="w-5 h-5" />,   color: '#0F1F3D' },
+          { label: 'Lotes disponibles', value: proyecto.lotesDisponibles,                                          icon: <LayoutGrid className="w-5 h-5" />, color: '#0F1F3D' },
+          { label: 'Lotes vendidos',    value: proyecto.lotesVendidos,                                             icon: <LayoutGrid className="w-5 h-5" />, color: '#C9972C' },
+          ...(!canOnlyViewLots ? [{ label: 'Ingresos totales', value: formatCurrency(proyecto.totalIngresos), icon: <TrendingUp className="w-5 h-5" />, color: '#166534' }] : []),
         ].map(({ label, value, icon, color }) => (
           <div key={label} className="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
             <div className="p-2.5 rounded-xl" style={{ backgroundColor: `${color}18` }}>

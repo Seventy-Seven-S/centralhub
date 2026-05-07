@@ -5,6 +5,7 @@ import {
   MapPin, Clock, TrendingUp,
 } from 'lucide-react';
 import { useDashboardSummary } from '@/hooks/useDashboard';
+import { useRole }            from '@/hooks/useRole';
 import KPICard             from '@/components/dashboard/KPICard';
 import DistribucionPlazo   from '@/components/dashboard/DistribucionPlazo';
 import LotesDisponibles    from '@/components/dashboard/LotesDisponibles';
@@ -34,7 +35,21 @@ function DashboardSkeleton() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const { canAccessDashboard } = useRole();
   const { data, isLoading, isError, error } = useDashboardSummary();
+
+  if (!canAccessDashboard) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+             style={{ backgroundColor: '#FEF3C7' }}>
+          <AlertTriangle className="w-6 h-6 text-yellow-600" />
+        </div>
+        <p className="text-gray-700 font-semibold">Acceso restringido</p>
+        <p className="text-sm text-gray-400">No tienes permisos para ver esta sección.</p>
+      </div>
+    );
+  }
 
   if (isLoading) return <DashboardSkeleton />;
 

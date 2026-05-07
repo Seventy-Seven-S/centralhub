@@ -13,17 +13,31 @@ export function proxy(req: NextRequest) {
   const isPortalRoute = PORTAL_ROUTES.some(r => pathname.startsWith(r));
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r));
 
+  // ── Ya autenticado intentando ir a login/portal ───────────────────────────
+  if (isPublicRoute && token) {
+    if (pathname.startsWith('/login') && userRole !== 'CLIENT') {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    if (pathname.startsWith('/portal') && userRole === 'CLIENT') {
+      return NextResponse.redirect(new URL('/mis-contratos', req.url));
+    }
+  }
+
+  // ── Rutas públicas sin token → dejar pasar ────────────────────────────────
   if (isPublicRoute) return NextResponse.next();
 
+  // ── Sin token → redirect a login correspondiente ─────────────────────────
   if (!token) {
     const loginUrl = isPortalRoute ? '/portal' : '/login';
     return NextResponse.redirect(new URL(loginUrl, req.url));
   }
 
+  // ── Cliente intentando acceder a admin ────────────────────────────────────
   if (isAdminRoute && userRole === 'CLIENT') {
     return NextResponse.redirect(new URL('/mis-contratos', req.url));
   }
 
+  // ── Admin/Manager/Agent intentando acceder al portal ─────────────────────
   if (isPortalRoute && userRole !== 'CLIENT') {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }

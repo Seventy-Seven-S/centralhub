@@ -17,6 +17,7 @@ import projectRoutes from './routes/project.routes';
 import clientRoutes from './routes/client.routes';
 import cuotaRoutes from './routes/cuota.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import userRoutes from './routes/user.routes';
 
 const app: Application = express();
 
@@ -111,6 +112,7 @@ app.use(`/api/${API_VERSION}/contracts`, contractRoutes);
 app.use(`/api/${API_VERSION}/payments`, paymentRoutes);
 app.use(`/api/${API_VERSION}/cuotas`, cuotaRoutes);
 app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes);
+app.use(`/api/${API_VERSION}/users`, userRoutes);
 
 // =============================================================================
 // Error Handling

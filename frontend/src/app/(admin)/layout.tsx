@@ -1,24 +1,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar  from '@/components/layout/Navbar';
 import { useAuthStore } from '@/store/auth.store';
 
+const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/cuotas'];
+const ADMIN_ONLY       = ['/usuarios'];
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
-  const router = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
 
-  // Guard: redirige si no está autenticado o es cliente
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('/login');
     } else if (user?.role === 'CLIENT') {
       router.replace('/mis-contratos');
+    } else if (user?.role === 'AGENT' && AGENT_RESTRICTED.some(r => pathname.startsWith(r))) {
+      router.replace('/lotes');
+    } else if (user?.role !== 'ADMIN' && ADMIN_ONLY.some(r => pathname.startsWith(r))) {
+      router.replace('/dashboard');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, pathname]);
 
   if (!isAuthenticated || user?.role === 'CLIENT') return null;
 

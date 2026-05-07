@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
-  Calendar, Map, LogOut, Home, X,
+  Calendar, Map, LogOut, Home, X, UserCog,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { label: 'Contratos',  href: '/contratos',  icon: FileText },
   { label: 'Cuotas',     href: '/cuotas',     icon: Calendar },
   { label: 'Lotes',      href: '/lotes',      icon: Map },
+  { label: 'Usuarios',   href: '/usuarios',   icon: UserCog },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -68,7 +69,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+        {(() => {
+          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas'];
+          const ADMIN_ONLY   = ['/usuarios'];
+          const visibleItems = NAV_ITEMS.filter(item => {
+            if (user?.role === 'AGENT' && AGENT_HIDDEN.includes(item.href)) return false;
+            if (user?.role !== 'ADMIN' && ADMIN_ONLY.includes(item.href)) return false;
+            return true;
+          });
+          return visibleItems;
+        })().map(({ label, href, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/');
           return (
             <Link

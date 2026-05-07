@@ -32,11 +32,11 @@ export default function LoginPage() {
         role:  user.role,
       });
 
-      // Persistir en cookies para que el middleware de Next.js pueda leerlas
+      // Persistir en cookies para que proxy.ts pueda leerlas
       document.cookie = `auth_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}`;
       document.cookie = `user_role=${user.role}; path=/; max-age=${60 * 60 * 24 * 7}`;
 
-      router.push('/dashboard');
+      router.push(user.role === 'CLIENT' ? '/mis-contratos' : '/dashboard');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Credenciales incorrectas. Intenta de nuevo.';
       setError(msg);

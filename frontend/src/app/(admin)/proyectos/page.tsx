@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Building2, MapPin, TrendingUp, AlertCircle } from 'lucide-react';
 import { useProyectos, Proyecto } from '@/hooks/useProyectos';
+import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ function GridSkeleton() {
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
-function ProyectoCard({ proyecto, onClick }: { proyecto: Proyecto; onClick: () => void }) {
+function ProyectoCard({ proyecto, onClick, hideIngresos }: { proyecto: Proyecto; onClick: () => void; hideIngresos: boolean }) {
   const totalReal = proyecto.lotesVendidos + proyecto.lotesDisponibles;
   const pct       = totalReal > 0 ? Math.min(100, Math.round((proyecto.lotesVendidos / totalReal) * 100)) : 0;
 
@@ -90,7 +91,7 @@ function ProyectoCard({ proyecto, onClick }: { proyecto: Proyecto; onClick: () =
       </div>
 
       {/* Ingresos */}
-      {proyecto.totalIngresos > 0 && (
+      {proyecto.totalIngresos > 0 && !hideIngresos && (
         <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
           <TrendingUp className="w-3.5 h-3.5 text-gray-400" />
           <span className="text-xs text-gray-500">Ingresos:</span>
@@ -104,6 +105,7 @@ function ProyectoCard({ proyecto, onClick }: { proyecto: Proyecto; onClick: () =
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProyectosPage() {
   const router = useRouter();
+  const { canOnlyViewLots } = useRole();
   const { data: proyectos = [], isLoading, isError } = useProyectos();
 
   if (isLoading) return (
@@ -143,6 +145,7 @@ export default function ProyectosPage() {
               key={p.id}
               proyecto={p}
               onClick={() => router.push(`/proyectos/${p.id}`)}
+              hideIngresos={canOnlyViewLots}
             />
           ))}
         </div>
