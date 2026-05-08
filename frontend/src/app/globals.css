@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
+@variant dark (&:not(.light));
+
+@theme {
+  --font-sans: var(--font-sans);
+}
+
+/* ── Light mode (default) ────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary:    #F8F7F4;
+  --bg-secondary:  #F1F0EC;
+  --bg-tertiary:   #ECEAE5;
+  --surface:       #FFFFFF;
+  --surface-2:     #F8F7F4;
+  --border:        #E5E9E7;
+  --border-2:      #D5DBD8;
+
+  --accent:        #1A3A2A;
+  --accent-hover:  #2D6A4F;
+  --accent-pale:   rgba(26, 58, 42, 0.08);
+
+  --text-primary:  #0D1F17;
+  --text-secondary:#6B7C74;
+  --text-tertiary: #9AADA5;
+
+  --danger:        #C0392B;
+  --danger-pale:   rgba(192, 57, 43, 0.08);
+
+  --gold:          #8B7535;
+  --gold-pale:     rgba(139, 117, 53, 0.10);
+
+  --shadow-sm:     0 1px 3px rgba(13, 31, 23, 0.06), 0 1px 2px rgba(13, 31, 23, 0.04);
+  --shadow-md:     0 4px 16px rgba(13, 31, 23, 0.08), 0 2px 6px rgba(13, 31, 23, 0.05);
+  --shadow-lg:     0 12px 40px rgba(13, 31, 23, 0.10), 0 4px 12px rgba(13, 31, 23, 0.06);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+html:not(.light) {
+  --bg-primary:    #0C1A12;
+  --bg-secondary:  #0F2018;
+  --bg-tertiary:   #13281E;
+  --surface:       #152218;
+  --surface-2:     #1A2D22;
+  --border:        rgba(255, 255, 255, 0.08);
+  --border-2:      rgba(255, 255, 255, 0.14);
+
+  --accent:        #3A8C5A;
+  --accent-hover:  #4CAF72;
+  --accent-pale:   rgba(58, 140, 90, 0.15);
+
+  --text-primary:  #F0F5F2;
+  --text-secondary:#7FA890;
+  --text-tertiary: #4A6655;
+
+  --danger:        #E05050;
+  --danger-pale:   rgba(224, 80, 80, 0.14);
+
+  --gold:          #C4A862;
+  --gold-pale:     rgba(196, 168, 98, 0.14);
+
+  --shadow-sm:     0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md:     0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg:     0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base ────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
 }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-up { animation: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in { animation: fade-in 0.35s ease both; }
+.delay-100 { animation-delay: 0.08s; }
+.delay-200 { animation-delay: 0.16s; }
+.delay-300 { animation-delay: 0.24s; }

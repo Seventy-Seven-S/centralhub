@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import Navbar  from '@/components/layout/Navbar';
 import { useAuthStore } from '@/store/auth.store';
 
 const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/cuotas'];
 const ADMIN_ONLY       = ['/usuarios'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
   const router   = useRouter();
   const pathname = usePathname();
@@ -30,23 +28,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAuthenticated || user?.role === 'CLIENT') return null;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-
-      {/* Sidebar */}
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* Main content area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-
-        {/* Navbar */}
-        <Navbar onMenuClick={() => setSidebarOpen(true)} />
-
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
-        </main>
-
-      </div>
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <Sidebar open={false} onClose={() => {}} />
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        {children}
+      </main>
     </div>
   );
 }
