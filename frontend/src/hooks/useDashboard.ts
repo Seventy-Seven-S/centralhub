@@ -9,10 +9,24 @@ async function fetchSummary(projectId: string): Promise<DashboardSummary> {
   return data.data;
 }
 
+async function fetchMora(projectId: string): Promise<any[]> {
+  const { data } = await api.get('/dashboard/mora', { params: { projectId } });
+  return data.data;
+}
+
 export function useDashboardSummary(projectId: string = MONARCA_II_ID) {
   return useQuery<DashboardSummary>({
     queryKey: ['dashboard', 'summary', projectId],
     queryFn:  () => fetchSummary(projectId),
     staleTime: 60_000,
+  });
+}
+
+export function useMoraDetail(enabled = true) {
+  return useQuery<any[]>({
+    queryKey: ['dashboard', 'mora', MONARCA_II_ID],
+    queryFn:  () => fetchMora(MONARCA_II_ID),
+    staleTime: 60_000,
+    enabled,
   });
 }

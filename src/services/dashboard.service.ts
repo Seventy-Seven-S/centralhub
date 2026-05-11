@@ -67,6 +67,27 @@ export class DashboardService {
       rawCuotas.map(r => [r.status, r._count.id])
     );
 
+    // ── Ingresos por mes ─────────────────────────────────────────
+    const rawPagosMes = await prisma.payment.findMany({
+      where: {
+        status: 'CONFIRMED',
+        ...(projectId ? { contract: { projectId } } : {}),
+      },
+      select: { paymentDate: true, amount: true },
+      orderBy: { paymentDate: 'asc' },
+    });
+
+    const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const mesMap = new Map<string, number>();
+    for (const p of rawPagosMes) {
+      const d   = new Date(p.paymentDate);
+      const key = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+      mesMap.set(key, (mesMap.get(key) ?? 0) + (p.amount ?? 0));
+    }
+    const ingresosPorMes = Array.from(mesMap.entries())
+      .map(([mes, total]) => ({ mes, total }))
+      .slice(-12);
+
     return {
       contratos: {
         total: totalContratos,
@@ -90,6 +111,7 @@ export class DashboardService {
           : 0,
       },
       distribucionPlazo,
+      ingresosPorMes,
     };
   }
 

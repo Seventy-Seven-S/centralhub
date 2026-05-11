@@ -19,4 +19,5 @@ export interface DashboardSummary {
     porcentajeVendido: number;
   };
   distribucionPlazo: Array<{ plazoMeses: number; contratos: number }>;
+  ingresosPorMes: Array<{ mes: string; total: number }>;
 }
