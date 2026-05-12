@@ -9,10 +9,10 @@ const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  AVAILABLE:   { bg: '#22C55E', label: 'Disponible',  text: '#fff' },
-  SOLD:        { bg: '#0F1F3D', label: 'Vendido',     text: '#fff' },
-  RESERVED:    { bg: '#C9972C', label: 'Reservado',   text: '#fff' },
-  UNAVAILABLE: { bg: '#D1D5DB', label: 'No disponible', text: '#6B7280' },
+  AVAILABLE:   { bg: 'var(--accent)',      label: 'Disponible',    text: '#ffffff' },
+  SOLD:        { bg: '#1A3A2A',            label: 'Vendido',       text: '#ffffff' },
+  RESERVED:    { bg: 'var(--gold)',        label: 'Reservado',     text: '#ffffff' },
+  UNAVAILABLE: { bg: 'var(--bg-tertiary)', label: 'No disponible', text: 'var(--text-secondary)' },
 } as const;
 
 // ── Modal de detalle de lote ──────────────────────────────────────────────────
@@ -20,10 +20,10 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const cfg = STATUS_CONFIG[lote.status];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="rounded-2xl shadow-xl w-full max-w-sm" style={{ backgroundColor: 'var(--surface)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div>
-            <h3 className="font-semibold text-gray-900">Lote {lote.lotNumber} — M{lote.manzana}</h3>
+            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Lote {lote.lotNumber} — M{lote.manzana}</h3>
             <span
               className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold mt-1"
               style={{ backgroundColor: cfg.bg, color: cfg.text }}
@@ -31,27 +31,27 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               {cfg.label}
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-tertiary)' }}>
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="px-6 py-5 space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500">Superficie</span>
-            <span className="font-medium text-gray-900">{lote.areaM2.toFixed(2)} m²</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Superficie</span>
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.areaM2.toFixed(2)} m²</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">Precio base</span>
-            <span className="font-medium text-gray-900">{formatCurrency(lote.basePrice)}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Precio base</span>
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lote.basePrice)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">Precio actual</span>
-            <span className="font-medium text-gray-900">{formatCurrency(lote.currentPrice)}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Precio actual</span>
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lote.currentPrice)}</span>
           </div>
           {lote.orientation && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Orientación</span>
-              <span className="font-medium text-gray-900">{lote.orientation}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Orientación</span>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.orientation}</span>
             </div>
           )}
         </div>
@@ -65,11 +65,11 @@ function GridSkeleton() {
   return (
     <div className="space-y-6">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl shadow-sm p-5 animate-pulse">
-          <div className="h-5 w-20 bg-gray-200 rounded mb-4" />
+        <div key={i} className="rounded-2xl shadow-sm p-5 animate-pulse" style={{ backgroundColor: 'var(--surface)' }}>
+          <div className="h-5 w-20 rounded mb-4" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
           <div className="flex flex-wrap gap-2">
             {[...Array(16)].map((_, j) => (
-              <div key={j} className="w-14 h-14 bg-gray-100 rounded-lg" />
+              <div key={j} className="w-14 h-14 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }} />
             ))}
           </div>
         </div>
@@ -128,13 +128,11 @@ export default function LotesPage() {
 
   const { data: lotes = [], isLoading, isError } = useLotes(PROJECT_ID);
 
-  // Manzanas únicas para el dropdown
   const manzanas = useMemo(
     () => [...new Set(lotes.map(l => l.manzana))].sort((a, b) => a - b),
     [lotes]
   );
 
-  // Filtrado
   const filtered = useMemo(() => {
     return lotes.filter(l => {
       if (filterManzana !== 'todas' && l.manzana !== parseInt(filterManzana)) return false;
@@ -143,14 +141,12 @@ export default function LotesPage() {
     });
   }, [lotes, filterManzana, filterStatus]);
 
-  // Agrupado por manzana
   const byManzana = useMemo(() => {
     const map = new Map<number, Lote[]>();
     for (const l of filtered) {
       if (!map.has(l.manzana)) map.set(l.manzana, []);
       map.get(l.manzana)!.push(l);
     }
-    // Ordenar lotes dentro de cada manzana
     for (const [, lots] of map) {
       lots.sort((a, b) => parseInt(a.lotNumber) - parseInt(b.lotNumber));
     }
@@ -159,7 +155,7 @@ export default function LotesPage() {
 
   if (isLoading) return (
     <div className="space-y-4">
-      <div className="h-7 w-48 bg-gray-200 rounded animate-pulse" />
+      <div className="h-7 w-48 rounded animate-pulse" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
       <GridSkeleton />
     </div>
   );
@@ -167,7 +163,7 @@ export default function LotesPage() {
   if (isError) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
       <AlertCircle className="w-10 h-10 text-red-400" />
-      <p className="text-gray-600 font-medium">No se pudieron cargar los lotes</p>
+      <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No se pudieron cargar los lotes</p>
     </div>
   );
 
@@ -177,15 +173,15 @@ export default function LotesPage() {
       {/* ── SECCIÓN 1: Header + filtros ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Lotes — Monarca II</h2>
-          <p className="text-sm text-gray-500 mt-0.5">{filtered.length} lotes encontrados</p>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Lotes — Monarca II</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{filtered.length} lotes encontrados</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Filtro manzana */}
           <select
             value={filterManzana}
             onChange={e => setFilterManzana(e.target.value)}
-            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition cursor-pointer"
+            className="px-3 py-2 text-sm rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
+            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           >
             <option value="todas">Todas las manzanas</option>
             {manzanas.map(m => (
@@ -193,11 +189,11 @@ export default function LotesPage() {
             ))}
           </select>
 
-          {/* Filtro status */}
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition cursor-pointer"
+            className="px-3 py-2 text-sm rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
+            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           >
             <option value="todos">Todos los status</option>
             <option value="AVAILABLE">Disponible</option>
@@ -211,15 +207,15 @@ export default function LotesPage() {
       {/* ── SECCIÓN 2: Grid por manzana ── */}
       {byManzana.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <p className="text-gray-500 font-medium">Sin lotes con los filtros seleccionados</p>
+          <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Sin lotes con los filtros seleccionados</p>
         </div>
       ) : (
         <div className="space-y-4">
           {byManzana.map(([manzana, lots]) => (
-            <div key={manzana} className="bg-white rounded-2xl shadow-sm p-5">
+            <div key={manzana} className="rounded-2xl shadow-sm p-5" style={{ backgroundColor: 'var(--surface)' }}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-800">Manzana {manzana}</h3>
-                <span className="text-xs text-gray-400">{lots.length} lotes</span>
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Manzana {manzana}</h3>
+                <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{lots.length} lotes</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {lots.map(lote => (
@@ -236,13 +232,13 @@ export default function LotesPage() {
       )}
 
       {/* ── SECCIÓN 3: Leyenda ── */}
-      <div className="bg-white rounded-2xl shadow-sm px-5 py-4">
-        <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">Leyenda</p>
+      <div className="rounded-2xl shadow-sm px-5 py-4" style={{ backgroundColor: 'var(--surface)' }}>
+        <p className="text-xs font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Leyenda</p>
         <div className="flex flex-wrap gap-4">
           {(Object.entries(STATUS_CONFIG) as [keyof typeof STATUS_CONFIG, typeof STATUS_CONFIG[keyof typeof STATUS_CONFIG]][]).map(([, cfg]) => (
             <div key={cfg.label} className="flex items-center gap-2">
               <div className="w-4 h-4 rounded" style={{ backgroundColor: cfg.bg }} />
-              <span className="text-xs text-gray-600">{cfg.label}</span>
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{cfg.label}</span>
             </div>
           ))}
         </div>

@@ -25,9 +25,9 @@ function resolvedStatus(cuota: Cuota): 'PAGADA' | 'VENCIDA' | 'PENDIENTE' {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  PAGADA:    { bg: '#F0F9F4', color: '#166534', label: 'Pagada' },
-  PENDIENTE: { bg: '#F3F4F6', color: '#374151', label: 'Pendiente' },
-  VENCIDA:   { bg: '#FEF2F2', color: '#991B1B', label: 'Vencida' },
+  PAGADA:    { bg: 'var(--accent-pale)',  color: 'var(--accent)',  label: 'Pagada' },
+  PENDIENTE: { bg: 'var(--gold-pale)',    color: 'var(--gold)',    label: 'Pendiente' },
+  VENCIDA:   { bg: 'var(--danger-pale)', color: 'var(--danger)',  label: 'Vencida' },
 };
 
 function StatusBadge({ cuota }: { cuota: Cuota }) {
@@ -45,7 +45,7 @@ function TableSkeleton() {
   return (
     <div className="p-5 space-y-2 animate-pulse">
       {[...Array(10)].map((_, i) => (
-        <div key={i} className="h-10 bg-gray-100 rounded-lg" />
+        <div key={i} className="h-10 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }} />
       ))}
     </div>
   );
@@ -54,8 +54,8 @@ function TableSkeleton() {
 // ── KPI card ──────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-5">
-      <p className="text-xs text-gray-500">{label}</p>
+    <div className="rounded-2xl shadow-sm p-5" style={{ backgroundColor: 'var(--surface)' }}>
+      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</p>
       <p className="text-2xl font-bold mt-1" style={{ color }}>{value.toLocaleString('es-MX')}</p>
     </div>
   );
@@ -71,12 +71,10 @@ export default function CuotasPage() {
 
   const { data: cuotas = [], isLoading, isError } = useCuotas(PROJECT_ID, statusFilter || undefined);
 
-  // ── KPIs (always from full unfiltered data, but we already have it) ─────────
   const kpiPendientes = useMemo(() => cuotas.filter(c => c.status === 'PENDIENTE').length, [cuotas]);
   const kpiPagadas    = useMemo(() => cuotas.filter(c => c.status === 'PAGADA').length, [cuotas]);
   const kpiVencidas   = useMemo(() => cuotas.filter(isVencida).length, [cuotas]);
 
-  // ── Client-side search + vencida filter ──────────────────────────────────
   const filtered = useMemo(() => {
     let list = cuotas;
 
@@ -115,17 +113,17 @@ export default function CuotasPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Cuotas</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Cuotas</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
           {isLoading ? 'Cargando…' : `${filtered.length} cuota${filtered.length !== 1 ? 's' : ''} encontrada${filtered.length !== 1 ? 's' : ''}`}
         </p>
       </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="Pendientes"  value={kpiPendientes} color="#374151" />
-        <KpiCard label="Pagadas"     value={kpiPagadas}    color="#166534" />
-        <KpiCard label="Vencidas"    value={kpiVencidas}   color="#991B1B" />
+        <KpiCard label="Pendientes" value={kpiPendientes} color="var(--text-primary)" />
+        <KpiCard label="Pagadas"    value={kpiPagadas}    color="var(--accent)" />
+        <KpiCard label="Vencidas"   value={kpiVencidas}   color="var(--danger)" />
       </div>
 
       {/* Filters */}
@@ -135,12 +133,14 @@ export default function CuotasPage() {
           placeholder="Buscar por cliente o contrato…"
           value={search}
           onChange={e => handleSearch(e.target.value)}
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-yellow-400"
+          className="flex-1 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
+          style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-primary)' }}
         />
         <select
           value={statusFilter}
           onChange={e => handleFilterChange(e.target.value as typeof statusFilter)}
-          className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-yellow-400"
+          className="rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-400"
+          style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-primary)' }}
         >
           <option value="">Todos los status</option>
           <option value="PENDIENTE">Pendiente</option>
@@ -150,60 +150,61 @@ export default function CuotasPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
         {isLoading ? (
           <TableSkeleton />
         ) : isError ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="w-10 h-10 text-red-400" />
-            <p className="text-gray-600 font-medium">No se pudieron cargar las cuotas</p>
+            <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No se pudieron cargar las cuotas</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <FileText className="w-12 h-12 text-gray-300" />
-            <p className="text-gray-500 font-medium">No hay cuotas con estos filtros</p>
+            <FileText className="w-12 h-12" style={{ color: 'var(--bg-tertiary)' }} />
+            <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No hay cuotas con estos filtros</p>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60">
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600">#</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Mes</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Cliente</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Contrato</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Vencimiento</th>
-                    <th className="text-right px-5 py-3 font-semibold text-gray-600">Esperado</th>
-                    <th className="text-right px-5 py-3 font-semibold text-gray-600">Pagado</th>
-                    <th className="text-center px-5 py-3 font-semibold text-gray-600">Status</th>
+                  <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+                    <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>#</th>
+                    <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Mes</th>
+                    <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Cliente</th>
+                    <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Contrato</th>
+                    <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Vencimiento</th>
+                    <th className="text-right px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Esperado</th>
+                    <th className="text-right px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Pagado</th>
+                    <th className="text-center px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                   {paginated.map(c => (
                     <tr
                       key={c.id}
                       onClick={() => router.push(`/contratos/${c.contract.id}`)}
-                      className="hover:bg-gray-50/60 cursor-pointer"
+                      className="cursor-pointer transition-colors hover:bg-[var(--bg-secondary)]"
+                      style={{ borderBottom: '1px solid var(--border)' }}
                     >
-                      <td className="px-5 py-3 text-gray-500 text-xs">{c.numeroCuota}</td>
-                      <td className="px-5 py-3 text-gray-700">{c.mes}</td>
-                      <td className="px-5 py-3 text-gray-700 whitespace-nowrap">
+                      <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-tertiary)' }}>{c.numeroCuota}</td>
+                      <td className="px-5 py-3" style={{ color: 'var(--text-primary)' }}>{c.mes}</td>
+                      <td className="px-5 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {c.contract.client.firstName} {c.contract.client.lastName}
                       </td>
-                      <td className="px-5 py-3 font-mono text-xs text-gray-500">
+                      <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {c.contract.codigoLegado ?? c.contract.id.slice(0, 8)}
                       </td>
-                      <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
+                      <td className="px-5 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
                         {new Date(c.fechaVencimiento).toLocaleDateString('es-MX', {
                           day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
                         })}
                       </td>
-                      <td className="px-5 py-3 text-right text-gray-700">
+                      <td className="px-5 py-3 text-right" style={{ color: 'var(--text-primary)' }}>
                         {formatCurrency(c.montoEsperado)}
                       </td>
                       <td className="px-5 py-3 text-right font-medium"
-                          style={{ color: c.montoPagado > 0 ? '#166534' : '#9CA3AF' }}>
+                          style={{ color: c.montoPagado > 0 ? 'var(--accent)' : 'var(--text-tertiary)' }}>
                         {c.montoPagado > 0 ? formatCurrency(c.montoPagado) : '—'}
                       </td>
                       <td className="px-5 py-3 text-center">
@@ -217,20 +218,22 @@ export default function CuotasPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm text-gray-500">
+              <div className="flex items-center justify-between px-5 py-3 text-sm" style={{ borderTop: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
                 <span>Página {page} de {totalPages}</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-3 py-1.5 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-secondary)' }}
                   >
                     Anterior
                   </button>
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-3 py-1.5 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-secondary)' }}
                   >
                     Siguiente
                   </button>

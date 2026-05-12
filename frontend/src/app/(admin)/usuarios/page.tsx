@@ -20,9 +20,9 @@ interface UsuarioInterno {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ROLE_LABELS: Record<string, string> = { ADMIN: 'Administrador', MANAGER: 'Gerente', AGENT: 'Agente' };
 const ROLE_STYLES: Record<string, { bg: string; color: string }> = {
-  ADMIN:   { bg: '#EFF6FF', color: '#1D4ED8' },
-  MANAGER: { bg: '#F0FDF4', color: '#15803D' },
-  AGENT:   { bg: '#FFF7ED', color: '#C2410C' },
+  ADMIN:   { bg: 'var(--accent-pale)',         color: 'var(--accent)' },
+  MANAGER: { bg: 'var(--gold-pale)',            color: 'var(--gold)' },
+  AGENT:   { bg: 'rgba(74,140,63,0.08)',        color: 'var(--accent-hover)' },
 };
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ function useUsuarios() {
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 function RoleBadge({ role }: { role: string }) {
-  const s = ROLE_STYLES[role] ?? { bg: '#F3F4F6', color: '#374151' };
+  const s = ROLE_STYLES[role] ?? { bg: 'var(--bg-tertiary)', color: 'var(--text-secondary)' };
   return (
     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
           style={{ backgroundColor: s.bg, color: s.color }}>
@@ -52,7 +52,10 @@ function StatusBadge({ status }: { status: string }) {
   const active = status === 'ACTIVE';
   return (
     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
-          style={{ backgroundColor: active ? '#F0F9F4' : '#F3F4F6', color: active ? '#166534' : '#6B7280' }}>
+          style={{
+            backgroundColor: active ? 'var(--accent-pale)' : 'var(--bg-tertiary)',
+            color: active ? 'var(--accent)' : 'var(--text-secondary)',
+          }}>
       {active ? 'Activo' : 'Inactivo'}
     </span>
   );
@@ -97,32 +100,40 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
     mutation.mutate(form);
   }
 
+  const inputStyle = {
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--surface)',
+    color: 'var(--text-primary)',
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">{isEdit ? 'Editar usuario' : 'Nuevo usuario'}</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 transition">
-            <X className="w-5 h-5 text-gray-500" />
+      <div className="rounded-2xl shadow-xl w-full max-w-md" style={{ backgroundColor: 'var(--surface)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{isEdit ? 'Editar usuario' : 'Nuevo usuario'}</h3>
+          <button onClick={onClose} className="p-1 rounded-lg transition" style={{ color: 'var(--text-secondary)' }}>
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Nombre</label>
               <input
                 value={form.firstName}
                 onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+                className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+                style={inputStyle}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Apellido</label>
               <input
                 value={form.lastName}
                 onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+                className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+                style={inputStyle}
               />
             </div>
           </div>
@@ -130,32 +141,35 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
           {!isEdit && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
                 <input
                   type="email"
                   value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+                  style={inputStyle}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Contraseña</label>
                 <input
                   type="password"
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+                  style={inputStyle}
                 />
               </div>
             </>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Rol</label>
             <select
               value={form.role}
               onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-              className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 bg-white cursor-pointer"
+              className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 cursor-pointer"
+              style={inputStyle}
             >
               <option value="ADMIN">Administrador</option>
               <option value="MANAGER">Gerente</option>
@@ -163,13 +177,19 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
             </select>
           </div>
 
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && (
+            <p className="text-xs px-3 py-2 rounded-lg"
+               style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-pale)' }}>
+              {error}
+            </p>
+          )}
 
           <div className="flex gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition"
+              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', backgroundColor: 'var(--surface)' }}
             >
               Cancelar
             </button>
@@ -177,7 +197,7 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
               type="submit"
               disabled={mutation.isPending}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60 transition"
-              style={{ backgroundColor: '#C9972C' }}
+              style={{ backgroundColor: 'var(--accent)' }}
             >
               {mutation.isPending ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear usuario'}
             </button>
@@ -210,17 +230,17 @@ export default function UsuariosPage() {
   if (isLoading) return (
     <div className="space-y-4 animate-pulse">
       <div className="flex items-center justify-between">
-        <div className="h-7 w-40 bg-gray-200 rounded" />
-        <div className="h-10 w-36 bg-gray-200 rounded-xl" />
+        <div className="h-7 w-40 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+        <div className="h-10 w-36 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
       </div>
-      <div className="h-64 bg-white rounded-2xl shadow-sm" />
+      <div className="h-64 rounded-2xl shadow-sm" style={{ backgroundColor: 'var(--surface)' }} />
     </div>
   );
 
   if (isError) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
       <AlertCircle className="w-10 h-10 text-red-400" />
-      <p className="text-gray-600 font-medium">No se pudieron cargar los usuarios</p>
+      <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No se pudieron cargar los usuarios</p>
     </div>
   );
 
@@ -228,57 +248,59 @@ export default function UsuariosPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Usuarios internos</h2>
-          <p className="text-sm text-gray-500 mt-0.5">{usuarios.length} usuarios registrados</p>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Usuarios internos</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{usuarios.length} usuarios registrados</p>
         </div>
         <button
           onClick={() => setModalUser(null)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition hover:opacity-90"
-          style={{ backgroundColor: '#C9972C' }}
+          style={{ backgroundColor: 'var(--accent)' }}
         >
           <Plus className="w-4 h-4" />
           Nuevo usuario
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
+      <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nombre o email..."
-            className="w-full sm:w-80 px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+            className="w-full sm:w-80 px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+            style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
           />
         </div>
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Users className="w-10 h-10 text-gray-300" />
-            <p className="text-gray-500 font-medium">Sin resultados</p>
+            <Users className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
+            <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Sin resultados</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60">
-                  <th className="text-left px-5 py-3.5 font-semibold text-gray-600 whitespace-nowrap">Nombre</th>
-                  <th className="text-left px-5 py-3.5 font-semibold text-gray-600 whitespace-nowrap">Email</th>
-                  <th className="text-left px-5 py-3.5 font-semibold text-gray-600 whitespace-nowrap">Rol</th>
-                  <th className="text-center px-5 py-3.5 font-semibold text-gray-600 whitespace-nowrap">Status</th>
-                  <th className="text-right px-5 py-3.5 font-semibold text-gray-600 whitespace-nowrap">Último acceso</th>
-                  <th className="text-center px-5 py-3.5 font-semibold text-gray-600 whitespace-nowrap">Acciones</th>
+                <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+                  <th className="text-left px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Nombre</th>
+                  <th className="text-left px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Email</th>
+                  <th className="text-left px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Rol</th>
+                  <th className="text-center px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Status</th>
+                  <th className="text-right px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Último acceso</th>
+                  <th className="text-center px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {filtered.map(u => (
-                  <tr key={u.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-gray-900 whitespace-nowrap">
+                  <tr key={u.id} className="transition-colors hover:bg-[var(--bg-secondary)]"
+                      style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td className="px-5 py-3.5 font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                       {u.firstName} {u.lastName}
                     </td>
-                    <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">{u.email}</td>
+                    <td className="px-5 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
                     <td className="px-5 py-3.5"><RoleBadge role={u.role} /></td>
                     <td className="px-5 py-3.5 text-center"><StatusBadge status={u.status} /></td>
-                    <td className="px-5 py-3.5 text-right text-gray-400 whitespace-nowrap text-xs">
+                    <td className="px-5 py-3.5 text-right text-xs whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
                       {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('es-MX') : '—'}
                     </td>
                     <td className="px-5 py-3.5 text-center">
@@ -286,15 +308,16 @@ export default function UsuariosPage() {
                         <button
                           onClick={() => setModalUser(u)}
                           title="Editar"
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-500 hover:text-gray-800"
+                          className="p-1.5 rounded-lg transition hover:bg-[var(--bg-tertiary)]"
+                          style={{ color: 'var(--text-secondary)' }}
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => toggleMutation.mutate(u.id)}
                           title={u.status === 'ACTIVE' ? 'Desactivar' : 'Activar'}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                          style={{ color: u.status === 'ACTIVE' ? '#166534' : '#6B7280' }}
+                          className="p-1.5 rounded-lg transition hover:bg-[var(--bg-tertiary)]"
+                          style={{ color: u.status === 'ACTIVE' ? 'var(--accent)' : 'var(--text-secondary)' }}
                         >
                           {u.status === 'ACTIVE'
                             ? <ToggleRight className="w-4 h-4" />

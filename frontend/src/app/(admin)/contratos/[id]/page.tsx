@@ -16,18 +16,18 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 
 // ── Status maps ───────────────────────────────────────────────────────────────
 const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string }> = {
-  ACTIVE:    { label: 'Activo',     bg: '#F0FDF4', color: '#16A34A' },
-  IN_MORA:   { label: 'En mora',    bg: '#FEF2F2', color: '#DC2626' },
-  DRAFT:     { label: 'Borrador',   bg: '#F9FAFB', color: '#6B7280' },
-  SIGNED:    { label: 'Firmado',    bg: '#EFF6FF', color: '#2563EB' },
-  COMPLETED: { label: 'Completado', bg: '#F0FDF4', color: '#16A34A' },
-  CANCELED:  { label: 'Cancelado',  bg: '#FEF2F2', color: '#DC2626' },
+  ACTIVE:    { label: 'Activo',     bg: 'var(--accent-pale)',  color: 'var(--accent)' },
+  IN_MORA:   { label: 'En mora',    bg: 'var(--danger-pale)',  color: 'var(--danger)' },
+  DRAFT:     { label: 'Borrador',   bg: 'var(--bg-tertiary)',  color: 'var(--text-secondary)' },
+  SIGNED:    { label: 'Firmado',    bg: 'var(--accent-pale)',  color: 'var(--accent)' },
+  COMPLETED: { label: 'Completado', bg: 'var(--accent-pale)',  color: 'var(--accent)' },
+  CANCELED:  { label: 'Cancelado',  bg: 'var(--danger-pale)',  color: 'var(--danger)' },
 };
 
 const CUOTA_STATUS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  PAGADA:    { label: 'Pagada',    icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: '#16A34A' },
-  PENDIENTE: { label: 'Pendiente', icon: <Clock className="w-3.5 h-3.5" />,        color: '#6B7280' },
-  MORA:      { label: 'En mora',   icon: <XCircle className="w-3.5 h-3.5" />,      color: '#DC2626' },
+  PAGADA:    { label: 'Pagada',    icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: 'var(--accent)' },
+  PENDIENTE: { label: 'Pendiente', icon: <Clock className="w-3.5 h-3.5" />,        color: 'var(--text-secondary)' },
+  MORA:      { label: 'En mora',   icon: <XCircle className="w-3.5 h-3.5" />,      color: 'var(--danger)' },
 };
 
 const PAYMENT_TYPE: Record<string, string> = {
@@ -48,16 +48,16 @@ const PAYMENT_TYPE: Record<string, string> = {
 function SkeletonDetalle() {
   return (
     <div className="space-y-5 animate-pulse">
-      <div className="h-8 w-48 bg-gray-200 rounded-xl" />
-      <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
-        <div className="h-6 w-40 bg-gray-200 rounded" />
+      <div className="h-8 w-48 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+      <div className="rounded-2xl p-6 shadow-sm space-y-4" style={{ backgroundColor: 'var(--surface)' }}>
+        <div className="h-6 w-40 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-xl" />)}
+          {[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }} />)}
         </div>
       </div>
-      <div className="bg-white rounded-2xl p-6 shadow-sm space-y-3">
-        <div className="h-5 w-32 bg-gray-200 rounded" />
-        {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-gray-100 rounded-xl" />)}
+      <div className="rounded-2xl p-6 shadow-sm space-y-3" style={{ backgroundColor: 'var(--surface)' }}>
+        <div className="h-5 w-32 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+        {[...Array(5)].map((_, i) => <div key={i} className="h-12 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }} />)}
       </div>
     </div>
   );
@@ -65,7 +65,7 @@ function SkeletonDetalle() {
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
-  const s = CONTRACT_STATUS[status] ?? { label: status, bg: '#F9FAFB', color: '#6B7280' };
+  const s = CONTRACT_STATUS[status] ?? { label: status, bg: 'var(--bg-tertiary)', color: 'var(--text-secondary)' };
   return (
     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
           style={{ backgroundColor: s.bg, color: s.color }}>
@@ -94,7 +94,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <AlertCircle className="w-10 h-10 text-red-400" />
-        <p className="text-gray-600 font-medium">Contrato no encontrado</p>
+        <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Contrato no encontrado</p>
         <button onClick={() => router.back()} className="text-sm text-blue-600 hover:underline">
           Volver
         </button>
@@ -102,7 +102,6 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
     );
   }
 
-  // Financial calculations
   const totalPrice  = contrato.totalPrice ?? 0;
   const balance     = contrato.balance ?? 0;
   const pagado      = totalPrice - balance;
@@ -131,18 +130,20 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="flex items-center justify-center w-9 h-9 rounded-xl border border-gray-200 bg-white shadow-sm hover:bg-gray-50 transition"
+            className="flex items-center justify-center w-9 h-9 rounded-xl shadow-sm transition"
+            style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}
           >
-            <ArrowLeft className="w-4 h-4 text-gray-600" />
+            <ArrowLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl font-bold text-gray-900 font-mono">
+              <h2 className="text-xl font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
                 {contrato.codigoLegado ?? contrato.contractNumber}
               </h2>
               <StatusBadge status={contrato.status} />
               {contrato.moraMonthsCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}>
                   <AlertCircle className="w-3 h-3" />
                   {contrato.moraMonthsCount} mes{contrato.moraMonthsCount > 1 ? 'es' : ''} en mora
                 </span>
@@ -155,11 +156,11 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               >
                 {fullName}
               </button>
-              <span className="text-gray-300">·</span>
-              <span className="text-sm text-gray-400">{contrato.project.name}</span>
-              <span className="text-gray-300">·</span>
-              <span className="text-sm text-gray-500">
-                {loteLabel}{extraLotes > 0 && <span className="text-gray-400 ml-1">+{extraLotes}</span>}
+              <span style={{ color: 'var(--border)' }}>·</span>
+              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{contrato.project.name}</span>
+              <span style={{ color: 'var(--border)' }}>·</span>
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {loteLabel}{extraLotes > 0 && <span className="ml-1" style={{ color: 'var(--text-tertiary)' }}>+{extraLotes}</span>}
               </span>
             </div>
           </div>
@@ -167,7 +168,8 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
           {/* PDF placeholder */}
           <button
             onClick={() => alert('PDF en desarrollo')}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white shadow-sm text-gray-600 hover:bg-gray-50 transition"
+            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition"
+            style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-secondary)' }}
           >
             <FileDown className="w-4 h-4" />
             Generar PDF
@@ -175,40 +177,41 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         </div>
 
         {/* SECCIÓN 2 — Resumen financiero */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm space-y-5">
-          <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-gray-400" />
+        <div className="rounded-2xl p-6 shadow-sm space-y-5" style={{ backgroundColor: 'var(--surface)' }}>
+          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <DollarSign className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
             Resumen Financiero
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Precio total */}
-            <div className="p-4 rounded-xl bg-gray-50">
-              <p className="text-xs text-gray-400 font-medium mb-1">Precio total</p>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(totalPrice)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>Precio total</p>
+              <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totalPrice)}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                 Enganche: {contrato.downPayment != null ? formatCurrency(contrato.downPayment) : '—'}
               </p>
             </div>
 
             {/* Balance pendiente */}
-            <div className={`p-4 rounded-xl ${balance > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-              <p className="text-xs text-gray-400 font-medium mb-1">Balance pendiente</p>
-              <p className={`text-xl font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className="p-4 rounded-xl"
+                 style={{ backgroundColor: balance > 0 ? 'var(--danger-pale)' : 'var(--accent-pale)' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>Balance pendiente</p>
+              <p className="text-xl font-bold" style={{ color: balance > 0 ? 'var(--danger)' : 'var(--accent)' }}>
                 {formatCurrency(balance)}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                 Pagado: {formatCurrency(pagado)}
               </p>
             </div>
 
             {/* Mensualidad */}
-            <div className="p-4 rounded-xl bg-gray-50">
-              <p className="text-xs text-gray-400 font-medium mb-1">Mensualidad</p>
-              <p className="text-xl font-bold text-gray-900">
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>Mensualidad</p>
+              <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {contrato.installmentAmount != null ? formatCurrency(contrato.installmentAmount) : '—'}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                 {contrato.installmentCount} meses
               </p>
             </div>
@@ -216,88 +219,95 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
 
           {/* Barra de progreso */}
           <div>
-            <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+            <div className="flex justify-between text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>
               <span>{pctPagado}% pagado</span>
               <span>{formatCurrency(pagado)} de {formatCurrency(totalPrice)}</span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2.5">
+            <div className="w-full rounded-full h-2.5" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <div
                 className="h-2.5 rounded-full transition-all duration-500"
-                style={{ width: `${pctPagado}%`, backgroundColor: pctPagado >= 100 ? '#16A34A' : '#C9972C' }}
+                style={{ width: `${pctPagado}%`, backgroundColor: pctPagado >= 100 ? 'var(--accent)' : 'var(--gold)' }}
               />
             </div>
           </div>
         </div>
 
         {/* SECCIÓN 3 — Tabla de cuotas */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
+          <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <h3 className="font-semibold text-gray-800">
+              <Calendar className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Plan de pagos
-                {!loadingCuotas && <span className="text-gray-400 font-normal ml-1">({cuotas.length} cuotas)</span>}
+                {!loadingCuotas && (
+                  <span className="font-normal ml-1" style={{ color: 'var(--text-tertiary)' }}>({cuotas.length} cuotas)</span>
+                )}
               </h3>
             </div>
             {contrato.moraMonthsCount > 0 && (
-              <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">
+              <span className="text-xs font-medium px-2 py-1 rounded-full"
+                    style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-pale)' }}>
                 {contrato.moraMonthsCount} vencidas
               </span>
             )}
           </div>
 
           {loadingCuotas ? (
-            <div className="divide-y divide-gray-50">
+            <div>
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="px-6 py-3 animate-pulse">
-                  <div className="h-4 bg-gray-100 rounded w-3/4" />
+                  <div className="h-4 rounded w-3/4" style={{ backgroundColor: 'var(--bg-secondary)' }} />
                 </div>
               ))}
             </div>
           ) : cuotas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <Calendar className="w-8 h-8 text-gray-200" />
-              <p className="text-sm text-gray-400">Sin cuotas registradas</p>
+              <Calendar className="w-8 h-8" style={{ color: 'var(--bg-tertiary)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Sin cuotas registradas</p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <th className="text-left px-5 py-3 font-semibold text-gray-500 text-xs whitespace-nowrap">#</th>
-                      <th className="text-left px-5 py-3 font-semibold text-gray-500 text-xs whitespace-nowrap">Mes</th>
-                      <th className="text-left px-5 py-3 font-semibold text-gray-500 text-xs whitespace-nowrap hidden sm:table-cell">Vencimiento</th>
-                      <th className="text-right px-5 py-3 font-semibold text-gray-500 text-xs whitespace-nowrap">Esperado</th>
-                      <th className="text-right px-5 py-3 font-semibold text-gray-500 text-xs whitespace-nowrap hidden sm:table-cell">Pagado</th>
-                      <th className="text-center px-5 py-3 font-semibold text-gray-500 text-xs whitespace-nowrap">Estado</th>
+                    <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+                      <th className="text-left px-5 py-3 font-semibold text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>#</th>
+                      <th className="text-left px-5 py-3 font-semibold text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Mes</th>
+                      <th className="text-left px-5 py-3 font-semibold text-xs whitespace-nowrap hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>Vencimiento</th>
+                      <th className="text-right px-5 py-3 font-semibold text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Esperado</th>
+                      <th className="text-right px-5 py-3 font-semibold text-xs whitespace-nowrap hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>Pagado</th>
+                      <th className="text-center px-5 py-3 font-semibold text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Estado</th>
                       <th className="px-5 py-3" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody>
                     {cuotasToShow.map(cuota => {
-                      const vencida    = cuota.status === 'PENDIENTE' && new Date(cuota.fechaVencimiento) < hoy;
-                      const st         = CUOTA_STATUS[cuota.status];
+                      const vencida = cuota.status === 'PENDIENTE' && new Date(cuota.fechaVencimiento) < hoy;
+                      const st      = CUOTA_STATUS[cuota.status];
 
                       return (
                         <tr
                           key={cuota.id}
-                          className={`transition-colors ${vencida ? 'bg-red-50/40 hover:bg-red-50/70' : 'hover:bg-gray-50/80'}`}
+                          className="transition-colors"
+                          style={{
+                            borderBottom: '1px solid var(--border)',
+                            backgroundColor: vencida ? 'rgba(var(--danger-rgb, 192,80,80), 0.05)' : undefined,
+                          }}
                         >
-                          <td className="px-5 py-3 text-gray-500 font-mono text-xs">{cuota.numeroCuota}</td>
-                          <td className="px-5 py-3 text-gray-700 font-medium">{cuota.mes}</td>
-                          <td className="px-5 py-3 text-gray-500 whitespace-nowrap hidden sm:table-cell">
-                            <span className={vencida ? 'text-red-600 font-medium' : ''}>
+                          <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{cuota.numeroCuota}</td>
+                          <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{cuota.mes}</td>
+                          <td className="px-5 py-3 whitespace-nowrap hidden sm:table-cell">
+                            <span style={{ color: vencida ? 'var(--danger)' : 'var(--text-secondary)', fontWeight: vencida ? 600 : undefined }}>
                               {formatDate(cuota.fechaVencimiento)}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right text-gray-800 font-semibold whitespace-nowrap">
+                          <td className="px-5 py-3 text-right font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                             {formatCurrency(cuota.montoEsperado)}
                           </td>
                           <td className="px-5 py-3 text-right whitespace-nowrap hidden sm:table-cell">
                             {cuota.montoPagado != null
-                              ? <span className="text-green-700 font-medium">{formatCurrency(cuota.montoPagado)}</span>
-                              : <span className="text-gray-300">—</span>}
+                              ? <span className="font-medium" style={{ color: 'var(--accent)' }}>{formatCurrency(cuota.montoPagado)}</span>
+                              : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                           </td>
                           <td className="px-5 py-3 text-center">
                             <span className="inline-flex items-center gap-1 text-xs font-medium"
@@ -311,7 +321,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
                               <button
                                 onClick={() => setSelectedCuota(cuota)}
                                 className="text-xs px-2.5 py-1 rounded-lg font-medium text-white transition-opacity hover:opacity-80"
-                                style={{ backgroundColor: '#0F1F3D' }}
+                                style={{ backgroundColor: 'var(--accent)' }}
                               >
                                 Pagar
                               </button>
@@ -327,7 +337,8 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               {cuotas.length > CUOTAS_INITIAL && (
                 <button
                   onClick={() => setShowAllCuotas(v => !v)}
-                  className="w-full py-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50/80 transition flex items-center justify-center gap-1.5 border-t border-gray-100"
+                  className="w-full py-3 text-sm flex items-center justify-center gap-1.5 transition"
+                  style={{ borderTop: '1px solid var(--border)', color: 'var(--text-secondary)' }}
                 >
                   {showAllCuotas ? (
                     <><ChevronUp className="w-4 h-4" /> Ver menos</>
@@ -341,36 +352,41 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         </div>
 
         {/* SECCIÓN 4 — Historial de pagos */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-gray-400" />
-            <h3 className="font-semibold text-gray-800">
+        <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
+          <div className="px-6 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+            <CreditCard className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               Historial de pagos
-              {!loadingPagos && <span className="text-gray-400 font-normal ml-1">({pagos.length})</span>}
+              {!loadingPagos && (
+                <span className="font-normal ml-1" style={{ color: 'var(--text-tertiary)' }}>({pagos.length})</span>
+              )}
             </h3>
           </div>
 
           {loadingPagos ? (
             <div className="p-6 space-y-3">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--bg-secondary)' }} />
+              ))}
             </div>
           ) : pagos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <CreditCard className="w-8 h-8 text-gray-200" />
-              <p className="text-sm text-gray-400">Sin pagos registrados</p>
+              <CreditCard className="w-8 h-8" style={{ color: 'var(--bg-tertiary)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Sin pagos registrados</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div>
               {pagos.map(pago => (
-                <div key={pago.id} className="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50/80 transition-colors">
+                <div key={pago.id} className="flex items-center justify-between px-6 py-3.5 transition-colors hover:bg-[var(--bg-secondary)]"
+                     style={{ borderBottom: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                         style={{ backgroundColor: '#F0F4FF' }}>
-                      <DollarSign className="w-4 h-4" style={{ color: '#0F1F3D' }} />
+                         style={{ backgroundColor: 'var(--accent-pale)' }}>
+                      <DollarSign className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{pago.concept}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{pago.concept}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                         {PAYMENT_TYPE[pago.paymentType] ?? pago.paymentType}
                         {' · '}
                         {formatDate(pago.paymentDate)}
@@ -378,9 +394,9 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
-                    <p className="text-sm font-bold text-green-700">{formatCurrency(pago.amount)}</p>
+                    <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(pago.amount)}</p>
                     {pago.balanceAfter != null && (
-                      <p className="text-xs text-gray-400">Saldo: {formatCurrency(pago.balanceAfter)}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Saldo: {formatCurrency(pago.balanceAfter)}</p>
                     )}
                   </div>
                 </div>
@@ -393,7 +409,8 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         <div className="sm:hidden">
           <button
             onClick={() => alert('PDF en desarrollo')}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border border-gray-200 bg-white shadow-sm text-gray-600 hover:bg-gray-50 transition"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium shadow-sm transition"
+            style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-secondary)' }}
           >
             <FileDown className="w-4 h-4" />
             Generar estado de cuenta (PDF)
