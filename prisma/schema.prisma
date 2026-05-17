@@ -314,6 +314,7 @@ model Contract {
   commissions         Commission[]
   coOwners            CoOwner[]
   cuotas              Cuota[]
+  estadoCuentaLogs    EstadoCuentaLog[]
 
   @@map("contracts")
 }
@@ -665,4 +666,17 @@ model Expense {
   project     Project         @relation(fields: [projectId], references: [id])
   category    ExpenseCategory @relation(fields: [categoryId], references: [id])
   createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+}
+
+model EstadoCuentaLog {
+  id             String   @id @default(uuid())
+  folio          String   @unique
+  contractId     String
+  clientId       String
+  generatedAt    DateTime @default(now())
+  generatedByIp  String?
+  contentHash    String
+  contract       Contract @relation(fields: [contractId], references: [id])
+
+  @@map("estado_cuenta_logs")
 }

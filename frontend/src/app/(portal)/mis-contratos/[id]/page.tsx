@@ -30,6 +30,8 @@ interface ContratoDetalle {
     lastName:  string;
     code?:     string;
   };
+  folio?:       string;
+  contentHash?: string;
 }
 
 interface Cuota {
@@ -99,7 +101,7 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
   const { data: contrato, isLoading: loadingContrato, isError } = useQuery<ContratoDetalle>({
     queryKey: ['mi-contrato', id],
     queryFn:  async () => {
-      const { data } = await api.get(`/portal/contratos/${id}`);
+      const { data } = await api.get(`/portal/contratos/${id}?generateFolio=true`);
       return data.data;
     },
     enabled: !!id,
@@ -165,6 +167,8 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
               contrato={contrato as any}
               cuotas={cuotas}
               pagos={pagos}
+              folio={contrato.folio}
+              contentHash={contrato.contentHash}
             />
           }
           fileName={`estado-cuenta-${contrato.contractNumber ?? id}.pdf`}

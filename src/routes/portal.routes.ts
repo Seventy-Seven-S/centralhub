@@ -5,6 +5,8 @@ import { authenticateClient } from '../middlewares/clientAuth';
 import { ApiError } from '../middlewares/errorHandler';
 import contractService from '../services/contract.service';
 import cuotaService from '../services/cuota.service';
+import crypto from 'crypto';
+import * as estadoCuentaService from '../services/estadoCuenta.service';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -41,6 +43,26 @@ router.get('/contratos/:id', async (req: Request, res: Response) => {
     if (contract.clientId !== clientId) {
       throw new ApiError(403, 'No tienes acceso a este contrato');
     }
+
+    if (req.query.generateFolio === 'true') {
+      const folio = estadoCuentaService.generarFolio(contract.id);
+      const contentHash = crypto
+        .createHash('sha256')
+        .update(`${contract.id}-${clientId}-${new Date().toISOString().split('T')[0]}`)
+        .digest('hex')
+        .slice(0, 16);
+
+      await estadoCuentaService.registrarGeneracion({
+        folio,
+        contractId: contract.id,
+        clientId,
+        contentHash,
+        ip: req.ip,
+      });
+
+      return res.status(200).json({ success: true, data: { ...contract, folio, contentHash } });
+    }
+
     res.status(200).json({ success: true, data: contract });
   } catch (error: any) {
     const status = error instanceof ApiError ? error.statusCode : 400;

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx ts-node *)",
+      "PowerShell(Invoke-RestMethod -Method POST -Uri \"http://localhost:4000/api/v1/auth/login\" -ContentType \"application/json\" -Body '{\"email\":\"info@seventyss.com\",\"password\":\"admin123\"}')",
+      "Bash(node *)",
+      "Bash(npx prisma *)",
+      "PowerShell(npx prisma migrate dev --name \"add-estado-cuenta-log\" 2>&1)"
+    ]
+  }
+}

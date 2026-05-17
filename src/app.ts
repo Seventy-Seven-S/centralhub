@@ -20,6 +20,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import userRoutes from './routes/user.routes';
 import expenseRoutes from './routes/expense.routes';
 import portalRoutes from './routes/portal.routes';
+import verificacionRoutes from './routes/verificacion.routes';
 
 const app: Application = express();
 
@@ -117,6 +118,7 @@ app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes);
 app.use(`/api/${API_VERSION}/users`, userRoutes);
 app.use(`/api/${API_VERSION}/expenses`, expenseRoutes);
 app.use(`/api/${API_VERSION}/portal`, portalRoutes);
+app.use(`/api/${API_VERSION}/verificar`, verificacionRoutes);
 
 // =============================================================================
 // Error Handling

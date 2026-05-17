@@ -39,9 +39,9 @@ const s = StyleSheet.create({
   tableHeaderRow:  { flexDirection: 'row', backgroundColor: C.navy, padding: 8, borderRadius: 3 },
   tableHeaderCell: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 8 },
   tableRow:        { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 7, borderTopWidth: 1, borderTopColor: C.border },
-  colNum:          { width: 22 },
-  colVenc:         { flex: 2 },
-  colMonto:        { flex: 1.8, alignItems: 'flex-end', paddingRight: 8 },
+  colNum:          { flex: 0.5 },
+  colVencimiento:  { flex: 2 },
+  colMonto:        { flex: 1.5, alignItems: 'flex-end', paddingRight: 8 },
   colFechaPago:    { flex: 2, paddingLeft: 4 },
   colStatus:       { flex: 1.5 },
   // Resumen final
@@ -83,7 +83,7 @@ function TableHeader() {
   return (
     <View style={s.tableHeaderRow}>
       <Text style={[s.tableHeaderCell, s.colNum]}>#</Text>
-      <Text style={[s.tableHeaderCell, s.colVenc]}>Vencimiento</Text>
+      <Text style={[s.tableHeaderCell, s.colVencimiento]}>Vencimiento</Text>
       <View style={s.colMonto}>
         <Text style={s.tableHeaderCell}>Monto</Text>
       </View>
@@ -99,7 +99,7 @@ function CuotaRows({ rows }: { rows: Cuota[] }) {
       {rows.map((c, i) => (
         <View key={c.id} style={[s.tableRow, { backgroundColor: i % 2 === 0 ? '#fff' : C.lightGray }]}>
           <Text style={[{ fontSize: 8, color: C.gray }, s.colNum]}>{c.numeroCuota}</Text>
-          <Text style={[{ fontSize: 8 }, s.colVenc]}>{fmtDateShort(c.fechaVencimiento)}</Text>
+          <Text style={[{ fontSize: 8 }, s.colVencimiento]}>{fmtDateShort(c.fechaVencimiento)}</Text>
           <View style={s.colMonto}>
             <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>{fmt(c.montoEsperado)}</Text>
           </View>
@@ -149,9 +149,12 @@ function ResumenFinal({ cuotas, cuotasPagadas, cuotasVencidas, proximaCuota }: {
 function Footer() {
   return (
     <View style={s.footer}>
-      <Text style={s.footerText}>
-        Av. Las Arboledas No. 84, Esq. con Maple, Fracc. Las Arboledas. 87448{'   '}|{'   '}Tel: 868 156 1069
-      </Text>
+      <View style={s.footerText}>
+        <Text>Av. Las Arboledas No. 84, Esq. con Maple, Fracc. Las Arboledas. 87448{'   '}|{'   '}Tel: 868 156 1069</Text>
+        <Text style={{ fontSize: 7, color: C.gray, marginTop: 2 }}>
+          Verifica en: centralinmob.com/verificar/{folio ?? '—'}
+        </Text>
+      </View>
       <Text style={s.footerBrand}>Central Inmobiliaria</Text>
     </View>
   );
@@ -159,15 +162,17 @@ function Footer() {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 export interface EstadoDeCuentaProps {
-  contrato: ContratoDetalle;
-  cuotas:   Cuota[];
-  pagos:    Array<{ id: string; amount: number; paymentDate: string; concept: string; status: string }>;
+  contrato:     ContratoDetalle;
+  cuotas:       Cuota[];
+  pagos:        Array<{ id: string; amount: number; paymentDate: string; concept: string; status: string }>;
+  folio?:       string;
+  contentHash?: string;
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
 const PAGE_ROWS = 45;
 
-export function EstadoDeCuenta({ contrato, cuotas, pagos }: EstadoDeCuentaProps) {
+export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: EstadoDeCuentaProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
   const lote          = contrato.lots?.[0]?.lot;
@@ -201,6 +206,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos }: EstadoDeCuentaProps)
           <View>
             <Text style={s.edcTitle}>ESTADO DE CUENTA</Text>
             <Text style={s.edcNum}>Contrato: {codigo}</Text>
+            <Text style={s.edcNum}>Folio: {folio ?? '—'}</Text>
           </View>
           <View>
             <Text style={s.companyName}>Central Inmobiliaria</Text>

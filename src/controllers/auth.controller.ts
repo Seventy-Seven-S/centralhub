@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../config/database';
 import { generateAccessToken, generateRefreshToken } from '../config/jwt';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
@@ -72,17 +73,32 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
   if (user.status !== 'ACTIVE') throw new ApiError(403, 'Account is not active');
 
+  if (process.env.NODE_ENV === 'development') {
+    const accessToken = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+    );
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+    return res.status(200).json({
+      status: 'success',
+      data: { accessToken, refreshToken, user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName } }
+    });
+  }
+
+  // Flujo 2FA normal (producción)
   const code       = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedCode = await bcrypt.hash(code, 10);
   const expiry     = new Date(Date.now() + 10 * 60 * 1000);
-
   await prisma.user.update({
     where: { id: user.id },
     data:  { twoFactorCode: hashedCode, twoFactorExpiry: expiry },
   });
-
   await sendVerificationCode(user.email, user.firstName, code);
-
   res.status(200).json({ status: 'pending_2fa', data: { email: user.email } });
 });
 
