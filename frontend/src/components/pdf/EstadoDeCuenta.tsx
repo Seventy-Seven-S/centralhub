@@ -146,7 +146,7 @@ function ResumenFinal({ cuotas, cuotasPagadas, cuotasVencidas, proximaCuota }: {
   );
 }
 
-function Footer() {
+function Footer({ folio }: { folio?: string }) {
   return (
     <View style={s.footer}>
       <View style={s.footerText}>
@@ -170,7 +170,7 @@ export interface EstadoDeCuentaProps {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-const PAGE_ROWS = 45;
+const PAGE_ROWS = 38;
 
 export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: EstadoDeCuentaProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
@@ -273,7 +273,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
           />
         )}
 
-        <Footer />
+        {chunks.length === 1 && <Footer folio={folio} />}
       </Page>
 
       {/* ── Páginas adicionales ── */}
@@ -294,7 +294,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
                 proximaCuota={proximaCuota}
               />
             )}
-            <Footer />
+            {isLast && <Footer folio={folio} />}
           </Page>
         );
       })}
