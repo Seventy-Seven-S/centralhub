@@ -42,12 +42,13 @@ model User {
   twoFactorCode    String?
   twoFactorExpiry  DateTime?
 
-  refreshTokens RefreshToken[]
-  activities    Activity[]
-  expenses      Expense[]
-  commissions   Commission[]
-  documents     Document[]
-  paymentsCreated Payment[]
+  refreshTokens      RefreshToken[]
+  activities         Activity[]
+  commissions        Commission[]
+  documents          Document[]
+  paymentsCreated    Payment[]
+  expensesCreated    Expense[]         @relation("ExpenseCreatedBy")
+  categoriesCreated  ExpenseCategory[] @relation("CategoryCreatedBy")
 
   @@map("users")
 }
@@ -471,33 +472,6 @@ model Commission {
   @@map("commissions")
 }
 
-// ============================================================================
-// GASTOS
-// ============================================================================
-
-model Expense {
-  id              String   @id @default(uuid())
-  projectId       String?
-  category        String
-  subcategory     String?
-  amount          Float
-  expenseDate     DateTime
-  description     String
-  vendorName      String?
-  invoiceNumber   String?
-  paymentMethod   String?
-  status          String   @default("PAID")
-  receiptUrl      String?
-  
-  createdBy       String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  project         Project? @relation(fields: [projectId], references: [id])
-  user            User     @relation(fields: [createdBy], references: [id])
-
-  @@map("expenses")
-}
 
 // ============================================================================
 // ACTIVIDADES Y SEGUIMIENTO
@@ -661,4 +635,34 @@ model PagoTerreno {
 
   @@index([compromisoId])
   @@map("pagos_terreno")
+}
+
+// ============================================================================
+// GASTOS
+// ============================================================================
+
+model ExpenseCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String
+  createdBy   User      @relation("CategoryCreatedBy", fields: [createdById], references: [id])
+  expenses    Expense[]
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  amount      Decimal         @db.Decimal(12, 2)
+  description String?
+  date        DateTime
+  projectId   String
+  categoryId  String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdById String
+  project     Project         @relation(fields: [projectId], references: [id])
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
 }

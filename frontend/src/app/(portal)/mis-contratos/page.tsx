@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, AlertCircle, ChevronRight } from 'lucide-react';
-import { useAuthStore } from '@/store/auth.store';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -57,17 +56,14 @@ function CardSkeleton() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function MisContratosPage() {
-  const router   = useRouter();
-  const { user } = useAuthStore();
-  const clientId = user?.clientId;
+  const router = useRouter();
 
   const { data: contratos = [], isLoading, isError } = useQuery<ContratoResumen[]>({
-    queryKey:  ['mis-contratos', clientId],
+    queryKey:  ['mis-contratos'],
     queryFn:   async () => {
-      const { data } = await api.get('/contracts', { params: { clientId } });
+      const { data } = await api.get('/portal/contratos');
       return data.data;
     },
-    enabled:   !!clientId,
     staleTime: 60_000,
   });
 

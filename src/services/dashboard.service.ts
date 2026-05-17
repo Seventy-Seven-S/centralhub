@@ -67,15 +67,21 @@ export class DashboardService {
       rawCuotas.map(r => [r.status, r._count.id])
     );
 
-    // ── Ingresos por mes ─────────────────────────────────────────
-    const rawPagosMes = await prisma.payment.findMany({
-      where: {
-        status: 'CONFIRMED',
-        ...(projectId ? { contract: { projectId } } : {}),
-      },
-      select: { paymentDate: true, amount: true },
-      orderBy: { paymentDate: 'asc' },
-    });
+    // ── Ingresos por mes + Gastos ────────────────────────────────
+    const [rawPagosMes, gastosResult] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          status: 'CONFIRMED',
+          ...(projectId ? { contract: { projectId } } : {}),
+        },
+        select: { paymentDate: true, amount: true },
+        orderBy: { paymentDate: 'asc' },
+      }),
+      prisma.expense.aggregate({
+        where: projectId ? { projectId } : {},
+        _sum: { amount: true },
+      }),
+    ]);
 
     const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const mesMap = new Map<string, number>();
@@ -112,6 +118,9 @@ export class DashboardService {
       },
       distribucionPlazo,
       ingresosPorMes,
+      gastos: {
+        total: Number(gastosResult._sum.amount ?? 0),
+      },
     };
   }
 

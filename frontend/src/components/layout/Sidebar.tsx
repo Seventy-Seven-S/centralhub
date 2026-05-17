@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
-  Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon,
+  Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { label: 'Contratos',  href: '/contratos',  icon: FileText },
   { label: 'Cuotas',     href: '/cuotas',     icon: Calendar },
   { label: 'Lotes',      href: '/lotes',      icon: Map },
+  { label: 'Gastos',     href: '/gastos',     icon: Receipt },
   { label: 'Usuarios',   href: '/usuarios',   icon: UserCog },
 ];
 
@@ -105,7 +106,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {(() => {
-          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas'];
+          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas', '/gastos'];
           const ADMIN_ONLY   = ['/usuarios'];
           return NAV_ITEMS.filter(item => {
             if (user?.role === 'AGENT' && AGENT_HIDDEN.includes(item.href)) return false;

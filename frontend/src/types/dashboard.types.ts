@@ -20,4 +20,7 @@ export interface DashboardSummary {
   };
   distribucionPlazo: Array<{ plazoMeses: number; contratos: number }>;
   ingresosPorMes: Array<{ mes: string; total: number }>;
+  gastos: {
+    total: number;
+  };
 }

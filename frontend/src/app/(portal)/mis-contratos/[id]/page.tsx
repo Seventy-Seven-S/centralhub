@@ -3,9 +3,11 @@
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Download } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface ContratoDetalle {
@@ -23,10 +25,16 @@ interface ContratoDetalle {
   contractDate:     string | null;
   project: { name: string; code: string };
   lots: Array<{ lot: { lotNumber: string; manzana: number; areaM2: number } }>;
+  client: {
+    firstName: string;
+    lastName:  string;
+    code?:     string;
+  };
 }
 
 interface Cuota {
   id:               string;
+  contractId:       string;
   numeroCuota:      number;
   mes:              string;
   montoEsperado:    number;
@@ -91,7 +99,7 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
   const { data: contrato, isLoading: loadingContrato, isError } = useQuery<ContratoDetalle>({
     queryKey: ['mi-contrato', id],
     queryFn:  async () => {
-      const { data } = await api.get(`/contracts/${id}`);
+      const { data } = await api.get(`/portal/contratos/${id}`);
       return data.data;
     },
     enabled: !!id,
@@ -100,7 +108,7 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
   const { data: cuotas = [], isLoading: loadingCuotas } = useQuery<Cuota[]>({
     queryKey: ['mis-cuotas', id],
     queryFn:  async () => {
-      const { data } = await api.get(`/contracts/${id}/cuotas`);
+      const { data } = await api.get(`/portal/contratos/${id}/cuotas`);
       return data.data;
     },
     enabled: !!id,
@@ -109,7 +117,7 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
   const { data: pagos = [], isLoading: loadingPagos } = useQuery<Pago[]>({
     queryKey: ['mis-pagos', id],
     queryFn:  async () => {
-      const { data } = await api.get('/payments', { params: { contractId: id } });
+      const { data } = await api.get(`/portal/contratos/${id}/pagos`);
       return data.data;
     },
     enabled: !!id,
@@ -132,22 +140,57 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push('/mis-contratos')}
-          className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition shrink-0"
-        >
-          <ArrowLeft className="w-4 h-4 text-gray-600" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            Contrato {contrato.codigoLegado ?? contrato.contractNumber}
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {contrato.project.name}
-            {lot && ` · M${lot.manzana} L-${lot.lotNumber} · ${lot.areaM2} m²`}
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/mis-contratos')}
+            className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">
+              Contrato {contrato.codigoLegado ?? contrato.contractNumber}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {contrato.project.name}
+              {lot && ` · M${lot.manzana} L-${lot.lotNumber} · ${lot.areaM2} m²`}
+            </p>
+          </div>
         </div>
+
+        <PDFDownloadLink
+          document={
+            <EstadoDeCuenta
+              contrato={contrato as any}
+              cuotas={cuotas}
+              pagos={pagos}
+            />
+          }
+          fileName={`estado-cuenta-${contrato.contractNumber ?? id}.pdf`}
+        >
+          {({ loading }) => (
+            <button
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: 'var(--accent)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                border: 'none',
+                cursor: loading ? 'wait' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              <Download size={16} />
+              {loading ? 'Generando...' : 'Descargar Estado de Cuenta'}
+            </button>
+          )}
+        </PDFDownloadLink>
       </div>
 
       {/* Resumen financiero */}
