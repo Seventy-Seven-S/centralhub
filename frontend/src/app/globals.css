@@ -25,7 +25,11 @@
   --text-tertiary: #9AADA5;
 
   --danger:        #C0392B;
+  --danger-bg:     rgba(192, 57, 43, 0.08);
   --danger-pale:   rgba(192, 57, 43, 0.08);
+
+  --success:       #15803D;
+  --success-bg:    #DCFCE7;
 
   --gold:          #8B7535;
   --gold-pale:     rgba(139, 117, 53, 0.10);
@@ -54,7 +58,11 @@ html:not(.light) {
   --text-tertiary: #4A6655;
 
   --danger:        #E05050;
+  --danger-bg:     rgba(224, 80, 80, 0.14);
   --danger-pale:   rgba(224, 80, 80, 0.14);
+
+  --success:       #4ADE80;
+  --success-bg:    rgba(74, 222, 128, 0.12);
 
   --gold:          #C4A862;
   --gold-pale:     rgba(196, 168, 98, 0.14);
