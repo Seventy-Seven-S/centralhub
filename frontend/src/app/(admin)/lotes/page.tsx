@@ -9,9 +9,9 @@ const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  AVAILABLE:   { bg: 'var(--accent)',      label: 'Disponible',    text: '#ffffff' },
-  SOLD:        { bg: '#1A3A2A',            label: 'Vendido',       text: '#ffffff' },
-  RESERVED:    { bg: 'var(--gold)',        label: 'Reservado',     text: '#ffffff' },
+  AVAILABLE:   { bg: 'var(--accent-light)', label: 'Disponible',    text: 'var(--text-on-accent)' },
+  SOLD:        { bg: 'var(--accent-dark)', label: 'Vendido',       text: 'var(--text-on-accent)' },
+  RESERVED:    { bg: 'var(--gold)',        label: 'Reservado',     text: 'var(--text-on-accent)' },
   UNAVAILABLE: { bg: 'var(--bg-tertiary)', label: 'No disponible', text: 'var(--text-secondary)' },
 } as const;
 
@@ -108,12 +108,12 @@ function LoteBox({ lote, onClick }: { lote: Lote; onClick?: () => void }) {
       {/* Tooltip */}
       {hovered && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 pointer-events-none">
-          <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+          <div className="text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg" style={{ backgroundColor: 'var(--surface-inverse)', color: 'var(--text-inverse)' }}>
             <p className="font-semibold">L-{lote.lotNumber} · {lote.areaM2.toFixed(2)} m²</p>
-            <p className="text-gray-300">{formatCurrency(lote.currentPrice)}</p>
-            <p className="text-gray-400">{cfg.label}</p>
+            <p style={{ color: 'var(--text-inverse-secondary)' }}>{formatCurrency(lote.currentPrice)}</p>
+            <p style={{ color: 'var(--text-inverse-tertiary)' }}>{cfg.label}</p>
           </div>
-          <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
+          <div className="w-2 h-2 rotate-45 mx-auto -mt-1" style={{ backgroundColor: 'var(--surface-inverse)' }} />
         </div>
       )}
     </div>
@@ -162,7 +162,7 @@ export default function LotesPage() {
 
   if (isError) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
-      <AlertCircle className="w-10 h-10 text-red-400" />
+      <AlertCircle className="w-10 h-10" style={{ color: 'var(--danger)' }} />
       <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No se pudieron cargar los lotes</p>
     </div>
   );
@@ -180,7 +180,7 @@ export default function LotesPage() {
           <select
             value={filterManzana}
             onChange={e => setFilterManzana(e.target.value)}
-            className="px-3 py-2 text-sm rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
+            className="px-3 py-2 text-sm rounded-xl shadow-sm outline-none transition cursor-pointer"
             style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           >
             <option value="todas">Todas las manzanas</option>
@@ -192,7 +192,7 @@ export default function LotesPage() {
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2 text-sm rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
+            className="px-3 py-2 text-sm rounded-xl shadow-sm outline-none transition cursor-pointer"
             style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           >
             <option value="todos">Todos los status</option>
@@ -202,6 +202,16 @@ export default function LotesPage() {
             <option value="UNAVAILABLE">No disponible</option>
           </select>
         </div>
+      </div>
+
+      {/* ── Leyenda ── */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '16px', height: '16px', borderRadius: '4px', backgroundColor: cfg.bg }} />
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{cfg.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* ── SECCIÓN 2: Grid por manzana ── */}
