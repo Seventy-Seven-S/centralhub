@@ -19,9 +19,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
+      // Limpiar localStorage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
-      window.location.href = '/login';
+      // Limpiar cookies
+      document.cookie = 'auth_token=; path=/; max-age=0';
+      document.cookie = 'user_role=; path=/; max-age=0';
+      // Redirigir según el tipo de usuario
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/portal') || currentPath.startsWith('/mis-')) {
+        window.location.href = '/portal';
+      } else {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
