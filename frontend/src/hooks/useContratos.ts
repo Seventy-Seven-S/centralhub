@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
+export interface CoOwner {
+  id:              string;
+  firstName:       string;
+  lastName:        string;
+  ine:             string;
+  estadoCivil:     string;
+  lugarNacimiento: string;
+  isPrimary:       boolean;
+}
+
 export interface ContratoDetalle {
   id:               string;
   contractNumber:   string;
@@ -16,11 +26,19 @@ export interface ContratoDetalle {
   startDate:         string | null;
   contractDate:      string | null;
   client: {
-    id:        string;
-    firstName: string;
-    lastName:  string;
-    email:     string;
-    phone:     string | null;
+    id:              string;
+    firstName:       string;
+    lastName:        string;
+    email:           string;
+    phone:           string | null;
+    ine:             string | null;
+    curp:            string | null;
+    estadoCivil:     string | null;
+    lugarNacimiento: string | null;
+    address:         string | null;
+    city:            string | null;
+    state:           string | null;
+    zipCode:         string | null;
   };
   project: {
     id:   string;
@@ -30,6 +48,7 @@ export interface ContratoDetalle {
   lots: Array<{
     lot: { lotNumber: string; manzana: number; areaM2: number };
   }>;
+  coOwners: CoOwner[];
 }
 
 export interface Cuota {

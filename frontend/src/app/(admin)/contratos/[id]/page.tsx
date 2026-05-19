@@ -13,6 +13,8 @@ import {
 } from '@/hooks/useContratos';
 import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ContratoCompraventa } from '@/components/pdf/ContratoCompraventa';
 
 // ── Status maps ───────────────────────────────────────────────────────────────
 const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -165,15 +167,31 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             </div>
           </div>
 
-          {/* PDF placeholder */}
-          <button
-            onClick={() => alert('PDF en desarrollo')}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition"
-            style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-secondary)' }}
+          {/* PDF Contrato */}
+          <PDFDownloadLink
+            document={
+              <ContratoCompraventa
+                contrato={contrato as any}
+                cuotas={cuotas}
+              />
+            }
+            fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
           >
-            <FileDown className="w-4 h-4" />
-            Generar PDF
-          </button>
+            {({ loading }) => (
+              <button
+                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: 'white',
+                  opacity: loading ? 0.7 : 1,
+                  cursor: loading ? 'wait' : 'pointer',
+                }}
+              >
+                <FileDown size={16} />
+                {loading ? 'Generando...' : 'Descargar Contrato PDF'}
+              </button>
+            )}
+          </PDFDownloadLink>
         </div>
 
         {/* SECCIÓN 2 — Resumen financiero */}
@@ -407,14 +425,30 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
 
         {/* SECCIÓN 5 — Botón PDF (móvil) */}
         <div className="sm:hidden">
-          <button
-            onClick={() => alert('PDF en desarrollo')}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium shadow-sm transition"
-            style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-secondary)' }}
+          <PDFDownloadLink
+            document={
+              <ContratoCompraventa
+                contrato={contrato as any}
+                cuotas={cuotas}
+              />
+            }
+            fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
           >
-            <FileDown className="w-4 h-4" />
-            Generar estado de cuenta (PDF)
-          </button>
+            {({ loading }) => (
+              <button
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: 'white',
+                  opacity: loading ? 0.7 : 1,
+                  cursor: loading ? 'wait' : 'pointer',
+                }}
+              >
+                <FileDown size={16} />
+                {loading ? 'Generando...' : 'Descargar Contrato PDF'}
+              </button>
+            )}
+          </PDFDownloadLink>
         </div>
 
       </div>
