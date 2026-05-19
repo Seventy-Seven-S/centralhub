@@ -19,7 +19,17 @@
       "PowerShell(node query_cuotas.mjs)",
       "PowerShell(node fix_cuotas.mjs)",
       "PowerShell(admin *)",
-      "PowerShell(git add *)"
+      "PowerShell(git add *)",
+      "PowerShell(npx prisma generate)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(npx prisma generate 2>&1)",
+      "PowerShell(git restore *)",
+      "Bash(dir C:\\\\Users\\\\info\\\\centralhub\\\\frontend\\\\src\\\\app\\\\\\(admin\\\\\\) *)",
+      "PowerShell(ls -Path 'C:\\\\Users\\\\info\\\\centralhub\\\\frontend\\\\src\\\\app' -Directory | Where { $_ -match 'admin' })",
+      "Bash(curl -s http://localhost:4000/api/v1/projects)",
+      "Bash(curl -s http://localhost:3000)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:postgres@localhost:5432/centralhub\" -c \"SELECT email, role FROM users LIMIT 5;\" 2>&1)",
+      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@centralhub.com\",\"password\":\"Admin123!\"}')"
     ]
   }
 }
