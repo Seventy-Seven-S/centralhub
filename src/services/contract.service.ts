@@ -1,5 +1,5 @@
 // src/services/contract.service.ts
-import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType } from '@prisma/client';
+import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 
 const prisma = new PrismaClient();
@@ -46,7 +46,7 @@ export class ContractService {
     }
 
     // Generar número de contrato único
-    const contractNumber = await this.generateContractNumber(data.projectId);
+    const generatedNumber = await this.generateContractNumber(data.projectId);
 
     // Calcular precio total y balance
     const totalPrice = lots.reduce((sum, lot) => sum + lot.currentPrice, 0);
@@ -57,7 +57,8 @@ export class ContractService {
       // 1. Crear el contrato
       const newContract = await tx.contract.create({
         data: {
-          contractNumber,
+          contractNumber: generatedNumber,
+          codigoLegado:   generatedNumber,
           clientId: data.clientId,
           projectId: data.projectId,
           contractDate: data.startDate,
@@ -95,6 +96,43 @@ export class ContractService {
 
       return newContract;
     });
+
+    // Generar cuotas automáticamente
+    const cuotas = [];
+    for (let i = 1; i <= contract.installmentCount; i++) {
+      const fechaVencimiento = new Date(contract.startDate);
+      fechaVencimiento.setMonth(fechaVencimiento.getMonth() + i);
+      cuotas.push({
+        contractId: contract.id,
+        numeroCuota: i,
+        mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
+        fechaVencimiento,
+        montoEsperado: contract.installmentAmount,
+        status: CuotaStatus.PENDIENTE,
+      });
+    }
+
+    await prisma.cuota.createMany({ data: cuotas });
+
+    // Registrar pago de enganche si aplica
+    if (contract.downPayment > 0) {
+      const paymentCount = await prisma.payment.count({ where: { contractId: contract.id } });
+      const paymentNumber = `PAY-${contract.codigoLegado}-${String(paymentCount + 1).padStart(3, '0')}`;
+
+      await prisma.payment.create({
+        data: {
+          contractId:    contract.id,
+          clientId:      contract.clientId,
+          amount:        contract.downPayment,
+          paymentDate:   contract.startDate ?? contract.contractDate,
+          concept:       'Enganche',
+          paymentType:   PaymentType.DOWN_PAYMENT,
+          paymentMethod: PaymentMethod.TRANSFER,
+          status:        PaymentStatus.CONFIRMED,
+          paymentNumber,
+        },
+      });
+    }
 
     // Retornar con relaciones
     return await this.getContractById(contract.id);
@@ -277,18 +315,23 @@ export class ContractService {
 
   // Generar número de contrato único
   private async generateContractNumber(projectId: string): Promise<string> {
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
-    
-    if (!project) {
-      throw new Error('Proyecto no encontrado');
-    }
-
-    const contractCount = await prisma.contract.count({
-      where: { projectId },
+    const lastContract = await prisma.contract.findFirst({
+      where: {
+        projectId,
+        codigoLegado: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    const nextNumber = (contractCount + 1).toString().padStart(4, '0');
-    return `${project.code}-CON-${nextNumber}`;
+    if (lastContract?.codigoLegado) {
+      const match = lastContract.codigoLegado.match(/^K(\d+)$/);
+      if (match) {
+        const nextNum = parseInt(match[1]) + 1;
+        return `K${String(nextNum).padStart(3, '0')}`;
+      }
+    }
+
+    return 'K001';
   }
 }
 

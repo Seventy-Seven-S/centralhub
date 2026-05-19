@@ -80,6 +80,8 @@ const s = StyleSheet.create({
   footer:          { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   footerText:      { fontSize: 7.5, color: C.gray, flex: 1 },
   footerBrand:     { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.navy, textAlign: 'right' },
+  // Watermark
+  watermark:       { position: 'absolute', top: '35%', left: '5%', fontSize: 80, fontFamily: 'Helvetica-Bold', color: '#E5E7EB', opacity: 0.4, transform: 'rotate(-45deg)', zIndex: 999 },
 });
 
 function fmt(n: number) {
@@ -136,13 +138,14 @@ function CuotaRows({ rows }: { rows: Cuota[] }) {
 }
 
 export interface ContratoProps {
-  contrato: ContratoDetalle;
-  cuotas:   Cuota[];
+  contrato:       ContratoDetalle;
+  cuotas:         Cuota[];
+  showWatermark?: boolean;
 }
 
 const PAGE_ROWS = 38;
 
-export function ContratoCompraventa({ contrato, cuotas }: ContratoProps) {
+export function ContratoCompraventa({ contrato, cuotas, showWatermark }: ContratoProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
   const lote          = contrato.lots?.[0]?.lot;
@@ -166,6 +169,7 @@ export function ContratoCompraventa({ contrato, cuotas }: ContratoProps) {
 
       {/* ── PÁGINA 1: DATOS ── */}
       <Page size="A4" style={s.page}>
+        {showWatermark && <Text style={s.watermark}>BORRADOR</Text>}
 
         {/* HEADER */}
         <View style={s.header}>
@@ -308,6 +312,7 @@ export function ContratoCompraventa({ contrato, cuotas }: ContratoProps) {
       {/* ── PÁGINAS DE AMORTIZACIÓN ── */}
       {chunks.map((chunk, pageIdx) => (
         <Page key={`amort-${pageIdx}`} size="A4" style={s.page}>
+          {showWatermark && <Text style={s.watermark}>BORRADOR</Text>}
           {pageIdx === 0
             ? <Text style={s.sectionTitle}>TABLA DE AMORTIZACIÓN</Text>
             : <Text style={s.contLabel}>Contrato {codigo} — continuación</Text>
@@ -321,6 +326,7 @@ export function ContratoCompraventa({ contrato, cuotas }: ContratoProps) {
 
       {/* ── ÚLTIMA PÁGINA: CLÁUSULAS Y FIRMAS ── */}
       <Page size="A4" style={s.page}>
+        {showWatermark && <Text style={s.watermark}>BORRADOR</Text>}
 
         <View style={s.clausesBox}>
           <Text style={s.clausesTitle}>CLÁUSULAS</Text>

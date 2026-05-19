@@ -173,6 +173,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               <ContratoCompraventa
                 contrato={contrato as any}
                 cuotas={cuotas}
+                showWatermark={contrato.status !== 'ACTIVE'}
               />
             }
             fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
@@ -430,6 +431,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               <ContratoCompraventa
                 contrato={contrato as any}
                 cuotas={cuotas}
+                showWatermark={contrato.status !== 'ACTIVE'}
               />
             }
             fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
