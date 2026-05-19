@@ -1,6 +1,8 @@
 // src/services/contract.service.ts
 import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
+import { sendWelcomeEmail } from './email.service';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -135,7 +137,48 @@ export class ContractService {
     }
 
     // Retornar con relaciones
-    return await this.getContractById(contract.id);
+    const fullContract = await this.getContractById(contract.id);
+
+    if (fullContract.client?.email) {
+      const lote = fullContract.lots?.[0]?.lot;
+      const lotLabel = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
+
+      let tempPassword: string | undefined;
+
+      const existingClientUser = await prisma.clientUser.findUnique({
+        where: { email: fullContract.client.email },
+      });
+
+      if (!existingClientUser) {
+        const lastName = fullContract.client.lastName ?? '';
+        const phone = fullContract.client.phone ?? '';
+        const rawPassword = (lastName.slice(0, 4) + phone.slice(-4)).toLowerCase() || 'Central2024';
+        tempPassword = rawPassword;
+        const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+        await prisma.clientUser.create({
+          data: {
+            clientId: fullContract.client.id,
+            email: fullContract.client.email,
+            password: hashedPassword,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      sendWelcomeEmail(
+        fullContract.client.email,
+        fullContract.client.firstName,
+        fullContract.codigoLegado ?? fullContract.contractNumber,
+        fullContract.project.name,
+        lotLabel,
+        fullContract.installmentAmount,
+        undefined,
+        tempPassword,
+      ).catch(err => console.error('Error enviando email de bienvenida:', err));
+    }
+
+    return fullContract;
   }
 
   // Listar contratos con filtros
