@@ -58,9 +58,9 @@ interface Pago {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const CUOTA_STATUS: Record<string, { bg: string; color: string; label: string }> = {
-  PAGADA:    { bg: '#F0F9F4', color: '#166534', label: 'Pagada' },
-  PENDIENTE: { bg: '#F3F4F6', color: '#374151', label: 'Pendiente' },
-  MORA:      { bg: '#FFF7ED', color: '#9A3412', label: 'En mora' },
+  PAGADA:    { bg: 'var(--success-bg)', color: 'var(--success)',        label: 'Pagada' },
+  PENDIENTE: { bg: 'var(--bg-tertiary)',color: 'var(--text-secondary)', label: 'Pendiente' },
+  MORA:      { bg: 'var(--danger-bg)',  color: 'var(--danger)',         label: 'En mora' },
 };
 
 function CuotaBadge({ status }: { status: string }) {
@@ -83,12 +83,12 @@ const PAYMENT_TYPE: Record<string, string> = {
 function PageSkeleton() {
   return (
     <div className="space-y-5 animate-pulse">
-      <div className="h-9 w-9 bg-gray-200 rounded-xl" />
+      <div className="h-9 w-9 rounded-xl" style={{ backgroundColor: 'var(--border)' }} />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-white rounded-2xl" />)}
+        {[...Array(4)].map((_, i) => <div key={i} className="h-20 rounded-2xl" style={{ backgroundColor: 'var(--surface)' }} />)}
       </div>
-      <div className="h-64 bg-white rounded-2xl" />
-      <div className="h-48 bg-white rounded-2xl" />
+      <div className="h-64 rounded-2xl" style={{ backgroundColor: 'var(--surface)' }} />
+      <div className="h-48 rounded-2xl" style={{ backgroundColor: 'var(--surface)' }} />
     </div>
   );
 }
@@ -129,8 +129,8 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
 
   if (isError || !contrato) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
-      <AlertCircle className="w-10 h-10 text-red-400" />
-      <p className="text-gray-600 font-medium">No se pudo cargar el contrato</p>
+      <AlertCircle className="w-10 h-10" style={{ color: 'var(--danger)' }} />
+      <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No se pudo cargar el contrato</p>
     </div>
   );
 
@@ -146,15 +146,18 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/mis-contratos')}
-            className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition shrink-0"
+            className="p-2 rounded-xl border transition shrink-0"
+            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--surface)'}
           >
-            <ArrowLeft className="w-4 h-4 text-gray-600" />
+            <ArrowLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
               Contrato {contrato.codigoLegado ?? contrato.contractNumber}
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
               {contrato.project.name}
               {lot && ` · M${lot.manzana} L-${lot.lotNumber} · ${lot.areaM2} m²`}
             </p>
@@ -198,19 +201,19 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
       </div>
 
       {/* Resumen financiero */}
-      <div className="bg-white rounded-2xl shadow-sm p-5 space-y-5">
-        <h2 className="font-semibold text-gray-900">Resumen financiero</h2>
+      <div className="rounded-2xl p-5 space-y-5" style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
+        <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Resumen financiero</h2>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Precio total',  value: formatCurrency(contrato.totalPrice) },
-            { label: 'Enganche',      value: formatCurrency(contrato.downPayment ?? 0) },
-            { label: 'Mensualidad',   value: formatCurrency(contrato.installmentAmount ?? 0) },
+            { label: 'Precio total',   value: formatCurrency(contrato.totalPrice) },
+            { label: 'Enganche',       value: formatCurrency(contrato.downPayment ?? 0) },
+            { label: 'Mensualidad',    value: formatCurrency(contrato.installmentAmount ?? 0) },
             { label: 'Saldo restante', value: formatCurrency(contrato.balance ?? 0), highlight: true },
           ].map(({ label, value, highlight }) => (
-            <div key={label} className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-base font-bold mt-1" style={{ color: highlight ? '#9A3412' : '#111827' }}>
+            <div key={label} className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+              <p className="text-base font-bold mt-1" style={{ color: highlight ? 'var(--danger)' : 'var(--text-primary)' }}>
                 {value}
               </p>
             </div>
@@ -220,54 +223,59 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
         {/* Barra de progreso */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Progreso de pago</span>
-            <span className="font-bold" style={{ color: pct >= 100 ? '#16a34a' : '#C9972C' }}>{pct}%</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Progreso de pago</span>
+            <span className="font-bold" style={{ color: pct >= 100 ? 'var(--success)' : 'var(--gold)' }}>{pct}%</span>
           </div>
-          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border)' }}>
             <div className="h-full rounded-full transition-all"
-                 style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? '#16a34a' : '#C9972C' }} />
+                 style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? 'var(--success)' : 'var(--gold)' }} />
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             {formatCurrency(pagado)} pagado de {formatCurrency(contrato.totalPrice)} · {contrato.installmentCount} mensualidades
           </p>
         </div>
       </div>
 
       {/* Plan de pagos — cuotas */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Plan de pagos</h2>
-          <span className="text-sm text-gray-400">{cuotas.length} cuotas</span>
+      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Plan de pagos</h2>
+          <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{cuotas.length} cuotas</span>
         </div>
 
         {loadingCuotas ? (
           <div className="p-5 space-y-2 animate-pulse">
-            {[...Array(5)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded-lg" />)}
+            {[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }} />)}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60">
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">Mes</th>
-                  <th className="text-right px-5 py-3 font-semibold text-gray-600">Esperado</th>
-                  <th className="text-right px-5 py-3 font-semibold text-gray-600">Pagado</th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">Fecha pago</th>
-                  <th className="text-center px-5 py-3 font-semibold text-gray-600">Status</th>
+                <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-tertiary)' }}>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>#</th>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Mes</th>
+                  <th className="text-right px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Esperado</th>
+                  <th className="text-right px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Pagado</th>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Fecha pago</th>
+                  <th className="text-center px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {cuotas.map(c => (
-                  <tr key={c.id} className="hover:bg-gray-50/50">
-                    <td className="px-5 py-3 text-gray-500 text-xs">{c.numeroCuota}</td>
-                    <td className="px-5 py-3 text-gray-700">{c.mes}</td>
-                    <td className="px-5 py-3 text-right text-gray-700">{formatCurrency(c.montoEsperado)}</td>
+                  <tr
+                    key={c.id}
+                    style={{ borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = ''}
+                  >
+                    <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-tertiary)' }}>{c.numeroCuota}</td>
+                    <td className="px-5 py-3" style={{ color: 'var(--text-primary)' }}>{c.mes}</td>
+                    <td className="px-5 py-3 text-right" style={{ color: 'var(--text-primary)' }}>{formatCurrency(c.montoEsperado)}</td>
                     <td className="px-5 py-3 text-right font-medium"
-                        style={{ color: c.montoPagado > 0 ? '#166534' : '#9CA3AF' }}>
+                        style={{ color: c.montoPagado > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
                       {c.montoPagado > 0 ? formatCurrency(c.montoPagado) : '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
+                    <td className="px-5 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
                       {c.fechaPago
                         ? new Date(c.fechaPago).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
                         : '—'}
@@ -284,40 +292,45 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
       </div>
 
       {/* Historial de pagos */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Historial de pagos</h2>
-          <span className="text-sm text-gray-400">{pagos.length} pagos</span>
+      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Historial de pagos</h2>
+          <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{pagos.length} pagos</span>
         </div>
 
         {loadingPagos ? (
           <div className="p-5 space-y-2 animate-pulse">
-            {[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded-lg" />)}
+            {[...Array(3)].map((_, i) => <div key={i} className="h-10 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }} />)}
           </div>
         ) : pagos.length === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-10">Sin pagos registrados</p>
+          <p className="text-center text-sm py-10" style={{ color: 'var(--text-tertiary)' }}>Sin pagos registrados</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60">
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">Folio</th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">Tipo</th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">Concepto</th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">Fecha</th>
-                  <th className="text-right px-5 py-3 font-semibold text-gray-600">Monto</th>
+                <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-tertiary)' }}>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Folio</th>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Tipo</th>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Concepto</th>
+                  <th className="text-left px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Fecha</th>
+                  <th className="text-right px-5 py-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Monto</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {pagos.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50/50">
-                    <td className="px-5 py-3 font-mono text-xs text-gray-500">{p.paymentNumber}</td>
-                    <td className="px-5 py-3 text-gray-600">{PAYMENT_TYPE[p.paymentType] ?? p.paymentType}</td>
-                    <td className="px-5 py-3 text-gray-600 max-w-[200px] truncate">{p.concept}</td>
-                    <td className="px-5 py-3 text-gray-500 whitespace-nowrap text-xs">
+                  <tr
+                    key={p.id}
+                    style={{ borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = ''}
+                  >
+                    <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>{p.paymentNumber}</td>
+                    <td className="px-5 py-3" style={{ color: 'var(--text-secondary)' }}>{PAYMENT_TYPE[p.paymentType] ?? p.paymentType}</td>
+                    <td className="px-5 py-3 max-w-[200px] truncate" style={{ color: 'var(--text-secondary)' }}>{p.concept}</td>
+                    <td className="px-5 py-3 whitespace-nowrap text-xs" style={{ color: 'var(--text-tertiary)' }}>
                       {new Date(p.paymentDate).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="px-5 py-3 text-right font-semibold" style={{ color: '#166534' }}>
+                    <td className="px-5 py-3 text-right font-semibold" style={{ color: 'var(--success)' }}>
                       {formatCurrency(p.amount)}
                     </td>
                   </tr>
