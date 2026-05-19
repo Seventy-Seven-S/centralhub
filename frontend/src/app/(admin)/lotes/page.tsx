@@ -1,11 +1,27 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, ArrowLeft } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLotes, Lote } from '@/hooks/useLotes';
 import { formatCurrency } from '@/lib/utils';
+import api from '@/lib/api';
 
 const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
+
+// ── Hook de mutación ──────────────────────────────────────────────────────────
+const useReserveLot = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lotId, data }: { lotId: string; data: any }) => {
+      const res = await api.post(`/lots/${lotId}/reserve`, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['lotes'] });
+    },
+  });
+};
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -15,46 +31,195 @@ const STATUS_CONFIG = {
   UNAVAILABLE: { bg: 'var(--bg-tertiary)', label: 'No disponible', text: 'var(--text-secondary)' },
 } as const;
 
-// ── Modal de detalle de lote ──────────────────────────────────────────────────
+// ── Modal de detalle / apartado ───────────────────────────────────────────────
 function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
+  const [showApartarForm, setShowApartarForm] = useState(false);
+  const [clientName,  setClientName]  = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [deposit,     setDeposit]     = useState(0);
+  const [error,       setError]       = useState('');
+  const reserveLot = useReserveLot();
+
   const cfg = STATUS_CONFIG[lote.status];
+
+  const inputStyle = {
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: '10px',
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
+    fontSize: '14px',
+    outline: 'none',
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await reserveLot.mutateAsync({
+        lotId: lote.id,
+        data: { deposit, clientName, clientPhone, clientEmail: clientEmail || undefined },
+      });
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al apartar el lote');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="rounded-2xl shadow-xl w-full max-w-sm" style={{ backgroundColor: 'var(--surface)' }}>
+
+        {/* ── HEADER ── */}
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Lote {lote.lotNumber} — M{lote.manzana}</h3>
-            <span
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold mt-1"
-              style={{ backgroundColor: cfg.bg, color: cfg.text }}
-            >
-              {cfg.label}
-            </span>
+          <div className="flex items-center gap-2">
+            {showApartarForm && (
+              <button
+                onClick={() => { setShowApartarForm(false); setError(''); }}
+                className="p-1.5 rounded-lg transition"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+            <div>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {showApartarForm
+                  ? `Apartar — L-${lote.lotNumber} M${lote.manzana}`
+                  : `Lote ${lote.lotNumber} — M${lote.manzana}`}
+              </h3>
+              {!showApartarForm && (
+                <span
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold mt-1"
+                  style={{ backgroundColor: cfg.bg, color: cfg.text }}
+                >
+                  {cfg.label}
+                </span>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-tertiary)' }}>
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span style={{ color: 'var(--text-secondary)' }}>Superficie</span>
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.areaM2.toFixed(2)} m²</span>
-          </div>
-          <div className="flex justify-between">
-            <span style={{ color: 'var(--text-secondary)' }}>Precio base</span>
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lote.basePrice)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span style={{ color: 'var(--text-secondary)' }}>Precio actual</span>
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lote.currentPrice)}</span>
-          </div>
-          {lote.orientation && (
-            <div className="flex justify-between">
-              <span style={{ color: 'var(--text-secondary)' }}>Orientación</span>
-              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.orientation}</span>
+
+        {/* ── VISTA 1: DETALLE ── */}
+        {!showApartarForm && (
+          <>
+            <div className="px-6 py-5 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-secondary)' }}>Superficie</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.areaM2.toFixed(2)} m²</span>
+              </div>
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-secondary)' }}>Precio base</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lote.basePrice)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-secondary)' }}>Precio actual</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lote.currentPrice)}</span>
+              </div>
+              {lote.orientation && (
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--text-secondary)' }}>Orientación</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.orientation}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+            {lote.status === 'AVAILABLE' && (
+              <div className="px-6 pb-5">
+                <button
+                  onClick={() => setShowApartarForm(true)}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+                >
+                  Apartar lote
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── VISTA 2: FORM DE APARTADO ── */}
+        {showApartarForm && (
+          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Nombre del cliente *
+              </label>
+              <input
+                type="text"
+                required
+                value={clientName}
+                onChange={e => setClientName(e.target.value)}
+                placeholder="Nombre completo"
+                style={inputStyle}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Teléfono *
+              </label>
+              <input
+                type="tel"
+                required
+                value={clientPhone}
+                onChange={e => setClientPhone(e.target.value)}
+                placeholder="8681234567"
+                style={inputStyle}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={clientEmail}
+                onChange={e => setClientEmail(e.target.value)}
+                placeholder="correo@ejemplo.com"
+                style={inputStyle}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Anticipo
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={deposit}
+                onChange={e => setDeposit(Number(e.target.value) || 0)}
+                placeholder="0 = sin anticipo"
+                style={inputStyle}
+              />
+              <p className="text-xs mt-1" style={{ color: deposit > 0 ? 'var(--accent)' : 'var(--text-tertiary)' }}>
+                {deposit > 0
+                  ? 'Con anticipo — reserva por 3 semanas hábiles'
+                  : 'Sin anticipo — reserva por 1 semana hábil'}
+              </p>
+            </div>
+
+            {error && (
+              <p className="text-xs font-medium" style={{ color: 'var(--danger)' }}>{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={reserveLot.isPending}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+            >
+              {reserveLot.isPending ? 'Guardando...' : 'Confirmar apartado'}
+            </button>
+          </form>
+        )}
+
       </div>
     </div>
   );
@@ -110,8 +275,22 @@ function LoteBox({ lote, onClick }: { lote: Lote; onClick?: () => void }) {
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 pointer-events-none">
           <div className="text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg" style={{ backgroundColor: 'var(--surface-inverse)', color: 'var(--text-inverse)' }}>
             <p className="font-semibold">L-{lote.lotNumber} · {lote.areaM2.toFixed(2)} m²</p>
-            <p style={{ color: 'var(--text-inverse-secondary)' }}>{formatCurrency(lote.currentPrice)}</p>
-            <p style={{ color: 'var(--text-inverse-tertiary)' }}>{cfg.label}</p>
+            {lote.status === 'RESERVED' ? (
+              <>
+                <p style={{ color: 'var(--text-inverse-secondary)' }}>Apartado por: {lote.reservedByName ?? 'N/A'}</p>
+                <p style={{ color: 'var(--text-inverse-secondary)' }}>
+                  Vence: {lote.reservationExpiry
+                    ? new Date(lote.reservationExpiry).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '—'}
+                </p>
+                <p style={{ color: 'var(--text-inverse-secondary)' }}>Anticipo: {formatCurrency(lote.reservationDeposit ?? 0)}</p>
+              </>
+            ) : (
+              <>
+                <p style={{ color: 'var(--text-inverse-secondary)' }}>{formatCurrency(lote.currentPrice)}</p>
+                <p style={{ color: 'var(--text-inverse-tertiary)' }}>{cfg.label}</p>
+              </>
+            )}
           </div>
           <div className="w-2 h-2 rotate-45 mx-auto -mt-1" style={{ backgroundColor: 'var(--surface-inverse)' }} />
         </div>
