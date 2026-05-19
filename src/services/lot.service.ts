@@ -176,39 +176,34 @@ export class LotService {
       throw new Error('El lote no está disponible para apartar');
     }
 
-    // Validar monto de apartado
-    if (data.reservationDeposit !== 0 && data.reservationDeposit !== 5000) {
-      throw new Error('El apartado debe ser $0 (palabra) o $5,000 (con pago)');
+    if (!data.clientName?.trim()) {
+      throw new Error('El nombre del cliente es requerido');
     }
 
-    // Validar plazo según monto
-    if (data.reservationDeposit === 0 && data.expiryWeeks !== 1) {
-      throw new Error('Apartado de palabra debe ser 1 semana');
+    if (!data.clientPhone?.trim()) {
+      throw new Error('El teléfono del cliente es requerido');
     }
 
-    if (data.reservationDeposit === 5000 && data.expiryWeeks !== 3) {
-      throw new Error('Apartado con pago debe ser 3 semanas');
-    }
-
-    // Calcular fecha de expiración (semanas hábiles)
+    // deposit >= 0; plazo automático según monto
+    const expiryWeeks = data.deposit > 0 ? 3 : 1;
     const today = new Date();
-    const expiryDate = this.addBusinessWeeks(today, data.expiryWeeks);
+    const expiryDate = this.addBusinessWeeks(today, expiryWeeks);
 
     return await prisma.lot.update({
       where: { id },
       data: {
-        status: LotStatus.RESERVED,
-        reservedAt: today,
-        reservationExpiry: expiryDate,
-        reservationDeposit: data.reservationDeposit,
+        status:             LotStatus.RESERVED,
+        reservedAt:         today,
+        reservationExpiry:  expiryDate,
+        reservationDeposit: data.deposit,
+        reservedByName:     data.clientName.trim(),
+        reservedByPhone:    data.clientPhone.trim(),
+        reservedByEmail:    data.clientEmail?.trim() ?? null,
+        reservedByAgentId:  data.agentId ?? null,
       },
       include: {
         project: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
+          select: { id: true, code: true, name: true },
         },
       },
     });
@@ -229,10 +224,14 @@ export class LotService {
     return await prisma.lot.update({
       where: { id },
       data: {
-        status: LotStatus.AVAILABLE,
-        reservedAt: null,
-        reservationExpiry: null,
+        status:             LotStatus.AVAILABLE,
+        reservedAt:         null,
+        reservationExpiry:  null,
         reservationDeposit: null,
+        reservedByName:     null,
+        reservedByPhone:    null,
+        reservedByEmail:    null,
+        reservedByAgentId:  null,
       },
       include: {
         project: {

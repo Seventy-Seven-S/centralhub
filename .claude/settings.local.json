@@ -9,7 +9,17 @@
       "Bash(git status *)",
       "Bash(git check-ignore *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(psql *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:postgres@localhost:5432/centralhub\" -c \"SELECT id, `\"contractNumber`\", `\"codigoLegado`\", `\"totalPrice`\", `\"installmentAmount`\", `\"downPayment`\", `\"installmentCount`\", `\"balance`\" FROM contracts WHERE `\"codigoLegado`\" = 'K094' LIMIT 1;\")",
+      "PowerShell(node query_k094.mjs)",
+      "PowerShell(node query_afectados.mjs)",
+      "PowerShell(node query_check.mjs)",
+      "PowerShell(node fix_installment.mjs)",
+      "PowerShell(node query_cuotas.mjs)",
+      "PowerShell(node fix_cuotas.mjs)",
+      "PowerShell(admin *)",
+      "PowerShell(git add *)"
     ]
   }
 }

@@ -27,8 +27,11 @@ export interface UpdateLotDto {
 
 // DTO para apartar lote
 export interface ReserveLotDto {
-  reservationDeposit: number; // 0 (palabra) o 5000 (con pago)
-  expiryWeeks: number; // 1 (palabra) o 3 (con pago)
+  deposit:      number;  // monto del anticipo (0 = sin anticipo)
+  clientName:   string;  // nombre del cliente
+  clientPhone:  string;  // teléfono
+  clientEmail?: string;  // email opcional
+  agentId?:     string;  // id del asesor que aparta
 }
 
 // Filtros para buscar lotes

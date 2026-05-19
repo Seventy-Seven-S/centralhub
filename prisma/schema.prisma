@@ -49,6 +49,7 @@ model User {
   paymentsCreated    Payment[]
   expensesCreated    Expense[]         @relation("ExpenseCreatedBy")
   categoriesCreated  ExpenseCategory[] @relation("CategoryCreatedBy")
+  lotsReserved       Lot[]             @relation("LotReservedByAgent")
 
   @@map("users")
 }
@@ -241,14 +242,20 @@ model Lot {
   reservedAt          DateTime?
   reservationExpiry   DateTime?
   reservationDeposit  Float?
-  
+
+  reservedByName      String?
+  reservedByPhone     String?
+  reservedByEmail     String?
+  reservedByAgentId   String?
+
   features            Json?
-  
+
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
-  
+
   project             Project      @relation(fields: [projectId], references: [id])
   contracts           ContractLot[]
+  reservedByAgent     User?        @relation("LotReservedByAgent", fields: [reservedByAgentId], references: [id])
 
   @@unique([projectId, manzana, lotNumber])
   @@map("lots")
