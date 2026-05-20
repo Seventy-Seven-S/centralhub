@@ -65,17 +65,24 @@ function PageSkeleton() {
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 
+const STATUS_CFG: Record<string, { label: string; bg: string; color: string }> = {
+  ACTIVE:     { label: 'Activo',     bg: 'var(--success-bg)',  color: 'var(--success)'        },
+  IN_MORA:    { label: 'En mora',    bg: 'var(--danger-bg)',   color: 'var(--danger)'          },
+  DRAFT:      { label: 'Borrador',   bg: 'var(--bg-secondary)', color: 'var(--text-secondary)' },
+  SIGNED:     { label: 'Firmado',    bg: 'var(--accent-bg)',   color: 'var(--accent)'          },
+  COMPLETED:  { label: 'Completado', bg: 'var(--success-bg)',  color: 'var(--success)'         },
+  CANCELED:   { label: 'Cancelado',  bg: 'var(--bg-secondary)', color: 'var(--text-tertiary)'  },
+  RESCISSION: { label: 'Rescisión',  bg: 'var(--danger-bg)',   color: 'var(--danger)'          },
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const isActive = status === 'ACTIVE';
+  const cfg = STATUS_CFG[status] ?? { label: status, bg: 'var(--bg-secondary)', color: 'var(--text-secondary)' };
   return (
     <span
       className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-      style={{
-        backgroundColor: isActive ? 'var(--success-bg)' : 'var(--danger-bg)',
-        color:           isActive ? 'var(--success)' : 'var(--danger)',
-      }}
+      style={{ backgroundColor: cfg.bg, color: cfg.color }}
     >
-      {isActive ? 'Activo' : 'En mora'}
+      {cfg.label}
     </span>
   );
 }

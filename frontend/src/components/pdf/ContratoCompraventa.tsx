@@ -81,7 +81,7 @@ const s = StyleSheet.create({
   footerText:      { fontSize: 7.5, color: C.gray, flex: 1 },
   footerBrand:     { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.navy, textAlign: 'right' },
   // Watermark
-  watermark:       { position: 'absolute', top: '35%', left: '5%', fontSize: 80, fontFamily: 'Helvetica-Bold', color: '#E5E7EB', opacity: 0.4, transform: 'rotate(-45deg)', zIndex: 999 },
+  watermark:       { position: 'absolute', top: 250, left: 60, fontSize: 72, fontFamily: 'Helvetica-Bold', color: '#E5E7EB', opacity: 0.35, transform: 'rotate(-45deg)' },
 });
 
 function fmt(n: number) {
@@ -143,7 +143,7 @@ export interface ContratoProps {
   showWatermark?: boolean;
 }
 
-const PAGE_ROWS = 38;
+const PAGE_ROWS = 29;
 
 export function ContratoCompraventa({ contrato, cuotas, showWatermark }: ContratoProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;

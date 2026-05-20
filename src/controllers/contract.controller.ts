@@ -1,7 +1,10 @@
 // src/controllers/contract.controller.ts
 import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import contractService from '../services/contract.service';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
+
+const prisma = new PrismaClient();
 
 export class ContractController {
   // POST /api/v1/contracts
@@ -106,6 +109,30 @@ export class ContractController {
         success: false,
         message: error.message || 'Error al agregar co-titular',
       });
+    }
+  }
+
+  // POST /api/v1/contracts/:id/upload-signed
+  async uploadSigned(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const file = (req as any).file;
+
+      if (!file) {
+        res.status(400).json({ success: false, message: 'No se recibió ningún archivo' });
+        return;
+      }
+
+      const contractFileUrl = `/uploads/contratos/${file.filename}`;
+
+      await prisma.contract.update({
+        where: { id },
+        data: { contractFileUrl, status: 'ACTIVE' },
+      });
+
+      res.json({ success: true, data: { contractFileUrl, status: 'ACTIVE' } });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || 'Error al subir el contrato' });
     }
   }
 }

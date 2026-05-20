@@ -29,7 +29,17 @@
       "Bash(curl -s http://localhost:4000/api/v1/projects)",
       "Bash(curl -s http://localhost:3000)",
       "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" \"postgresql://postgres:postgres@localhost:5432/centralhub\" -c \"SELECT email, role FROM users LIMIT 5;\" 2>&1)",
-      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@centralhub.com\",\"password\":\"Admin123!\"}')"
+      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@centralhub.com\",\"password\":\"Admin123!\"}')",
+      "PowerShell(psql *)",
+      "PowerShell(npx prisma db execute --file query_k097.sql --schema prisma/schema.prisma 2>&1)",
+      "PowerShell(node query_k097.mjs 2>&1)",
+      "PowerShell(node query_tmp.mjs 2>&1)",
+      "PowerShell(npm install *)",
+      "PowerShell(New-Item *)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 30)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"contract\\\\.controller|contract\\\\.routes|app\\\\.ts\" })",
+      "PowerShell($out = npx tsc --noEmit 2>&1; $out | ForEach-Object { if \\($_ -match \"contract\\\\.controller|contract\\\\.routes|src/app\\\\.ts\"\\) { $_ } })",
+      "Bash(npx tsc *)"
     ]
   }
 }

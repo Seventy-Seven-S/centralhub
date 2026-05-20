@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, AlertCircle, FileText, DollarSign,
   Calendar, CheckCircle2, Clock, XCircle, FileDown,
-  CreditCard, ChevronDown, ChevronUp,
+  Upload, ExternalLink, CreditCard, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import {
   useContratoById, useCuotasByContrato, usePagosByContrato,
@@ -79,11 +80,37 @@ function StatusBadge({ status }: { status: string }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ContratoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router  = useRouter();
+  const router     = useRouter();
+  const queryClient = useQueryClient();
 
   const { data: contrato, isLoading: loadingContrato, isError: errorContrato } = useContratoById(id);
   const { data: cuotas   = [], isLoading: loadingCuotas } = useCuotasByContrato(id);
   const { data: pagos    = [], isLoading: loadingPagos }  = usePagosByContrato(id);
+
+  const fileInputRef           = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleUploadSigned(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contracts/${id}/upload-signed`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: form,
+      });
+      if (!res.ok) throw new Error('Error al subir el archivo');
+      await queryClient.invalidateQueries({ queryKey: ['contratos', id] });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
 
   const [selectedCuota, setSelectedCuota] = useState<Cuota | null>(null);
   const [showAllCuotas, setShowAllCuotas] = useState(false);
@@ -166,6 +193,47 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               </span>
             </div>
           </div>
+
+          {/* Input file oculto para upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={handleUploadSigned}
+          />
+
+          {/* Botón subir contrato firmado — solo en DRAFT */}
+          {contrato.status === 'DRAFT' && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: 'white',
+                opacity: uploading ? 0.7 : 1,
+                cursor: uploading ? 'wait' : 'pointer',
+              }}
+            >
+              <Upload size={16} />
+              {uploading ? 'Subiendo...' : 'Subir contrato firmado'}
+            </button>
+          )}
+
+          {/* Botón ver contrato firmado — cuando ya existe */}
+          {contrato.status !== 'DRAFT' && (contrato as any).contractFileUrl && (
+            <a
+              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '')}${(contrato as any).contractFileUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success)' }}
+            >
+              <ExternalLink size={16} />
+              Ver contrato firmado
+            </a>
+          )}
 
           {/* PDF Contrato */}
           <PDFDownloadLink
