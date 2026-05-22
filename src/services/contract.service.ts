@@ -51,7 +51,9 @@ export class ContractService {
     const generatedNumber = await this.generateContractNumber(data.projectId);
 
     // Calcular precio total y balance
-    const totalPrice = lots.reduce((sum, lot) => sum + lot.currentPrice, 0);
+    const totalPrice = (data as any).totalPrice && (data as any).totalPrice > 0
+      ? (data as any).totalPrice
+      : lots.reduce((sum, lot) => sum + lot.currentPrice, 0);
     const balance = totalPrice - data.downPayment;
 
     // Crear contrato con transacción

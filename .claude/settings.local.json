@@ -39,7 +39,9 @@
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 30)",
       "PowerShell(npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"contract\\\\.controller|contract\\\\.routes|app\\\\.ts\" })",
       "PowerShell($out = npx tsc --noEmit 2>&1; $out | ForEach-Object { if \\($_ -match \"contract\\\\.controller|contract\\\\.routes|src/app\\\\.ts\"\\) { $_ } })",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(curl *)",
+      "Bash(Get-ChildItem *)"
     ]
   }
 }

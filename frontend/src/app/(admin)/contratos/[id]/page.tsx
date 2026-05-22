@@ -99,7 +99,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
       form.append('file', file);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contracts/${id}/upload-signed`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
         body: form,
       });
       if (!res.ok) throw new Error('Error al subir el archivo');

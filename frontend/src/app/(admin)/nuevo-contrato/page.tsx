@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useProyectos } from '@/hooks/useProyectos';
@@ -150,6 +150,7 @@ export default function NuevoContratoPage() {
   const [downPayment,  setDownPayment]  = useState(0);
   const [plazo,        setPlazo]        = useState(60);
   const [fechaInicio,  setFechaInicio]  = useState(() => new Date().toISOString().split('T')[0]);
+  const [precioEditado, setPrecioEditado] = useState<number>(0);
 
   const { data: proyectos = [] } = useProyectos();
   const { data: todosLotes = [] } = useLotes(projectId);
@@ -169,8 +170,11 @@ export default function NuevoContratoPage() {
     [proyectos, projectId]
   );
 
-  const precioLote      = loteSeleccionado?.currentPrice ?? 0;
-  const saldoFinanciado = Math.max(0, precioLote - downPayment);
+  useEffect(() => {
+    setPrecioEditado(loteSeleccionado?.currentPrice ?? 0);
+  }, [loteSeleccionado]);
+
+  const saldoFinanciado = Math.max(0, precioEditado - downPayment);
   const mensualidad     = plazo > 0 ? saldoFinanciado / plazo : 0;
 
   // ── Navegación entre pasos
@@ -217,6 +221,7 @@ export default function NuevoContratoPage() {
         clientId,
         projectId,
         lotIds:        [lotId],
+        totalPrice:    precioEditado,
         downPayment,
         financedAmount: saldoFinanciado,
         interestRate:  0,
@@ -367,13 +372,21 @@ export default function NuevoContratoPage() {
               <input
                 style={inputStyle}
                 type="text"
-                inputMode="numeric"
-                value={downPayment === 0 ? '' : downPayment.toString()}
+                value={
+                  downPayment === 0
+                    ? ''
+                    : new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: 'MXN',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format(downPayment)
+                }
                 onChange={e => {
                   const raw = e.target.value.replace(/[^0-9]/g, '');
-                  setDownPayment(raw === '' ? 0 : parseInt(raw, 10));
+                  setDownPayment(raw ? Number(raw) : 0);
                 }}
-                placeholder="0"
+                placeholder="$0"
               />
             </Field>
 
@@ -401,9 +414,26 @@ export default function NuevoContratoPage() {
                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
               <div>
                 <p style={labelStyle}>Precio del lote</p>
-                <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-                  {formatCurrency(precioLote)}
-                </p>
+                <input
+                  type="text"
+                  value={
+                    precioEditado === 0
+                      ? ''
+                      : new Intl.NumberFormat('es-MX', {
+                          style: 'currency',
+                          currency: 'MXN',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        }).format(precioEditado)
+                  }
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    setPrecioEditado(raw ? Number(raw) : 0);
+                  }}
+                  className="w-full text-base font-bold bg-transparent border-b outline-none"
+                  style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                  placeholder="$0"
+                />
               </div>
               <div>
                 <p style={labelStyle}>Saldo financiado</p>
@@ -463,7 +493,7 @@ export default function NuevoContratoPage() {
                 { label: 'Proyecto',    value: proyectoSeleccionado ? `${proyectoSeleccionado.name} (${proyectoSeleccionado.code})` : '' },
                 { label: 'Lote',        value: loteSeleccionado ? `M${loteSeleccionado.manzana} L-${loteSeleccionado.lotNumber}` : '' },
                 { label: 'Superficie',  value: loteSeleccionado ? `${loteSeleccionado.areaM2.toFixed(2)} m²` : '' },
-                { label: 'Precio',      value: formatCurrency(precioLote) },
+                { label: 'Precio',      value: formatCurrency(precioEditado) },
               ]}
             />
             <SummaryCard

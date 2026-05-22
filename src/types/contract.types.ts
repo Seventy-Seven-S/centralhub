@@ -13,6 +13,7 @@ export interface CreateContractDto {
   monthlyPayment: number;
   startDate: Date;
   notes?: string;
+  totalPrice?: number;
 }
 
 // DTO para actualizar contrato
