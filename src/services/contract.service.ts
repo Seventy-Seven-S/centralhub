@@ -99,6 +99,11 @@ export class ContractService {
       throw new Error(`Los siguientes lotes no están disponibles: ${unavailableLots.map(l => l.lotNumber).join(', ')}`);
     }
 
+    // Calcular split del enganche: depósito de apartado + saldo del enganche
+    const depositSplit = computeDepositSplit(lots, data.downPayment);
+    // Si depósito > enganche, lanza DepositExceedsDownPaymentError aquí mismo
+    // (antes de abrir la transacción, así no tocamos BD).
+
     // Generar número de contrato único
     const generatedNumber = await this.generateContractNumber(data.projectId);
 
@@ -144,10 +149,20 @@ export class ContractService {
         });
       }
 
-      // 3. Actualizar estado de lotes a SOLD
+      // 3. Actualizar estado de lotes a SOLD + limpiar campos de reserva
+      // (los datos del apartado quedan registrados en Payment, no en Lot)
       await tx.lot.updateMany({
         where: { id: { in: data.lotIds } },
-        data: { status: LotStatus.SOLD },
+        data: {
+          status:             LotStatus.SOLD,
+          reservedAt:         null,
+          reservationExpiry:  null,
+          reservationDeposit: null,
+          reservedByName:     null,
+          reservedByPhone:    null,
+          reservedByEmail:    null,
+          reservedByAgentId:  null,
+        },
       });
 
       return newContract;
@@ -170,18 +185,51 @@ export class ContractService {
 
     await prisma.cuota.createMany({ data: cuotas });
 
-    // Registrar pago de enganche si aplica
-    if (contract.downPayment > 0) {
-      const paymentCount = await prisma.payment.count({ where: { contractId: contract.id } });
-      const paymentNumber = `PAY-${contract.codigoLegado}-${String(paymentCount + 1).padStart(3, '0')}`;
+    // Registrar pagos según el split del enganche:
+    //   - Si hubo depósito de apartado → Payment tipo RESERVATION_DEPOSIT (fecha = min(reservedAt))
+    //   - Si queda saldo del enganche → Payment tipo DOWN_PAYMENT (fecha = startDate)
+    let paymentSeq = 0;
+
+    if (depositSplit.totalDeposit > 0) {
+      paymentSeq += 1;
+      const paymentNumber = `PAY-${contract.codigoLegado}-${String(paymentSeq).padStart(3, '0')}`;
+      const earliestReservedAt = depositSplit.depositSources.reduce(
+        (min, src) => (src.reservedAt < min ? src.reservedAt : min),
+        depositSplit.depositSources[0].reservedAt,
+      );
+      const conceptParts = depositSplit.depositSources
+        .map(s => `${s.lotLabel} ($${s.amount.toLocaleString('es-MX')})`)
+        .join('; ');
 
       await prisma.payment.create({
         data: {
           contractId:    contract.id,
           clientId:      contract.clientId,
-          amount:        contract.downPayment,
+          amount:        depositSplit.totalDeposit,
+          paymentDate:   earliestReservedAt,
+          concept:       `Depósito de apartado: ${conceptParts}`,
+          paymentType:   PaymentType.RESERVATION_DEPOSIT,
+          paymentMethod: PaymentMethod.TRANSFER,
+          status:        PaymentStatus.CONFIRMED,
+          paymentNumber,
+        },
+      });
+    }
+
+    if (depositSplit.downPaymentRemaining > 0) {
+      paymentSeq += 1;
+      const paymentNumber = `PAY-${contract.codigoLegado}-${String(paymentSeq).padStart(3, '0')}`;
+      const concept = depositSplit.totalDeposit > 0
+        ? 'Enganche (saldo tras aplicar depósito de apartado)'
+        : 'Enganche';
+
+      await prisma.payment.create({
+        data: {
+          contractId:    contract.id,
+          clientId:      contract.clientId,
+          amount:        depositSplit.downPaymentRemaining,
           paymentDate:   contract.startDate ?? contract.contractDate,
-          concept:       'Enganche',
+          concept,
           paymentType:   PaymentType.DOWN_PAYMENT,
           paymentMethod: PaymentMethod.TRANSFER,
           status:        PaymentStatus.CONFIRMED,
