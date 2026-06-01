@@ -2,13 +2,15 @@
 import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
-import { DepositExceedsDownPaymentError } from '../utils/errors';
+import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 // ────────────────────────────────────────────────────────────────────────────
 // computeDepositSplit (pure function — sin Prisma, sin side effects)
+// Semántica: depósito de apartado y enganche al firmar son pagos
+// INDEPENDIENTES. El total upfront = depósito + enganche; debe ser ≤ precio.
 // ────────────────────────────────────────────────────────────────────────────
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -22,14 +24,16 @@ export interface DepositSplitLot {
 }
 
 export interface DepositSplitResult {
-  totalDeposit: number;
-  downPaymentRemaining: number;
+  totalDeposit: number;        // suma de depósitos de apartado de los lotes
+  enganche: number;            // enganche al firmar (pass-through con round2)
+  totalUpfront: number;        // = totalDeposit + enganche (se guarda en Contract.downPayment)
   depositSources: Array<{ lotLabel: string; amount: number; reservedAt: Date }>;
 }
 
 export function computeDepositSplit(
   lots: DepositSplitLot[],
-  downPayment: number,
+  engancheAlFirmar: number,
+  totalPrice: number,
 ): DepositSplitResult {
   const depositSources: DepositSplitResult['depositSources'] = [];
   let rawTotal = 0;
@@ -47,15 +51,15 @@ export function computeDepositSplit(
   }
 
   const totalDeposit = round2(rawTotal);
-  const downPaymentRounded = round2(downPayment);
+  const enganche = round2(engancheAlFirmar);
+  const totalUpfront = round2(totalDeposit + enganche);
+  const totalPriceRounded = round2(totalPrice);
 
-  if (totalDeposit > downPaymentRounded) {
-    throw new DepositExceedsDownPaymentError(totalDeposit, downPaymentRounded);
+  if (totalUpfront > totalPriceRounded) {
+    throw new TotalUpfrontExceedsPriceError(totalUpfront, totalPriceRounded);
   }
 
-  const downPaymentRemaining = round2(downPaymentRounded - totalDeposit);
-
-  return { totalDeposit, downPaymentRemaining, depositSources };
+  return { totalDeposit, enganche, totalUpfront, depositSources };
 }
 
 export class ContractService {
@@ -99,19 +103,23 @@ export class ContractService {
       throw new Error(`Los siguientes lotes no están disponibles: ${unavailableLots.map(l => l.lotNumber).join(', ')}`);
     }
 
-    // Calcular split del enganche: depósito de apartado + saldo del enganche
-    const depositSplit = computeDepositSplit(lots, data.downPayment);
-    // Si depósito > enganche, lanza DepositExceedsDownPaymentError aquí mismo
+    // Calcular precio total primero (necesario para validar el split)
+    const totalPrice = (data as any).totalPrice && (data as any).totalPrice > 0
+      ? (data as any).totalPrice
+      : lots.reduce((sum, lot) => sum + lot.currentPrice, 0);
+
+    // Calcular split: depósito de apartado + enganche al firmar = total upfront.
+    // Si totalUpfront > totalPrice, lanza TotalUpfrontExceedsPriceError aquí mismo
     // (antes de abrir la transacción, así no tocamos BD).
+    const depositSplit = computeDepositSplit(lots, data.downPayment, totalPrice);
 
     // Generar número de contrato único
     const generatedNumber = await this.generateContractNumber(data.projectId);
 
-    // Calcular precio total y balance
-    const totalPrice = (data as any).totalPrice && (data as any).totalPrice > 0
-      ? (data as any).totalPrice
-      : lots.reduce((sum, lot) => sum + lot.currentPrice, 0);
-    const balance = totalPrice - data.downPayment;
+    // Bajo la semántica 'pago separado':
+    // - Contract.downPayment = total upfront (depósito + enganche)
+    // - Contract.balance = lo que queda por financiar
+    const balance = Math.round((totalPrice - depositSplit.totalUpfront) * 100) / 100;
 
     // Crear contrato con transacción
     const contract = await prisma.$transaction(async (tx) => {
@@ -124,8 +132,10 @@ export class ContractService {
           projectId: data.projectId,
           contractDate: data.startDate,
           totalPrice,
-          downPayment: data.downPayment,
-          financingAmount: data.financedAmount,
+          // downPayment ahora representa el TOTAL UPFRONT (depósito + enganche al firmar)
+          downPayment: depositSplit.totalUpfront,
+          // financingAmount = balance = lo que va a mensualidades
+          financingAmount: balance,
           balance,
           paymentPlanType: PaymentPlanType.INSTALLMENTS,
           installmentCount: data.termMonths,
@@ -185,9 +195,10 @@ export class ContractService {
 
     await prisma.cuota.createMany({ data: cuotas });
 
-    // Registrar pagos según el split del enganche:
+    // Registrar pagos bajo la semántica 'pago separado':
     //   - Si hubo depósito de apartado → Payment tipo RESERVATION_DEPOSIT (fecha = min(reservedAt))
-    //   - Si queda saldo del enganche → Payment tipo DOWN_PAYMENT (fecha = startDate)
+    //   - Si hay enganche al firmar > 0 → Payment tipo DOWN_PAYMENT (fecha = startDate)
+    // Ambos pagos son INDEPENDIENTES (no se restan entre sí).
     let paymentSeq = 0;
 
     if (depositSplit.totalDeposit > 0) {
@@ -216,20 +227,17 @@ export class ContractService {
       });
     }
 
-    if (depositSplit.downPaymentRemaining > 0) {
+    if (depositSplit.enganche > 0) {
       paymentSeq += 1;
       const paymentNumber = `PAY-${contract.codigoLegado}-${String(paymentSeq).padStart(3, '0')}`;
-      const concept = depositSplit.totalDeposit > 0
-        ? 'Enganche (saldo tras aplicar depósito de apartado)'
-        : 'Enganche';
 
       await prisma.payment.create({
         data: {
           contractId:    contract.id,
           clientId:      contract.clientId,
-          amount:        depositSplit.downPaymentRemaining,
+          amount:        depositSplit.enganche,
           paymentDate:   contract.startDate ?? contract.contractDate,
-          concept,
+          concept:       'Enganche al firmar',
           paymentType:   PaymentType.DOWN_PAYMENT,
           paymentMethod: PaymentMethod.TRANSFER,
           status:        PaymentStatus.CONFIRMED,

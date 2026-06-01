@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import contractService from '../services/contract.service';
 import { logger } from '../utils/logger';
-import { DepositExceedsDownPaymentError } from '../utils/errors';
+import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 
 const prisma = new PrismaClient();
@@ -21,21 +21,21 @@ export class ContractController {
         data: contract,
       });
     } catch (error: any) {
-      if (error instanceof DepositExceedsDownPaymentError) {
-        logger.warn('Contract creation rejected: deposit exceeds down payment', {
-          clientId:      req.body?.clientId,
-          projectId:     req.body?.projectId,
-          lotIds:        req.body?.lotIds,
-          totalDeposit:  error.totalDeposit,
-          downPayment:   error.downPayment,
-          agentId:       (req as any).user?.id,
+      if (error instanceof TotalUpfrontExceedsPriceError) {
+        logger.warn('Contract creation rejected: total upfront exceeds price', {
+          clientId:     req.body?.clientId,
+          projectId:    req.body?.projectId,
+          lotIds:       req.body?.lotIds,
+          totalUpfront: error.totalUpfront,
+          totalPrice:   error.totalPrice,
+          agentId:      (req as any).user?.id,
         });
         return res.status(400).json({
           success:      false,
           code:         error.code,
-          message:      `El depósito del apartado ($${error.totalDeposit.toLocaleString('es-MX')}) excede el enganche pactado ($${error.downPayment.toLocaleString('es-MX')}). Ajusta el enganche o renegocia el depósito antes de continuar.`,
-          totalDeposit: error.totalDeposit,
-          downPayment:  error.downPayment,
+          message:      `El total upfront (depósito + enganche al firmar = $${error.totalUpfront.toLocaleString('es-MX')}) excede el precio del lote ($${error.totalPrice.toLocaleString('es-MX')}). Ajusta el enganche o renegocia el depósito antes de continuar.`,
+          totalUpfront: error.totalUpfront,
+          totalPrice:   error.totalPrice,
         });
       }
       res.status(400).json({
