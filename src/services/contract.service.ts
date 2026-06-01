@@ -2,9 +2,61 @@
 import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
+import { DepositExceedsDownPaymentError } from '../utils/errors';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+
+// ────────────────────────────────────────────────────────────────────────────
+// computeDepositSplit (pure function — sin Prisma, sin side effects)
+// ────────────────────────────────────────────────────────────────────────────
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export interface DepositSplitLot {
+  id: string;
+  reservationDeposit: number | null;
+  manzana: number;
+  lotNumber: string;
+  reservedAt: Date | null;
+}
+
+export interface DepositSplitResult {
+  totalDeposit: number;
+  downPaymentRemaining: number;
+  depositSources: Array<{ lotLabel: string; amount: number; reservedAt: Date }>;
+}
+
+export function computeDepositSplit(
+  lots: DepositSplitLot[],
+  downPayment: number,
+): DepositSplitResult {
+  const depositSources: DepositSplitResult['depositSources'] = [];
+  let rawTotal = 0;
+
+  for (const lot of lots) {
+    const deposit = lot.reservationDeposit ?? 0;
+    if (deposit > 0) {
+      rawTotal += deposit;
+      depositSources.push({
+        lotLabel: `M${lot.manzana} L-${lot.lotNumber}`,
+        amount: round2(deposit),
+        reservedAt: lot.reservedAt as Date,
+      });
+    }
+  }
+
+  const totalDeposit = round2(rawTotal);
+  const downPaymentRounded = round2(downPayment);
+
+  if (totalDeposit > downPaymentRounded) {
+    throw new DepositExceedsDownPaymentError(totalDeposit, downPaymentRounded);
+  }
+
+  const downPaymentRemaining = round2(downPaymentRounded - totalDeposit);
+
+  return { totalDeposit, downPaymentRemaining, depositSources };
+}
 
 export class ContractService {
   // Crear un contrato nuevo
