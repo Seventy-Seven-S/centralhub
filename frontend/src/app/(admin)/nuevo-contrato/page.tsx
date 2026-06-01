@@ -179,7 +179,9 @@ export default function NuevoContratoPage() {
     setPrecioEditado(loteSeleccionado?.currentPrice ?? 0);
   }, [loteSeleccionado]);
 
-  const saldoFinanciado = Math.max(0, precioEditado - downPayment);
+  const totalDeposit    = loteSeleccionado?.reservationDeposit ?? 0;
+  const totalUpfront    = totalDeposit + downPayment;
+  const saldoFinanciado = Math.max(0, precioEditado - totalUpfront);
   const mensualidad     = plazo > 0 ? saldoFinanciado / plazo : 0;
 
   // ── Navegación entre pasos
@@ -239,7 +241,7 @@ export default function NuevoContratoPage() {
       router.push(`/contratos/${contractId}`);
     } catch (err: any) {
       const apiError = err?.response?.data;
-      if (apiError?.code === 'DEPOSIT_EXCEEDS_DOWNPAYMENT') {
+      if (apiError?.code === 'TOTAL_UPFRONT_EXCEEDS_PRICE') {
         // Mostrar mensaje accionable del backend SIN resetear el form.
         // El usuario puede volver al paso 2, ajustar el enganche y reintentar.
         setSubmitError(apiError.message);
@@ -391,13 +393,13 @@ export default function NuevoContratoPage() {
                 <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   <strong>Depósito de apartado registrado:</strong> este lote tiene{' '}
                   <strong>{formatCurrency(loteSeleccionado.reservationDeposit ?? 0)}</strong> registrado el{' '}
-                  {formatDate(loteSeleccionado.reservedAt)}. Se aplicará automáticamente al enganche al
-                  formalizar el contrato.
+                  {formatDate(loteSeleccionado.reservedAt)}. Quedará registrado como pago al formalizar el
+                  contrato, <strong>separado del enganche</strong> que captures abajo.
                 </p>
               </div>
             )}
 
-            <Field label="Enganche">
+            <Field label="Enganche al firmar">
               <input
                 style={inputStyle}
                 type="text"
@@ -415,7 +417,7 @@ export default function NuevoContratoPage() {
                   const raw = e.target.value.replace(/[^0-9]/g, '');
                   setDownPayment(raw ? Number(raw) : 0);
                 }}
-                placeholder="$0"
+                placeholder="Monto que cobrarás al firmar"
               />
             </Field>
 
@@ -528,11 +530,11 @@ export default function NuevoContratoPage() {
             <SummaryCard
               title="Condiciones financieras"
               rows={[
-                { label: 'Enganche',     value: formatCurrency(downPayment) },
-                { label: 'Saldo',        value: formatCurrency(saldoFinanciado) },
-                { label: 'Plazo',        value: `${plazo} meses` },
-                { label: 'Mensualidad',  value: formatCurrency(mensualidad) },
-                { label: 'Fecha inicio', value: new Date(fechaInicio + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) },
+                { label: 'Enganche al firmar', value: formatCurrency(downPayment) },
+                { label: 'Saldo',              value: formatCurrency(saldoFinanciado) },
+                { label: 'Plazo',              value: `${plazo} meses` },
+                { label: 'Mensualidad',        value: formatCurrency(mensualidad) },
+                { label: 'Fecha inicio',       value: new Date(fechaInicio + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) },
               ]}
             />
           </div>
