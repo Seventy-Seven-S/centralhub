@@ -8,6 +8,11 @@ import { useLotes } from '@/hooks/useLotes';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
+function formatDate(d: string | Date | null | undefined): string {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -233,7 +238,14 @@ export default function NuevoContratoPage() {
       const contractId = contractRes.data.data.id;
       router.push(`/contratos/${contractId}`);
     } catch (err: any) {
-      setSubmitError(err.response?.data?.message || err.message || 'Error al generar el contrato');
+      const apiError = err?.response?.data;
+      if (apiError?.code === 'DEPOSIT_EXCEEDS_DOWNPAYMENT') {
+        // Mostrar mensaje accionable del backend SIN resetear el form.
+        // El usuario puede volver al paso 2, ajustar el enganche y reintentar.
+        setSubmitError(apiError.message);
+        return;
+      }
+      setSubmitError(apiError?.message || err.message || 'Error al generar el contrato');
     } finally {
       setLoading(false);
     }
@@ -367,6 +379,23 @@ export default function NuevoContratoPage() {
                 ))}
               </select>
             </Field>
+
+            {loteSeleccionado && (loteSeleccionado.reservationDeposit ?? 0) > 0 && (
+              <div
+                className="rounded-xl p-4 mb-4 border-l-4 sm:col-span-2"
+                style={{
+                  backgroundColor: 'var(--gold-pale)',
+                  borderColor: 'var(--gold)',
+                }}
+              >
+                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                  <strong>Depósito de apartado registrado:</strong> este lote tiene{' '}
+                  <strong>{formatCurrency(loteSeleccionado.reservationDeposit ?? 0)}</strong> registrado el{' '}
+                  {formatDate(loteSeleccionado.reservedAt)}. Se aplicará automáticamente al enganche al
+                  formalizar el contrato.
+                </p>
+              </div>
+            )}
 
             <Field label="Enganche">
               <input
