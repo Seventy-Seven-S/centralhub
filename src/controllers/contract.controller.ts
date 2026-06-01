@@ -2,6 +2,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import contractService from '../services/contract.service';
+import { logger } from '../utils/logger';
+import { DepositExceedsDownPaymentError } from '../utils/errors';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 
 const prisma = new PrismaClient();
@@ -12,13 +14,30 @@ export class ContractController {
     try {
       const data: CreateContractDto = req.body;
       const contract = await contractService.createContract(data);
-      
+
       res.status(201).json({
         success: true,
         message: 'Contrato creado exitosamente',
         data: contract,
       });
     } catch (error: any) {
+      if (error instanceof DepositExceedsDownPaymentError) {
+        logger.warn('Contract creation rejected: deposit exceeds down payment', {
+          clientId:      req.body?.clientId,
+          projectId:     req.body?.projectId,
+          lotIds:        req.body?.lotIds,
+          totalDeposit:  error.totalDeposit,
+          downPayment:   error.downPayment,
+          agentId:       (req as any).user?.id,
+        });
+        return res.status(400).json({
+          success:      false,
+          code:         error.code,
+          message:      `El depósito del apartado ($${error.totalDeposit.toLocaleString('es-MX')}) excede el enganche pactado ($${error.downPayment.toLocaleString('es-MX')}). Ajusta el enganche o renegocia el depósito antes de continuar.`,
+          totalDeposit: error.totalDeposit,
+          downPayment:  error.downPayment,
+        });
+      }
       res.status(400).json({
         success: false,
         message: error.message || 'Error al crear contrato',
