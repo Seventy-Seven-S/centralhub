@@ -34,17 +34,18 @@ const CUOTA_STATUS: Record<string, { label: string; icon: React.ReactNode; color
 };
 
 const PAYMENT_TYPE: Record<string, string> = {
-  ENGANCHE:        'Enganche',
-  MENSUALIDAD:     'Mensualidad',
-  ABONO:           'Abono',
-  LIQUIDACION:     'Liquidación',
-  OTRO:            'Otro',
-  DOWN_PAYMENT:    'Enganche',
-  INSTALLMENT:     'Mensualidad',
-  PARTIAL_PAYMENT: 'Abono parcial',
-  FULL_PAYMENT:    'Liquidación total',
-  LATE_FEE:        'Recargo por mora',
-  DISCOUNT:        'Descuento',
+  ENGANCHE:            'Enganche',
+  MENSUALIDAD:         'Mensualidad',
+  ABONO:               'Abono',
+  LIQUIDACION:         'Liquidación',
+  OTRO:                'Otro',
+  DOWN_PAYMENT:        'Enganche',
+  RESERVATION_DEPOSIT: 'Depósito de apartado',
+  INSTALLMENT:         'Mensualidad',
+  PARTIAL_PAYMENT:     'Abono parcial',
+  FULL_PAYMENT:        'Liquidación total',
+  LATE_FEE:            'Recargo por mora',
+  DISCOUNT:            'Descuento',
 };
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
