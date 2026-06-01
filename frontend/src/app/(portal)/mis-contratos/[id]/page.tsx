@@ -74,9 +74,10 @@ function CuotaBadge({ status }: { status: string }) {
 }
 
 const PAYMENT_TYPE: Record<string, string> = {
-  DOWN_PAYMENT:  'Enganche',
-  INSTALLMENT:   'Mensualidad',
-  EXTRA_PAYMENT: 'Pago extra',
+  DOWN_PAYMENT:        'Enganche',
+  RESERVATION_DEPOSIT: 'Depósito de apartado',
+  INSTALLMENT:         'Mensualidad',
+  EXTRA_PAYMENT:       'Pago extra',
 };
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
