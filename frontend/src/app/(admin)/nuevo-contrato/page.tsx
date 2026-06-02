@@ -187,8 +187,13 @@ export default function NuevoContratoPage() {
   // ── Navegación entre pasos
   function goNext() {
     if (step === 1) {
-      if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
-        setStep1Error('Nombre, apellidos y teléfono son obligatorios.');
+      if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) {
+        setStep1Error('Nombre, apellidos, teléfono y email son obligatorios. El email es necesario para crear el acceso del cliente al portal.');
+        return;
+      }
+      // Validación básica de formato de email (algo@algo.dominio)
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        setStep1Error('El email no tiene un formato válido (ej: nombre@dominio.com).');
         return;
       }
       setStep1Error('');
@@ -286,7 +291,7 @@ export default function NuevoContratoPage() {
               <input style={inputStyle} type="tel" value={phone}
                 onChange={e => setPhone(e.target.value)} placeholder="8681234567" />
             </Field>
-            <Field label="Email">
+            <Field label="Email" required>
               <input style={inputStyle} type="email" value={email}
                 onChange={e => setEmail(e.target.value)} placeholder="correo@ejemplo.com" />
             </Field>
