@@ -531,6 +531,7 @@ enum DocumentType {
   ID
   DEED
   OTHER
+  INE
 }
 
 model Document {
@@ -548,6 +549,7 @@ model Document {
   
   user            User         @relation(fields: [uploadedBy], references: [id])
 
+  @@index([relatedEntity, relatedEntityId])
   @@map("documents")
 }
 
