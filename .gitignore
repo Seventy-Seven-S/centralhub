@@ -29,9 +29,6 @@ uploads/
 *.db
 *.sqlite
 
-# Prisma
-prisma/migrations/*
-!prisma/migrations/.gitkeep
 
 # Google API credentials
 credentials/
