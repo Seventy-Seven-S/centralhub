@@ -12,3 +12,15 @@ export class TotalUpfrontExceedsPriceError extends Error {
     this.name = 'TotalUpfrontExceedsPriceError';
   }
 }
+
+export type IneUploadErrorCode = 'INE_REQUIRED' | 'INVALID_FILE_TYPE' | 'FILE_TOO_LARGE';
+
+export class IneUploadError extends Error {
+  constructor(
+    public readonly code: IneUploadErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'IneUploadError';
+  }
+}
