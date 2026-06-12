@@ -24,7 +24,7 @@ logs/
 
 # Uploads
 uploads/
-storage/
+/storage/
 
 # Database
 *.db
