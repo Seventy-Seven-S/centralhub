@@ -9,12 +9,18 @@ import api from '@/lib/api';
 
 const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
 
+const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const INE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const INE_REQUIRED = process.env.NEXT_PUBLIC_INE_REQUIRED === 'true';
+
 // ── Hook de mutación ──────────────────────────────────────────────────────────
 const useReserveLot = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ lotId, data }: { lotId: string; data: any }) => {
-      const res = await api.post(`/lots/${lotId}/reserve`, data);
+    mutationFn: async ({ lotId, formData }: { lotId: string; formData: FormData }) => {
+      const res = await api.post(`/lots/${lotId}/reserve`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       return res.data;
     },
     onSuccess: () => {
@@ -39,6 +45,7 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [clientEmail, setClientEmail] = useState('');
   const [deposit,     setDeposit]     = useState(0);
   const [error,       setError]       = useState('');
+  const [ineFile,     setIneFile]     = useState<File | null>(null);
   const reserveLot = useReserveLot();
 
   const cfg = STATUS_CONFIG[lote.status];
@@ -57,11 +64,29 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (INE_REQUIRED && !ineFile) {
+      setError('La INE del cliente es obligatoria para apartar');
+      return;
+    }
+    if (ineFile && !INE_ALLOWED_TYPES.includes(ineFile.type)) {
+      setError('Solo se aceptan JPG, PNG o PDF');
+      return;
+    }
+    if (ineFile && ineFile.size > INE_MAX_SIZE) {
+      setError('El archivo no debe superar 10 MB');
+      return;
+    }
+
     try {
-      await reserveLot.mutateAsync({
-        lotId: lote.id,
-        data: { deposit, clientName, clientPhone, clientEmail: clientEmail || undefined },
-      });
+      const formData = new FormData();
+      formData.append('deposit', String(deposit));
+      formData.append('clientName', clientName);
+      formData.append('clientPhone', clientPhone);
+      if (clientEmail) formData.append('clientEmail', clientEmail);
+      if (ineFile) formData.append('ineFile', ineFile);
+
+      await reserveLot.mutateAsync({ lotId: lote.id, formData });
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al apartar el lote');
@@ -202,6 +227,44 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                 {deposit > 0
                   ? 'Con anticipo — reserva por 3 semanas hábiles'
                   : 'Sin anticipo — reserva por 1 semana hábil'}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                INE del cliente{INE_REQUIRED ? ' *' : ''}
+              </label>
+              {ineFile ? (
+                <div
+                  className="flex items-center justify-between gap-2 px-3 py-2"
+                  style={{
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--bg-secondary)',
+                  }}
+                >
+                  <span className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                    {ineFile.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIneFile(null)}
+                    className="p-1 rounded-lg transition flex-shrink-0"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  onChange={e => setIneFile(e.target.files?.[0] ?? null)}
+                  style={inputStyle}
+                />
+              )}
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                JPG, PNG o PDF · máx 10 MB
               </p>
             </div>
 
