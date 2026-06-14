@@ -22,6 +22,7 @@ import userRoutes from './routes/user.routes';
 import expenseRoutes from './routes/expense.routes';
 import portalRoutes from './routes/portal.routes';
 import verificacionRoutes from './routes/verificacion.routes';
+import documentRoutes from './routes/document.routes';
 
 const app: Application = express();
 
@@ -116,6 +117,7 @@ app.use(`/api/${API_VERSION}/projects`, projectRoutes);
 app.use(`/api/${API_VERSION}/clients`, clientRoutes);
 app.use(`/api/${API_VERSION}/lots`, lotRoutes);
 app.use(`/api/${API_VERSION}/contracts`, contractRoutes);
+app.use(`/api/${API_VERSION}/documents`, documentRoutes);
 app.use(`/api/${API_VERSION}/payments`, paymentRoutes);
 app.use(`/api/${API_VERSION}/cuotas`, cuotaRoutes);
 app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes);
