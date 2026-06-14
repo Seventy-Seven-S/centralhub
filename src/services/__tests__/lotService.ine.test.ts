@@ -111,4 +111,13 @@ describe('reserveLot con INE', () => {
     ).rejects.toThrow(IneUploadError);
     expect(mocks.storage.saveFile).not.toHaveBeenCalled();
   });
+
+  it('si saveFile falla → re-lanza y NO intenta deleteFile', async () => {
+    mocks.storage.saveFile.mockRejectedValue(new Error('disco lleno'));
+    await expect(
+      lotService.reserveLot('lot-1', RESERVE_DATA, ineFile(), 'user-7')
+    ).rejects.toThrow('disco lleno');
+    expect(mocks.storage.deleteFile).not.toHaveBeenCalled();
+    expect(mocks.tx.lot.update).not.toHaveBeenCalled();
+  });
 });
