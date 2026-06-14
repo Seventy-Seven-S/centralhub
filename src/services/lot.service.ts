@@ -256,7 +256,9 @@ export class LotService {
     }
   }
 
-  // Liberar apartado de un lote
+  // Liberar apartado de un lote.
+  // Si el apartado no llegó a contrato, la INE se elimina (registro + archivo):
+  // minimización de datos LGPD — no retenemos identificaciones de no-clientes.
   async releaseReservation(id: string) {
     const lot = await prisma.lot.findUnique({ where: { id } });
 
@@ -268,28 +270,55 @@ export class LotService {
       throw new Error('El lote no está apartado');
     }
 
-    return await prisma.lot.update({
-      where: { id },
-      data: {
-        status:             LotStatus.AVAILABLE,
-        reservedAt:         null,
-        reservationExpiry:  null,
-        reservationDeposit: null,
-        reservedByName:     null,
-        reservedByPhone:    null,
-        reservedByEmail:    null,
-        reservedByAgentId:  null,
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
+    const ineDocs = await prisma.document.findMany({
+      where: { relatedEntity: 'lot', relatedEntityId: id, documentType: DocumentType.INE },
+    });
+
+    const released = await prisma.$transaction(async (tx) => {
+      const updated = await tx.lot.update({
+        where: { id },
+        data: {
+          status:             LotStatus.AVAILABLE,
+          reservedAt:         null,
+          reservationExpiry:  null,
+          reservationDeposit: null,
+          reservedByName:     null,
+          reservedByPhone:    null,
+          reservedByEmail:    null,
+          reservedByAgentId:  null,
+        },
+        include: {
+          project: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
           },
         },
-      },
+      });
+
+      if (ineDocs.length > 0) {
+        await tx.document.deleteMany({
+          where: { id: { in: ineDocs.map((d) => d.id) } },
+        });
+      }
+
+      return updated;
     });
+
+    // Borrado físico fuera de la tx: si falla, el registro ya no existe y un
+    // archivo huérfano en disco es recuperable por ops — se loggea, no se revierte.
+    const storage = getFileStorage();
+    for (const doc of ineDocs) {
+      try {
+        await storage.deleteFile(doc.fileUrl);
+      } catch (err) {
+        logger.error(`No se pudo borrar archivo INE ${doc.fileUrl} al liberar lote ${id}: ${err}`);
+      }
+    }
+
+    return released;
   }
 
   // Función auxiliar: Calcular semanas hábiles (excluyendo fines de semana)

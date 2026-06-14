@@ -121,3 +121,44 @@ describe('reserveLot con INE', () => {
     expect(mocks.tx.lot.update).not.toHaveBeenCalled();
   });
 });
+
+describe('releaseReservation borra la INE', () => {
+  beforeEach(() => {
+    mocks.prisma.lot.findUnique.mockResolvedValue({ id: 'lot-1', status: 'RESERVED' });
+    mocks.tx.lot.update.mockResolvedValue({ id: 'lot-1', status: 'AVAILABLE' });
+    mocks.tx.document.deleteMany.mockResolvedValue({ count: 1 });
+  });
+
+  it('con INE: borra Documents en la tx y el archivo físico después', async () => {
+    mocks.prisma.document.findMany.mockResolvedValue([
+      { id: 'doc-1', fileUrl: 'ine/lot-1/abc.jpg' },
+    ]);
+
+    const result = await lotService.releaseReservation('lot-1');
+
+    expect(result).toEqual({ id: 'lot-1', status: 'AVAILABLE' });
+    expect(mocks.tx.document.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['doc-1'] } },
+    });
+    expect(mocks.storage.deleteFile).toHaveBeenCalledWith('ine/lot-1/abc.jpg');
+  });
+
+  it('sin INE: libera sin tocar documents ni storage', async () => {
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+
+    await lotService.releaseReservation('lot-1');
+
+    expect(mocks.tx.document.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.storage.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('si deleteFile falla, la liberación NO se revierte (solo log)', async () => {
+    mocks.prisma.document.findMany.mockResolvedValue([
+      { id: 'doc-1', fileUrl: 'ine/lot-1/abc.jpg' },
+    ]);
+    mocks.storage.deleteFile.mockRejectedValue(new Error('disco fuera'));
+
+    const result = await lotService.releaseReservation('lot-1');
+    expect(result).toEqual({ id: 'lot-1', status: 'AVAILABLE' });
+  });
+});
