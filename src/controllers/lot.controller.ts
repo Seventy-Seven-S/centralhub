@@ -2,6 +2,8 @@
 import { Request, Response } from 'express';
 import lotService from '../services/lot.service';
 import { CreateLotDto, UpdateLotDto, ReserveLotDto, LotFilters } from '../types/lot.types';
+import { IneUploadError } from '../utils/errors';
+import { IneFileInput } from '../services/ineDocument';
 
 export class LotController {
   // POST /api/v1/lots
@@ -89,19 +91,46 @@ export class LotController {
     }
   }
 
-  // POST /api/v1/lots/:id/reserve
+  // POST /api/v1/lots/:id/reserve  (multipart/form-data, campo de archivo: ineFile)
   async reserve(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const data: ReserveLotDto = req.body;
-      const lot = await lotService.reserveLot(id, data);
-      
+      const file = (req as any).file as Express.Multer.File | undefined;
+
+      // multipart entrega todos los campos como string
+      const data: ReserveLotDto = {
+        deposit:     Number(req.body.deposit) || 0,
+        clientName:  req.body.clientName,
+        clientPhone: req.body.clientPhone,
+        clientEmail: req.body.clientEmail || undefined,
+        agentId:     req.body.agentId || undefined,
+      };
+
+      const ineFile: IneFileInput | undefined = file
+        ? {
+            buffer:       file.buffer,
+            originalName: file.originalname,
+            mimeType:     file.mimetype,
+            size:         file.size,
+          }
+        : undefined;
+
+      const uploadedBy = req.user?.userId;
+      const lot = await lotService.reserveLot(id, data, ineFile, uploadedBy);
+
       res.status(200).json({
         success: true,
         message: 'Lote apartado exitosamente',
         data: lot,
       });
     } catch (error: any) {
+      if (error instanceof IneUploadError) {
+        return res.status(400).json({
+          success: false,
+          code: error.code,
+          message: error.message,
+        });
+      }
       res.status(400).json({
         success: false,
         message: error.message || 'Error al apartar lote',
