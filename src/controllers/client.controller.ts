@@ -40,9 +40,16 @@ export const getClientById = asyncHandler(async (req: Request, res: Response) =>
     throw new ApiError(404, 'Client not found');
   }
 
+  // INE migrada al expediente del cliente (la más reciente)
+  const ineDocument = await prisma.document.findFirst({
+    where: { relatedEntity: 'client', relatedEntityId: id, documentType: 'INE' },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, fileName: true, mimeType: true },
+  });
+
   res.status(200).json({
     status: 'success',
-    data: { client },
+    data: { client: { ...client, ineDocument } },
   });
 });
 

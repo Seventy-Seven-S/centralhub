@@ -39,11 +39,27 @@ export class LotController {
       };
 
       const lots = await lotService.getLots(filters);
-      
+
+      // Metadata INE: hasIne para todos; ineDocument solo ADMIN/MANAGER
+      // (los agentes suben pero no consultan — spec INE).
+      const reservedIds = lots.filter((l) => l.status === 'RESERVED').map((l) => l.id);
+      const ineMap = await lotService.getIneDocumentsByLotIds(reservedIds);
+      const role = req.user?.role;
+      const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
+
+      const data = lots.map((lot) => {
+        const doc = ineMap.get(lot.id);
+        return {
+          ...lot,
+          hasIne: !!doc,
+          ineDocument: isAdminOrManager && doc ? doc : null,
+        };
+      });
+
       res.status(200).json({
         success: true,
-        data: lots,
-        count: lots.length,
+        data,
+        count: data.length,
       });
     } catch (error: any) {
       res.status(400).json({
@@ -58,10 +74,19 @@ export class LotController {
     try {
       const { id } = req.params;
       const lot = await lotService.getLotById(id);
-      
+
+      const ineMap = await lotService.getIneDocumentsByLotIds([id]);
+      const doc = ineMap.get(id);
+      const role = req.user?.role;
+      const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
+
       res.status(200).json({
         success: true,
-        data: lot,
+        data: {
+          ...lot,
+          hasIne: !!doc,
+          ineDocument: isAdminOrManager && doc ? doc : null,
+        },
       });
     } catch (error: any) {
       res.status(404).json({

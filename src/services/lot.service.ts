@@ -321,6 +321,30 @@ export class LotService {
     return released;
   }
 
+  // Metadata de Documents INE colgados de lotes (para enriquecer respuestas).
+  // Devuelve el doc más reciente por lote.
+  async getIneDocumentsByLotIds(lotIds: string[]) {
+    const map = new Map<string, { id: string; fileName: string; mimeType: string | null }>();
+    if (lotIds.length === 0) return map;
+
+    const docs = await prisma.document.findMany({
+      where: {
+        relatedEntity:   'lot',
+        relatedEntityId: { in: lotIds },
+        documentType:    DocumentType.INE,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, fileName: true, mimeType: true, relatedEntityId: true },
+    });
+
+    for (const d of docs) {
+      if (!map.has(d.relatedEntityId)) {
+        map.set(d.relatedEntityId, { id: d.id, fileName: d.fileName, mimeType: d.mimeType });
+      }
+    }
+    return map;
+  }
+
   // Función auxiliar: Calcular semanas hábiles (excluyendo fines de semana)
   private addBusinessWeeks(startDate: Date, weeks: number): Date {
     const result = new Date(startDate);
