@@ -44,6 +44,8 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [deposit,     setDeposit]     = useState(0);
+  const [depositText, setDepositText] = useState('');
+  const [depositFocused, setDepositFocused] = useState(false);
   const [error,       setError]       = useState('');
   const [ineFile,     setIneFile]     = useState<File | null>(null);
   const [openingIne,  setOpeningIne]  = useState(false);
@@ -262,11 +264,32 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                 Anticipo
               </label>
               <input
-                type="number"
-                min={0}
-                value={deposit}
-                onChange={e => setDeposit(Number(e.target.value) || 0)}
-                placeholder="0 = sin anticipo"
+                type="text"
+                inputMode="decimal"
+                value={
+                  depositFocused
+                    ? depositText
+                    : deposit > 0
+                      ? deposit.toLocaleString('es-MX', {
+                          style: 'currency',
+                          currency: 'MXN',
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : ''
+                }
+                placeholder="$0.00 = sin anticipo"
+                onFocus={() => {
+                  setDepositText(deposit > 0 ? String(deposit) : '');
+                  setDepositFocused(true);
+                }}
+                onChange={e => {
+                  // Solo dígitos y un punto decimal; deposit (número) es la fuente de verdad.
+                  const raw = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+                  setDepositText(raw);
+                  setDeposit(Number(raw) || 0);
+                }}
+                onBlur={() => setDepositFocused(false)}
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: deposit > 0 ? 'var(--accent)' : 'var(--text-tertiary)' }}>
