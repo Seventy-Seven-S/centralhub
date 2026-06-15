@@ -46,7 +46,22 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [deposit,     setDeposit]     = useState(0);
   const [error,       setError]       = useState('');
   const [ineFile,     setIneFile]     = useState<File | null>(null);
+  const [openingIne,  setOpeningIne]  = useState(false);
   const reserveLot = useReserveLot();
+
+  const handleVerIne = async () => {
+    if (!lote.ineDocument) return;
+    setOpeningIne(true);
+    setError('');
+    try {
+      const res = await api.get(`/documents/${lote.ineDocument.id}/file`, { responseType: 'blob' });
+      window.open(URL.createObjectURL(res.data), '_blank');
+    } catch {
+      setError('No se pudo abrir la INE');
+    } finally {
+      setOpeningIne(false);
+    }
+  };
 
   const cfg = STATUS_CONFIG[lote.status];
 
@@ -152,6 +167,22 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                   <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.orientation}</span>
                 </div>
               )}
+              {lote.status === 'RESERVED' && (
+                <>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-secondary)' }}>Apartado por</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {lote.reservedByName ?? 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-secondary)' }}>Anticipo</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {formatCurrency(lote.reservationDeposit ?? 0)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
             {lote.status === 'AVAILABLE' && (
               <div className="px-6 pb-5">
@@ -161,6 +192,21 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                   style={{ backgroundColor: 'var(--accent)', color: 'white' }}
                 >
                   Apartar lote
+                </button>
+              </div>
+            )}
+            {lote.status === 'RESERVED' && lote.ineDocument && (
+              <div className="px-6 pb-5 space-y-2">
+                {error && (
+                  <p className="text-xs font-medium" style={{ color: 'var(--danger)' }}>{error}</p>
+                )}
+                <button
+                  onClick={handleVerIne}
+                  disabled={openingIne}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ border: '1px solid var(--border)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  {openingIne ? 'Abriendo…' : `Ver INE — ${lote.ineDocument.fileName}`}
                 </button>
               </div>
             )}
@@ -310,7 +356,7 @@ function GridSkeleton() {
 function LoteBox({ lote, onClick }: { lote: Lote; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
   const cfg = STATUS_CONFIG[lote.status];
-  const clickable = lote.status === 'AVAILABLE';
+  const clickable = lote.status === 'AVAILABLE' || lote.status === 'RESERVED';
 
   return (
     <div className="relative">
