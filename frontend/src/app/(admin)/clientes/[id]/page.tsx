@@ -1,11 +1,160 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Mail, Phone, User, FileText, AlertCircle, ExternalLink } from 'lucide-react';
-import { useClienteById, useContratosByCliente } from '@/hooks/useClientes';
+import { ArrowLeft, Mail, Phone, User, FileText, AlertCircle, ExternalLink, Pencil, X } from 'lucide-react';
+import { useClienteById, useContratosByCliente, useUpdateCliente, type Cliente, type ClienteEditable } from '@/hooks/useClientes';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
+
+const STATUS_OPTIONS: Array<{ value: Cliente['status']; label: string }> = [
+  { value: 'LEAD',     label: 'Lead' },
+  { value: 'PROSPECT', label: 'Prospecto' },
+  { value: 'ACTIVE',   label: 'Activo' },
+  { value: 'INACTIVE', label: 'Inactivo' },
+];
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: '10px',
+  border: '1px solid var(--border)',
+  backgroundColor: 'var(--bg-secondary)',
+  color: 'var(--text-primary)',
+  fontSize: '14px',
+  outline: 'none',
+};
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function EditarClienteModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
+  const update = useUpdateCliente(cliente.id);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState<ClienteEditable>({
+    firstName:       cliente.firstName ?? '',
+    lastName:        cliente.lastName ?? '',
+    email:           cliente.email ?? '',
+    phone:           cliente.phone ?? '',
+    whatsappPhone:   cliente.whatsappPhone ?? '',
+    address:         cliente.address ?? '',
+    city:            cliente.city ?? '',
+    state:           cliente.state ?? '',
+    zipCode:         cliente.zipCode ?? '',
+    ine:             cliente.ine ?? '',
+    curp:            cliente.curp ?? '',
+    estadoCivil:     cliente.estadoCivil ?? '',
+    lugarNacimiento: cliente.lugarNacimiento ?? '',
+    status:          cliente.status,
+    notes:           cliente.notes ?? '',
+  });
+
+  const set = (k: keyof ClienteEditable) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.phone?.trim()) {
+      setError('Nombre, apellido y teléfono son obligatorios');
+      return;
+    }
+
+    // Normaliza strings vacíos a null (campos opcionales) y arma el payload editable.
+    const payload: ClienteEditable = {
+      firstName:       form.firstName.trim(),
+      lastName:        form.lastName.trim(),
+      email:           form.email?.trim() || null,
+      phone:           form.phone.trim(),
+      whatsappPhone:   form.whatsappPhone?.trim() || null,
+      address:         form.address?.trim() || null,
+      city:            form.city?.trim() || null,
+      state:           form.state?.trim() || null,
+      zipCode:         form.zipCode?.trim() || null,
+      ine:             form.ine?.trim() || null,
+      curp:            form.curp?.trim() || null,
+      estadoCivil:     form.estadoCivil?.trim() || null,
+      lugarNacimiento: form.lugarNacimiento?.trim() || null,
+      status:          form.status,
+      notes:           form.notes?.trim() || null,
+    };
+
+    try {
+      await update.mutateAsync(payload);
+      onClose();
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || 'No se pudo guardar los cambios del cliente');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" style={{ backgroundColor: 'var(--surface)' }}>
+        <div className="flex items-center justify-between px-6 py-4 sticky top-0" style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
+          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Editar cliente</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-tertiary)' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Nombre *"><input style={inputStyle} value={form.firstName} onChange={set('firstName')} /></Field>
+            <Field label="Apellido *"><input style={inputStyle} value={form.lastName} onChange={set('lastName')} /></Field>
+            <Field label="Email"><input type="email" style={inputStyle} value={form.email ?? ''} onChange={set('email')} /></Field>
+            <Field label="Teléfono *"><input type="tel" style={inputStyle} value={form.phone ?? ''} onChange={set('phone')} /></Field>
+            <Field label="WhatsApp"><input type="tel" style={inputStyle} value={form.whatsappPhone ?? ''} onChange={set('whatsappPhone')} /></Field>
+            <Field label="Estado civil"><input style={inputStyle} value={form.estadoCivil ?? ''} onChange={set('estadoCivil')} /></Field>
+            <Field label="Clave de elector (INE)"><input style={inputStyle} value={form.ine ?? ''} onChange={set('ine')} /></Field>
+            <Field label="CURP"><input style={inputStyle} value={form.curp ?? ''} onChange={set('curp')} /></Field>
+            <Field label="Lugar de nacimiento"><input style={inputStyle} value={form.lugarNacimiento ?? ''} onChange={set('lugarNacimiento')} /></Field>
+            <Field label="Estatus">
+              <select style={inputStyle} value={form.status} onChange={set('status')}>
+                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Dirección"><input style={inputStyle} value={form.address ?? ''} onChange={set('address')} /></Field>
+            <Field label="Ciudad"><input style={inputStyle} value={form.city ?? ''} onChange={set('city')} /></Field>
+            <Field label="Estado"><input style={inputStyle} value={form.state ?? ''} onChange={set('state')} /></Field>
+            <Field label="Código postal"><input style={inputStyle} value={form.zipCode ?? ''} onChange={set('zipCode')} /></Field>
+          </div>
+          <Field label="Notas">
+            <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} value={form.notes ?? ''} onChange={set('notes')} />
+          </Field>
+
+          {error && <p className="text-xs font-medium" style={{ color: 'var(--danger)' }}>{error}</p>}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{ border: '1px solid var(--border)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)' }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={update.isPending}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+            >
+              {update.isPending ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; color: string }> = {
   ACTIVE:    { label: 'Activo',      bg: 'var(--accent-pale)',  color: 'var(--accent)' },
@@ -47,6 +196,7 @@ function SkeletonDetalle() {
 export default function ClienteDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router  = useRouter();
+  const [editing, setEditing] = useState(false);
 
   const { data: cliente, isLoading: loadingCliente, isError: errorCliente } = useClienteById(id);
   const { data: contratos = [], isLoading: loadingContratos } = useContratosByCliente(id);
@@ -95,7 +245,17 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ id: s
           <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{fullName}</h2>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{cliente.globalCode}</p>
         </div>
+        <button
+          onClick={() => setEditing(true)}
+          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
+          style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+        >
+          <Pencil className="w-4 h-4" />
+          Editar
+        </button>
       </div>
+
+      {editing && <EditarClienteModal cliente={cliente} onClose={() => setEditing(false)} />}
 
       {/* Card de datos del cliente */}
       <div className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: 'var(--surface)' }}>
