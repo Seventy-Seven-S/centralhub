@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { validationResult } from 'express-validator';
 import bcrypt from 'bcrypt';
 import { prisma } from '../config/database';
 import { generateClientAccessToken, generateClientRefreshToken } from '../config/jwt';
@@ -249,5 +250,67 @@ export const getClientProfile = asyncHandler(async (req: Request, res: Response)
   res.status(200).json({
     status: 'success',
     data: { client: clientUser.client },
+  });
+});
+
+/**
+ * Lógica testeable de cambio de contraseña.
+ *
+ * Recibe SIEMPRE el clientUserId derivado del token (nunca del body), de modo
+ * que un cliente sólo puede cambiar su propia contraseña. Verifica la
+ * contraseña actual con bcrypt.compare; si no coincide lanza 400 con un mensaje
+ * genérico ('Contraseña actual incorrecta'). Si coincide, re-hashea la nueva
+ * con el mismo factor de coste (10) usado en el resto del módulo y persiste.
+ */
+export const changeClientPasswordForUser = async (
+  clientUserId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> => {
+  const clientUser = await prisma.clientUser.findUnique({
+    where: { id: clientUserId },
+  });
+
+  if (!clientUser) {
+    throw new ApiError(404, 'Client not found');
+  }
+
+  const isCurrentValid = await bcrypt.compare(currentPassword, clientUser.password);
+  if (!isCurrentValid) {
+    throw new ApiError(400, 'Contraseña actual incorrecta');
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  await prisma.clientUser.update({
+    where: { id: clientUserId },
+    data: { password: hashedPassword },
+  });
+};
+
+/**
+ * Cambiar la contraseña del cliente autenticado (Portal B2C).
+ *
+ * El id del ClientUser se toma del token verificado (req.client.userId), igual
+ * que getClientProfile; nunca de un campo del body, para impedir cambiar la
+ * contraseña de otro cliente.
+ */
+export const changeClientPassword = asyncHandler(async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, errors.array()[0].msg);
+  }
+
+  if (!req.client) {
+    throw new ApiError(401, 'Not authenticated');
+  }
+
+  const { currentPassword, newPassword } = req.body;
+
+  await changeClientPasswordForUser(req.client.userId, currentPassword, newPassword);
+
+  res.status(200).json({
+    success: true,
+    message: 'Contraseña actualizada',
   });
 });
