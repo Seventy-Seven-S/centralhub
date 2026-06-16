@@ -14,6 +14,10 @@ export interface CreateContractDto {
   startDate: Date;
   notes?: string;
   totalPrice?: number;
+  // Vendedor asignado (rol AGENT o MANAGER) — opcional.
+  agentId?: string;
+  // % de comisión tecleado manualmente por venta (sobre el precio del contrato).
+  commissionPercentage?: number;
 }
 
 // DTO para actualizar contrato
