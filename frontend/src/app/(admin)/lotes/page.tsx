@@ -9,12 +9,18 @@ import api from '@/lib/api';
 
 const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
 
+const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const INE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const INE_REQUIRED = process.env.NEXT_PUBLIC_INE_REQUIRED === 'true';
+
 // ── Hook de mutación ──────────────────────────────────────────────────────────
 const useReserveLot = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ lotId, data }: { lotId: string; data: any }) => {
-      const res = await api.post(`/lots/${lotId}/reserve`, data);
+    mutationFn: async ({ lotId, formData }: { lotId: string; formData: FormData }) => {
+      const res = await api.post(`/lots/${lotId}/reserve`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       return res.data;
     },
     onSuccess: () => {
@@ -39,7 +45,23 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [clientEmail, setClientEmail] = useState('');
   const [deposit,     setDeposit]     = useState(0);
   const [error,       setError]       = useState('');
+  const [ineFile,     setIneFile]     = useState<File | null>(null);
+  const [openingIne,  setOpeningIne]  = useState(false);
   const reserveLot = useReserveLot();
+
+  const handleVerIne = async () => {
+    if (!lote.ineDocument) return;
+    setOpeningIne(true);
+    setError('');
+    try {
+      const res = await api.get(`/documents/${lote.ineDocument.id}/file`, { responseType: 'blob' });
+      window.open(URL.createObjectURL(res.data), '_blank');
+    } catch {
+      setError('No se pudo abrir la INE');
+    } finally {
+      setOpeningIne(false);
+    }
+  };
 
   const cfg = STATUS_CONFIG[lote.status];
 
@@ -57,11 +79,29 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (INE_REQUIRED && !ineFile) {
+      setError('La INE del cliente es obligatoria para apartar');
+      return;
+    }
+    if (ineFile && !INE_ALLOWED_TYPES.includes(ineFile.type)) {
+      setError('Solo se aceptan JPG, PNG o PDF');
+      return;
+    }
+    if (ineFile && ineFile.size > INE_MAX_SIZE) {
+      setError('El archivo no debe superar 10 MB');
+      return;
+    }
+
     try {
-      await reserveLot.mutateAsync({
-        lotId: lote.id,
-        data: { deposit, clientName, clientPhone, clientEmail: clientEmail || undefined },
-      });
+      const formData = new FormData();
+      formData.append('deposit', String(deposit));
+      formData.append('clientName', clientName);
+      formData.append('clientPhone', clientPhone);
+      if (clientEmail) formData.append('clientEmail', clientEmail);
+      if (ineFile) formData.append('ineFile', ineFile);
+
+      await reserveLot.mutateAsync({ lotId: lote.id, formData });
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al apartar el lote');
@@ -127,6 +167,22 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                   <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.orientation}</span>
                 </div>
               )}
+              {lote.status === 'RESERVED' && (
+                <>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-secondary)' }}>Apartado por</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {lote.reservedByName ?? 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-secondary)' }}>Anticipo</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {formatCurrency(lote.reservationDeposit ?? 0)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
             {lote.status === 'AVAILABLE' && (
               <div className="px-6 pb-5">
@@ -136,6 +192,21 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                   style={{ backgroundColor: 'var(--accent)', color: 'white' }}
                 >
                   Apartar lote
+                </button>
+              </div>
+            )}
+            {lote.status === 'RESERVED' && lote.ineDocument && (
+              <div className="px-6 pb-5 space-y-2">
+                {error && (
+                  <p className="text-xs font-medium" style={{ color: 'var(--danger)' }}>{error}</p>
+                )}
+                <button
+                  onClick={handleVerIne}
+                  disabled={openingIne}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ border: '1px solid var(--border)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  {openingIne ? 'Abriendo…' : `Ver INE — ${lote.ineDocument.fileName}`}
                 </button>
               </div>
             )}
@@ -205,6 +276,44 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               </p>
             </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                INE del cliente{INE_REQUIRED ? ' *' : ''}
+              </label>
+              {ineFile ? (
+                <div
+                  className="flex items-center justify-between gap-2 px-3 py-2"
+                  style={{
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--bg-secondary)',
+                  }}
+                >
+                  <span className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                    {ineFile.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIneFile(null)}
+                    className="p-1 rounded-lg transition flex-shrink-0"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  onChange={e => setIneFile(e.target.files?.[0] ?? null)}
+                  style={inputStyle}
+                />
+              )}
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                JPG, PNG o PDF · máx 10 MB
+              </p>
+            </div>
+
             {error && (
               <p className="text-xs font-medium" style={{ color: 'var(--danger)' }}>{error}</p>
             )}
@@ -247,7 +356,7 @@ function GridSkeleton() {
 function LoteBox({ lote, onClick }: { lote: Lote; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
   const cfg = STATUS_CONFIG[lote.status];
-  const clickable = lote.status === 'AVAILABLE';
+  const clickable = lote.status === 'AVAILABLE' || lote.status === 'RESERVED';
 
   return (
     <div className="relative">

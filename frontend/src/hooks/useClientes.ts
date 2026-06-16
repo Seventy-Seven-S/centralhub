@@ -10,6 +10,7 @@ export interface Cliente {
   phone:       string | null;
   status:      'ACTIVE' | 'INACTIVE';
   createdAt:   string;
+  ineDocument?: { id: string; fileName: string; mimeType: string | null } | null;
 }
 
 async function fetchClientes(): Promise<Cliente[]> {

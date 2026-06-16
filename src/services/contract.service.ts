@@ -3,6 +3,7 @@ import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, 
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
+import { migrateIneToClient } from './ineDocument';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -174,6 +175,10 @@ export class ContractService {
           reservedByAgentId:  null,
         },
       });
+
+      // 4. Migrar la INE del apartado al expediente del cliente
+      // (la INE 'pertenece al Client' como estado final — ver spec INE)
+      await migrateIneToClient(tx, data.lotIds, data.clientId);
 
       return newContract;
     });

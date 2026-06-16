@@ -20,6 +20,8 @@ export interface Lote {
   features:           string | null;
   createdAt:          string;
   project?: { id: string; code: string; name: string };
+  hasIne?: boolean;
+  ineDocument?: { id: string; fileName: string; mimeType: string | null } | null;
 }
 
 async function fetchLotes(projectId: string): Promise<Lote[]> {

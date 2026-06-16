@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mail, Phone, User, FileText, AlertCircle, ExternalLink } from 'lucide-react';
 import { useClienteById, useContratosByCliente } from '@/hooks/useClientes';
 import { formatCurrency } from '@/lib/utils';
+import api from '@/lib/api';
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; color: string }> = {
   ACTIVE:    { label: 'Activo',      bg: 'var(--accent-pale)',  color: 'var(--accent)' },
@@ -68,6 +69,16 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ id: s
   const fullName = `${cliente.firstName ?? ''} ${cliente.lastName ?? ''}`.trim();
   const initials = `${cliente.firstName?.[0] ?? ''}${cliente.lastName?.[0] ?? ''}`.toUpperCase();
 
+  const handleVerIne = async () => {
+    if (!cliente.ineDocument) return;
+    try {
+      const res = await api.get(`/documents/${cliente.ineDocument.id}/file`, { responseType: 'blob' });
+      window.open(URL.createObjectURL(res.data), '_blank');
+    } catch {
+      alert('No se pudo abrir la INE');
+    }
+  };
+
   return (
     <div className="space-y-5">
 
@@ -129,6 +140,21 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ id: s
               <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{cliente.globalCode}</p>
             </div>
           </div>
+          {cliente.ineDocument && (
+            <div className="flex items-center gap-3 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <FileText className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+              <div className="min-w-0">
+                <p className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>INE</p>
+                <button
+                  onClick={handleVerIne}
+                  className="text-sm truncate hover:underline"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  {cliente.ineDocument.fileName}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

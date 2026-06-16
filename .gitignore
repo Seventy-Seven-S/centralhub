@@ -24,14 +24,12 @@ logs/
 
 # Uploads
 uploads/
+/storage/
 
 # Database
 *.db
 *.sqlite
 
-# Prisma
-prisma/migrations/*
-!prisma/migrations/.gitkeep
 
 # Google API credentials
 credentials/

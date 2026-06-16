@@ -1,6 +1,9 @@
 // src/services/lot.service.ts
-import { PrismaClient, LotStatus } from '@prisma/client';
+import { PrismaClient, LotStatus, DocumentType } from '@prisma/client';
 import { CreateLotDto, UpdateLotDto, ReserveLotDto, LotFilters } from '../types/lot.types';
+import { getFileStorage } from './storage';
+import { buildIneKey, isIneRequired, validateIneUpload, IneFileInput } from './ineDocument';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -164,8 +167,8 @@ export class LotService {
     });
   }
 
-  // Apartar un lote
-  async reserveLot(id: string, data: ReserveLotDto) {
+  // Apartar un lote (opcionalmente con la INE del cliente que aparta)
+  async reserveLot(id: string, data: ReserveLotDto, ineFile?: IneFileInput, uploadedBy?: string) {
     const lot = await prisma.lot.findUnique({ where: { id } });
 
     if (!lot) {
@@ -184,32 +187,78 @@ export class LotService {
       throw new Error('El teléfono del cliente es requerido');
     }
 
+    validateIneUpload(ineFile, isIneRequired());
+
+    if (ineFile && !uploadedBy) {
+      throw new Error('uploadedBy es requerido para subir la INE');
+    }
+
     // deposit >= 0; plazo automático según monto
     const expiryWeeks = data.deposit > 0 ? 3 : 1;
     const today = new Date();
     const expiryDate = this.addBusinessWeeks(today, expiryWeeks);
 
-    return await prisma.lot.update({
-      where: { id },
-      data: {
-        status:             LotStatus.RESERVED,
-        reservedAt:         today,
-        reservationExpiry:  expiryDate,
-        reservationDeposit: data.deposit,
-        reservedByName:     data.clientName.trim(),
-        reservedByPhone:    data.clientPhone.trim(),
-        reservedByEmail:    data.clientEmail?.trim() ?? null,
-        reservedByAgentId:  data.agentId ?? null,
-      },
-      include: {
-        project: {
-          select: { id: true, code: true, name: true },
-        },
-      },
-    });
+    const reservationData = {
+      status:             LotStatus.RESERVED,
+      reservedAt:         today,
+      reservationExpiry:  expiryDate,
+      reservationDeposit: data.deposit,
+      reservedByName:     data.clientName.trim(),
+      reservedByPhone:    data.clientPhone.trim(),
+      reservedByEmail:    data.clientEmail?.trim() ?? null,
+      reservedByAgentId:  data.agentId ?? null,
+    };
+    const projectInclude = {
+      project: { select: { id: true, code: true, name: true } },
+    };
+
+    if (!ineFile) {
+      return await prisma.lot.update({
+        where: { id },
+        data: reservationData,
+        include: projectInclude,
+      });
+    }
+
+    // Orden obligatorio (spec): guardar archivo → transacción DB → compensar si falla.
+    const storage = getFileStorage();
+    const key = buildIneKey(id, ineFile.mimeType);
+    await storage.saveFile(key, ineFile.buffer, ineFile.mimeType);
+
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const updated = await tx.lot.update({
+          where: { id },
+          data: reservationData,
+          include: projectInclude,
+        });
+        await tx.document.create({
+          data: {
+            documentType:    DocumentType.INE,
+            relatedEntity:   'lot',
+            relatedEntityId: id,
+            fileName:        ineFile.originalName,
+            fileUrl:         key,
+            fileSize:        ineFile.size,
+            mimeType:        ineFile.mimeType,
+            uploadedBy:      uploadedBy!,
+          },
+        });
+        return updated;
+      });
+    } catch (err) {
+      try {
+        await storage.deleteFile(key);
+      } catch (delErr) {
+        logger.error(`Compensación fallida: archivo INE huérfano ${key} — ${delErr}`);
+      }
+      throw err;
+    }
   }
 
-  // Liberar apartado de un lote
+  // Liberar apartado de un lote.
+  // Si el apartado no llegó a contrato, la INE se elimina (registro + archivo):
+  // minimización de datos LGPD — no retenemos identificaciones de no-clientes.
   async releaseReservation(id: string) {
     const lot = await prisma.lot.findUnique({ where: { id } });
 
@@ -221,28 +270,79 @@ export class LotService {
       throw new Error('El lote no está apartado');
     }
 
-    return await prisma.lot.update({
-      where: { id },
-      data: {
-        status:             LotStatus.AVAILABLE,
-        reservedAt:         null,
-        reservationExpiry:  null,
-        reservationDeposit: null,
-        reservedByName:     null,
-        reservedByPhone:    null,
-        reservedByEmail:    null,
-        reservedByAgentId:  null,
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
+    const ineDocs = await prisma.document.findMany({
+      where: { relatedEntity: 'lot', relatedEntityId: id, documentType: DocumentType.INE },
+    });
+
+    const released = await prisma.$transaction(async (tx) => {
+      const updated = await tx.lot.update({
+        where: { id },
+        data: {
+          status:             LotStatus.AVAILABLE,
+          reservedAt:         null,
+          reservationExpiry:  null,
+          reservationDeposit: null,
+          reservedByName:     null,
+          reservedByPhone:    null,
+          reservedByEmail:    null,
+          reservedByAgentId:  null,
+        },
+        include: {
+          project: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
           },
         },
-      },
+      });
+
+      if (ineDocs.length > 0) {
+        await tx.document.deleteMany({
+          where: { id: { in: ineDocs.map((d) => d.id) } },
+        });
+      }
+
+      return updated;
     });
+
+    // Borrado físico fuera de la tx: si falla, el registro ya no existe y un
+    // archivo huérfano en disco es recuperable por ops — se loggea, no se revierte.
+    const storage = getFileStorage();
+    for (const doc of ineDocs) {
+      try {
+        await storage.deleteFile(doc.fileUrl);
+      } catch (err) {
+        logger.error(`No se pudo borrar archivo INE ${doc.fileUrl} al liberar lote ${id}: ${err}`);
+      }
+    }
+
+    return released;
+  }
+
+  // Metadata de Documents INE colgados de lotes (para enriquecer respuestas).
+  // Devuelve el doc más reciente por lote.
+  async getIneDocumentsByLotIds(lotIds: string[]) {
+    const map = new Map<string, { id: string; fileName: string; mimeType: string | null }>();
+    if (lotIds.length === 0) return map;
+
+    const docs = await prisma.document.findMany({
+      where: {
+        relatedEntity:   'lot',
+        relatedEntityId: { in: lotIds },
+        documentType:    DocumentType.INE,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, fileName: true, mimeType: true, relatedEntityId: true },
+    });
+
+    for (const d of docs) {
+      if (!map.has(d.relatedEntityId)) {
+        map.set(d.relatedEntityId, { id: d.id, fileName: d.fileName, mimeType: d.mimeType });
+      }
+    }
+    return map;
   }
 
   // Función auxiliar: Calcular semanas hábiles (excluyendo fines de semana)
