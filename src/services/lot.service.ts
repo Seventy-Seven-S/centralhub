@@ -4,6 +4,7 @@ import { CreateLotDto, UpdateLotDto, ReserveLotDto, LotFilters } from '../types/
 import { getFileStorage } from './storage';
 import { buildIneKey, isIneRequired, validateIneUpload, IneFileInput } from './ineDocument';
 import { logger } from '../utils/logger';
+import notificationService from './notification.service';
 
 const prisma = new PrismaClient();
 
@@ -212,48 +213,68 @@ export class LotService {
       project: { select: { id: true, code: true, name: true } },
     };
 
+    let reserved;
+
     if (!ineFile) {
-      return await prisma.lot.update({
+      reserved = await prisma.lot.update({
         where: { id },
         data: reservationData,
         include: projectInclude,
       });
+    } else {
+      // Orden obligatorio (spec): guardar archivo → transacción DB → compensar si falla.
+      const storage = getFileStorage();
+      const key = buildIneKey(id, ineFile.mimeType);
+      await storage.saveFile(key, ineFile.buffer, ineFile.mimeType);
+
+      try {
+        reserved = await prisma.$transaction(async (tx) => {
+          const updated = await tx.lot.update({
+            where: { id },
+            data: reservationData,
+            include: projectInclude,
+          });
+          await tx.document.create({
+            data: {
+              documentType:    DocumentType.INE,
+              relatedEntity:   'lot',
+              relatedEntityId: id,
+              fileName:        ineFile.originalName,
+              fileUrl:         key,
+              fileSize:        ineFile.size,
+              mimeType:        ineFile.mimeType,
+              uploadedBy:      uploadedBy!,
+            },
+          });
+          return updated;
+        });
+      } catch (err) {
+        try {
+          await storage.deleteFile(key);
+        } catch (delErr) {
+          logger.error(`Compensación fallida: archivo INE huérfano ${key} — ${delErr}`);
+        }
+        throw err;
+      }
     }
 
-    // Orden obligatorio (spec): guardar archivo → transacción DB → compensar si falla.
-    const storage = getFileStorage();
-    const key = buildIneKey(id, ineFile.mimeType);
-    await storage.saveFile(key, ineFile.buffer, ineFile.mimeType);
-
+    // Notificación in-app (fire-and-forget): nunca debe romper el apartado.
     try {
-      return await prisma.$transaction(async (tx) => {
-        const updated = await tx.lot.update({
-          where: { id },
-          data: reservationData,
-          include: projectInclude,
-        });
-        await tx.document.create({
-          data: {
-            documentType:    DocumentType.INE,
-            relatedEntity:   'lot',
-            relatedEntityId: id,
-            fileName:        ineFile.originalName,
-            fileUrl:         key,
-            fileSize:        ineFile.size,
-            mimeType:        ineFile.mimeType,
-            uploadedBy:      uploadedBy!,
-          },
-        });
-        return updated;
+      await notificationService.createNotification({
+        type: 'RESERVATION',
+        message: `Nuevo apartado: lote ${lot.lotNumber} M${lot.manzana} — ${data.clientName.trim()}`,
+        relatedEntity: 'lot',
+        relatedEntityId: id,
       });
     } catch (err) {
-      try {
-        await storage.deleteFile(key);
-      } catch (delErr) {
-        logger.error(`Compensación fallida: archivo INE huérfano ${key} — ${delErr}`);
-      }
-      throw err;
+      logger.error(
+        `Error creando notificación de apartado para lote ${id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
+
+    return reserved;
   }
 
   // Liberar apartado de un lote.

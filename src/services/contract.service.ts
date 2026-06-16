@@ -5,6 +5,7 @@ import { sendWelcomeEmail } from './email.service';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { migrateIneToClient } from './ineDocument';
 import { buildCommissionData } from './commission.service';
+import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
 
@@ -274,6 +275,22 @@ export class ContractService {
     } catch (err) {
       logger.error(
         `Error creando comisión manual para contrato ${contract.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    // Notificación in-app (fire-and-forget): nunca debe romper el contrato.
+    try {
+      await notificationService.createNotification({
+        type: 'CONTRACT',
+        message: `Nuevo contrato ${contract.contractNumber}`,
+        relatedEntity: 'contract',
+        relatedEntityId: contract.id,
+      });
+    } catch (err) {
+      logger.error(
+        `Error creando notificación de contrato ${contract.id}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
