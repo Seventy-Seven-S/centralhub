@@ -62,8 +62,8 @@ function EditarClienteModal({ cliente, onClose }: { cliente: Cliente; onClose: (
     e.preventDefault();
     setError('');
 
-    if (!form.firstName.trim() || !form.lastName.trim()) {
-      setError('Nombre y apellido son obligatorios');
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.phone?.trim()) {
+      setError('Nombre, apellido y teléfono son obligatorios');
       return;
     }
 
@@ -72,7 +72,7 @@ function EditarClienteModal({ cliente, onClose }: { cliente: Cliente; onClose: (
       firstName:       form.firstName.trim(),
       lastName:        form.lastName.trim(),
       email:           form.email?.trim() || null,
-      phone:           form.phone?.trim() || null,
+      phone:           form.phone.trim(),
       whatsappPhone:   form.whatsappPhone?.trim() || null,
       address:         form.address?.trim() || null,
       city:            form.city?.trim() || null,
@@ -110,7 +110,7 @@ function EditarClienteModal({ cliente, onClose }: { cliente: Cliente; onClose: (
             <Field label="Nombre *"><input style={inputStyle} value={form.firstName} onChange={set('firstName')} /></Field>
             <Field label="Apellido *"><input style={inputStyle} value={form.lastName} onChange={set('lastName')} /></Field>
             <Field label="Email"><input type="email" style={inputStyle} value={form.email ?? ''} onChange={set('email')} /></Field>
-            <Field label="Teléfono"><input type="tel" style={inputStyle} value={form.phone ?? ''} onChange={set('phone')} /></Field>
+            <Field label="Teléfono *"><input type="tel" style={inputStyle} value={form.phone ?? ''} onChange={set('phone')} /></Field>
             <Field label="WhatsApp"><input type="tel" style={inputStyle} value={form.whatsappPhone ?? ''} onChange={set('whatsappPhone')} /></Field>
             <Field label="Estado civil"><input style={inputStyle} value={form.estadoCivil ?? ''} onChange={set('estadoCivil')} /></Field>
             <Field label="Clave de elector (INE)"><input style={inputStyle} value={form.ine ?? ''} onChange={set('ine')} /></Field>
