@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/app/providers';
+import { useRole } from '@/hooks/useRole';
+import NotificationBell from './NotificationBell';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -28,6 +30,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
   const pathname          = usePathname();
   const title             = getPageTitle(pathname);
   const { theme, toggle } = useTheme();
+  const { isAdmin }       = useRole();
 
   return (
     <header
@@ -81,6 +84,9 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
           />
           Monarca II
         </div>
+
+        {/* Campanita de notificaciones — solo ADMIN (API es solo-ADMIN) */}
+        {isAdmin && <NotificationBell />}
 
         {/* Toggle tema */}
         <button
