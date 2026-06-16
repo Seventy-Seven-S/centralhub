@@ -6,6 +6,7 @@ import {
   registerClient,
   loginClient,
   getClientProfile,
+  changeClientPassword,
 } from '../controllers/clientAuth.controller';
 
 const router = Router();
@@ -51,5 +52,23 @@ router.post(
  * @access  Private (Cliente)
  */
 router.get('/profile', authenticateClient, getClientProfile);
+
+/**
+ * @route   POST /api/v1/client-auth/change-password
+ * @desc    Cambiar la contraseña del cliente autenticado
+ * @access  Private (Cliente)
+ */
+router.post(
+  '/change-password',
+  authRateLimiter,
+  authenticateClient,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword')
+      .isLength({ min: 8 })
+      .withMessage('New password must be at least 8 characters long'),
+  ],
+  changeClientPassword
+);
 
 export default router;
