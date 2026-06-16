@@ -35,6 +35,9 @@ router.get('/',     adminOrManager, contractController.getAll);
 router.get('/:id',  adminOrManager, contractController.getById);
 router.put('/:id',  adminOrManager, contractController.update);
 
+// Activación manual de contrato (sin PDF firmado)
+router.patch('/:id/activate', adminOrManager, contractController.activate);
+
 // Co-titulares
 router.post('/:id/coowners', adminOrManager, contractController.addCoOwner);
 
