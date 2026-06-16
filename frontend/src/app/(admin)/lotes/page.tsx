@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLotes, Lote } from '@/hooks/useLotes';
+import { useVendedores } from '@/hooks/useVendedores';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -46,10 +47,12 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [deposit,     setDeposit]     = useState(0);
   const [depositText, setDepositText] = useState('');
   const [depositFocused, setDepositFocused] = useState(false);
+  const [agentId,     setAgentId]     = useState('');
   const [error,       setError]       = useState('');
   const [ineFile,     setIneFile]     = useState<File | null>(null);
   const [openingIne,  setOpeningIne]  = useState(false);
   const reserveLot = useReserveLot();
+  const { data: vendedores = [] } = useVendedores();
 
   const handleVerIne = async () => {
     if (!lote.ineDocument) return;
@@ -101,6 +104,7 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
       formData.append('clientName', clientName);
       formData.append('clientPhone', clientPhone);
       if (clientEmail) formData.append('clientEmail', clientEmail);
+      if (agentId) formData.append('agentId', agentId);
       if (ineFile) formData.append('ineFile', ineFile);
 
       await reserveLot.mutateAsync({ lotId: lote.id, formData });
@@ -257,6 +261,24 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                 placeholder="correo@ejemplo.com"
                 style={inputStyle}
               />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Vendedor
+              </label>
+              <select
+                value={agentId}
+                onChange={e => setAgentId(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">— Sin asignar —</option>
+                {vendedores.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.firstName} {v.lastName} · {v.role === 'MANAGER' ? 'Gerente' : 'Agente'}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">

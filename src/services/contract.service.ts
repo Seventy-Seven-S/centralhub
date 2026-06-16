@@ -273,7 +273,7 @@ export class ContractService {
       }
     } catch (err) {
       logger.error(
-        `Error creando comisión automática para contrato ${contract.id}: ${
+        `Error creando comisión manual para contrato ${contract.id}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );

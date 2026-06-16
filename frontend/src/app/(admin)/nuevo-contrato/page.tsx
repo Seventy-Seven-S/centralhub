@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useProyectos } from '@/hooks/useProyectos';
 import { useLotes } from '@/hooks/useLotes';
+import { useVendedores } from '@/hooks/useVendedores';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -156,9 +157,12 @@ export default function NuevoContratoPage() {
   const [plazo,        setPlazo]        = useState(60);
   const [fechaInicio,  setFechaInicio]  = useState(() => new Date().toISOString().split('T')[0]);
   const [precioEditado, setPrecioEditado] = useState<number>(0);
+  const [agentId,      setAgentId]      = useState('');
+  const [commissionPct, setCommissionPct] = useState(0);
 
   const { data: proyectos = [] } = useProyectos();
   const { data: todosLotes = [] } = useLotes(projectId);
+  const { data: vendedores = [] } = useVendedores();
 
   const lotesDisponibles = useMemo(
     () => todosLotes.filter(l => l.status === 'AVAILABLE' || l.status === 'RESERVED'),
@@ -183,6 +187,7 @@ export default function NuevoContratoPage() {
   const totalUpfront    = totalDeposit + downPayment;
   const saldoFinanciado = Math.max(0, precioEditado - totalUpfront);
   const mensualidad     = plazo > 0 ? saldoFinanciado / plazo : 0;
+  const comisionMonto   = commissionPct > 0 ? (precioEditado * commissionPct) / 100 : 0;
 
   // ── Navegación entre pasos
   function goNext() {
@@ -240,6 +245,8 @@ export default function NuevoContratoPage() {
         termMonths:    plazo,
         monthlyPayment: Math.round(mensualidad * 100) / 100,
         startDate:     new Date(fechaInicio + 'T12:00:00'),
+        agentId:       agentId || undefined,
+        commissionPercentage: agentId && commissionPct > 0 ? commissionPct : undefined,
       });
 
       const contractId = contractRes.data.data.id;
@@ -486,6 +493,58 @@ export default function NuevoContratoPage() {
             </div>
           )}
 
+          {/* Vendedor + comisión (opcional) */}
+          <div className="mt-5 rounded-xl p-4"
+               style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>
+              Vendedor y comisión <span style={{ textTransform: 'none', fontWeight: 400 }}>(opcional)</span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Vendedor">
+                <select
+                  style={inputStyle}
+                  value={agentId}
+                  onChange={e => setAgentId(e.target.value)}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {vendedores.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.firstName} {v.lastName} · {v.role === 'MANAGER' ? 'Gerente' : 'Agente'}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="% de comisión">
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.1"
+                  value={commissionPct === 0 ? '' : commissionPct}
+                  onChange={e => setCommissionPct(Number(e.target.value) || 0)}
+                  placeholder="Ej: 3"
+                />
+              </Field>
+            </div>
+
+            {agentId && commissionPct <= 0 && (
+              <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
+                Asignaste un vendedor. Captura el % de comisión para registrarla; si lo dejas en 0,
+                el contrato se crea sin comisión.
+              </p>
+            )}
+            {commissionPct > 0 && (
+              <p className="text-sm font-semibold mt-3" style={{ color: 'var(--accent)' }}>
+                Comisión: {formatCurrency(comisionMonto)}
+                <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>
+                  {' '}({commissionPct}% de {formatCurrency(precioEditado)})
+                </span>
+              </p>
+            )}
+          </div>
+
           <div className="flex justify-between mt-6">
             <button
               onClick={goBack}
@@ -540,6 +599,9 @@ export default function NuevoContratoPage() {
                 { label: 'Plazo',              value: `${plazo} meses` },
                 { label: 'Mensualidad',        value: formatCurrency(mensualidad) },
                 { label: 'Fecha inicio',       value: new Date(fechaInicio + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) },
+                ...(agentId && comisionMonto > 0
+                  ? [{ label: `Comisión (${commissionPct}%)`, value: formatCurrency(comisionMonto) }]
+                  : []),
               ]}
             />
           </div>
