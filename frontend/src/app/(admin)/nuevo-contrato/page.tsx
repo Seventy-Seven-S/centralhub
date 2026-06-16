@@ -504,7 +504,7 @@ export default function NuevoContratoPage() {
                 <select
                   style={inputStyle}
                   value={agentId}
-                  onChange={e => setAgentId(e.target.value)}
+                  onChange={e => { setAgentId(e.target.value); if (!e.target.value) setCommissionPct(0); }}
                 >
                   <option value="">— Sin asignar —</option>
                   {vendedores.map(v => (
@@ -535,7 +535,7 @@ export default function NuevoContratoPage() {
                 el contrato se crea sin comisión.
               </p>
             )}
-            {commissionPct > 0 && (
+            {agentId && commissionPct > 0 && (
               <p className="text-sm font-semibold mt-3" style={{ color: 'var(--accent)' }}>
                 Comisión: {formatCurrency(comisionMonto)}
                 <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>
