@@ -4,6 +4,8 @@ import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } 
 import { sendWelcomeEmail } from './email.service';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { migrateIneToClient } from './ineDocument';
+import { buildCommissionData } from './commission.service';
+import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -249,6 +251,24 @@ export class ContractService {
           paymentNumber,
         },
       });
+    }
+
+    // Auto-creación de comisión (SECUNDARIA — nunca debe romper el contrato).
+    // Se hace DESPUÉS de la transacción principal, igual que cuotas/payments.
+    // Si no hay agente asignado, buildCommissionData devuelve null y no se crea nada.
+    // Todo va envuelto en try/catch que solo loggea: una comisión fallida NO
+    // debe abortar la creación del contrato.
+    try {
+      const commissionData = buildCommissionData(contract, project);
+      if (commissionData) {
+        await prisma.commission.create({ data: commissionData });
+      }
+    } catch (err) {
+      logger.error(
+        `Error creando comisión automática para contrato ${contract.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
 
     // Retornar con relaciones
