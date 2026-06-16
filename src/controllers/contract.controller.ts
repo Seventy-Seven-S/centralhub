@@ -131,6 +131,25 @@ export class ContractController {
     }
   }
 
+  // PATCH /api/v1/contracts/:id/activate
+  async activate(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const data = await contractService.activateContract(id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Contrato activado',
+        data,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Error al activar contrato',
+      });
+    }
+  }
+
   // POST /api/v1/contracts/:id/upload-signed
   async uploadSigned(req: Request, res: Response) {
     try {

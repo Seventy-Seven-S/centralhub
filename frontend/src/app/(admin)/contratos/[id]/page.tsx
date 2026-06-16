@@ -13,6 +13,7 @@ import {
   Cuota,
 } from '@/hooks/useContratos';
 import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
+import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ContratoCompraventa } from '@/components/pdf/ContratoCompraventa';
@@ -89,7 +90,22 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const { data: pagos    = [], isLoading: loadingPagos }  = usePagosByContrato(id);
 
   const fileInputRef           = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading]   = useState(false);
+  const [activating, setActivating] = useState(false);
+
+  async function handleActivate() {
+    if (!window.confirm('¿Activar este contrato manualmente, sin requerir el PDF firmado?')) return;
+    setActivating(true);
+    try {
+      await api.patch(`/contracts/${id}/activate`);
+      await queryClient.invalidateQueries({ queryKey: ['contratos', id] });
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo activar el contrato.');
+    } finally {
+      setActivating(false);
+    }
+  }
 
   async function handleUploadSigned(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -203,6 +219,24 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             className="hidden"
             onChange={handleUploadSigned}
           />
+
+          {/* Botón activar contrato manualmente — visible mientras no esté ACTIVE */}
+          {contrato.status !== 'ACTIVE' && (
+            <button
+              onClick={handleActivate}
+              disabled={activating}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: 'var(--success-bg)',
+                color: 'var(--success)',
+                opacity: activating ? 0.7 : 1,
+                cursor: activating ? 'wait' : 'pointer',
+              }}
+            >
+              <CheckCircle2 size={16} />
+              {activating ? 'Activando...' : 'Activar contrato'}
+            </button>
+          )}
 
           {/* Botón subir contrato firmado — solo en DRAFT */}
           {contrato.status === 'DRAFT' && (

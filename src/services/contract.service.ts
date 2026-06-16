@@ -450,6 +450,25 @@ export class ContractService {
     });
   }
 
+  // Activar un contrato manualmente (sin requerir el PDF firmado)
+  async activateContract(id: string) {
+    const contract = await prisma.contract.findUnique({ where: { id } });
+
+    if (!contract) {
+      throw new Error('Contrato no encontrado');
+    }
+
+    if (contract.status === ContractStatus.ACTIVE) {
+      throw new Error('El contrato ya está activo');
+    }
+
+    // No tocamos contractFileUrl: el contrato puede activarse sin PDF firmado.
+    return await prisma.contract.update({
+      where: { id },
+      data: { status: ContractStatus.ACTIVE },
+    });
+  }
+
   // Agregar co-titular a un contrato
   async addCoOwner(contractId: string, data: AddCoOwnerDto) {
     const contract = await prisma.contract.findUnique({ where: { id: contractId } });
