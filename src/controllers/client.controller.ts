@@ -95,9 +95,38 @@ export const createClient = asyncHandler(async (req: Request, res: Response) => 
   });
 });
 
+// Campos del cliente que un admin/manager puede editar vía PUT /clients/:id.
+// Todo lo demás (id, globalCode, createdAt, updatedAt, relaciones) se ignora
+// para evitar mass-assignment.
+const CLIENT_EDITABLE_FIELDS = [
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'whatsappPhone',
+  'address',
+  'city',
+  'state',
+  'zipCode',
+  'ine',
+  'curp',
+  'estadoCivil',
+  'lugarNacimiento',
+  'status',
+  'notes',
+] as const;
+
 export const updateClient = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = req.body;
+
+  // Whitelist: solo dejamos pasar los campos editables del body. Cualquier
+  // otro campo (globalCode, id, createdAt, relaciones, etc.) se descarta.
+  const data: Record<string, unknown> = {};
+  for (const field of CLIENT_EDITABLE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+      data[field] = req.body[field];
+    }
+  }
 
   const client = await prisma.client.update({
     where: { id },
