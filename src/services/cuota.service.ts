@@ -1,5 +1,7 @@
 // src/services/cuota.service.ts
 import { PrismaClient, CuotaStatus, ContractStatus } from '@prisma/client';
+import notificationService from './notification.service';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -108,6 +110,31 @@ export class CuotaService {
         status: vencidas > 0 ? ContractStatus.IN_MORA : ContractStatus.ACTIVE,
       },
     });
+
+    // Notificación in-app (fire-and-forget): nunca debe romper el registro del pago.
+    // Solo se dispara aquí, en el registro MANUAL de pago (PATCH /cuotas/:id/pay).
+    // Los pagos automáticos que createContract genera NO pasan por aquí.
+    try {
+      const contract = await prisma.contract.findUnique({
+        where: { id: contractId },
+        select: { client: { select: { firstName: true, lastName: true } } },
+      });
+      const cliente = contract?.client
+        ? `${contract.client.firstName ?? ''} ${contract.client.lastName ?? ''}`.trim()
+        : 'cliente';
+      await notificationService.createNotification({
+        type: 'PAYMENT',
+        message: `Pago registrado: ${data.montoPagado} — ${cliente}`,
+        relatedEntity: 'cuota',
+        relatedEntityId: id,
+      });
+    } catch (err) {
+      logger.error(
+        `Error creando notificación de pago para cuota ${id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
 
     return prisma.cuota.findUnique({ where: { id } });
   }

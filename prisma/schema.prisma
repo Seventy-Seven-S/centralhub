@@ -689,3 +689,23 @@ model EstadoCuentaLog {
 
   @@map("estado_cuenta_logs")
 }
+
+// Buzón de notificaciones in-app — solo el ADMIN las consume.
+enum NotificationType {
+  RESERVATION
+  CONTRACT
+  PAYMENT
+}
+
+model Notification {
+  id              String           @id @default(uuid())
+  type            NotificationType
+  message         String
+  relatedEntity   String?
+  relatedEntityId String?
+  read            Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+
+  @@index([read, createdAt])
+  @@map("notifications")
+}

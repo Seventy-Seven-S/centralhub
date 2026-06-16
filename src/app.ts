@@ -24,6 +24,7 @@ import portalRoutes from './routes/portal.routes';
 import verificacionRoutes from './routes/verificacion.routes';
 import documentRoutes from './routes/document.routes';
 import commissionRoutes from './routes/commission.routes';
+import notificationRoutes from './routes/notification.routes';
 
 const app: Application = express();
 
@@ -125,6 +126,7 @@ app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes);
 app.use(`/api/${API_VERSION}/users`, userRoutes);
 app.use(`/api/${API_VERSION}/expenses`, expenseRoutes);
 app.use(`/api/${API_VERSION}/commissions`, commissionRoutes);
+app.use(`/api/${API_VERSION}/notifications`, notificationRoutes);
 app.use(`/api/${API_VERSION}/portal`, portalRoutes);
 app.use(`/api/${API_VERSION}/verificar`, verificacionRoutes);
 
