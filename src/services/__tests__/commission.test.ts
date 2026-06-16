@@ -1,43 +1,36 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildCommissionData,
-  DEFAULT_COMMISSION_RATE,
-  BuildCommissionContractInput,
-  BuildCommissionProjectInput,
-} from '../commission.service';
+import { buildCommissionData } from '../commission.service';
 
-function contract(
-  opts: Partial<BuildCommissionContractInput> = {},
-): BuildCommissionContractInput {
-  return {
-    id: opts.id ?? 'contract-1',
-    agentId: opts.agentId ?? null,
-    totalPrice: opts.totalPrice ?? 260000,
-  };
-}
-
-function project(
-  opts: Partial<BuildCommissionProjectInput> = {},
-): BuildCommissionProjectInput {
-  return {
-    commissionValue: opts.commissionValue ?? null,
-  };
-}
-
+// Nueva semántica: "asignación de vendedor + comisión manual".
+// El % de comisión se teclea manualmente por venta y el monto se calcula
+// sobre el precio del contrato (baseAmount * percentage / 100).
 describe('buildCommissionData', () => {
   it('sin agente (agentId null) → devuelve null, sin comisión', () => {
-    const result = buildCommissionData(
-      contract({ agentId: null }),
-      project({ commissionValue: 5 }),
-    );
+    const result = buildCommissionData({
+      contractId: 'c-1',
+      agentId: null,
+      percentage: 5,
+      baseAmount: 260000,
+    });
     expect(result).toBeNull();
   });
 
-  it('con agente y commissionValue=5 → percentage 5 y math correcta', () => {
-    const result = buildCommissionData(
-      contract({ id: 'c-9', agentId: 'agent-1', totalPrice: 260000 }),
-      project({ commissionValue: 5 }),
-    );
+  it('sin agente (agentId undefined) → devuelve null', () => {
+    const result = buildCommissionData({
+      contractId: 'c-1',
+      percentage: 5,
+      baseAmount: 260000,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('con agente y percentage=5 → percentage 5 y math correcta', () => {
+    const result = buildCommissionData({
+      contractId: 'c-9',
+      agentId: 'agent-1',
+      percentage: 5,
+      baseAmount: 260000,
+    });
     expect(result).not.toBeNull();
     expect(result!.percentage).toBe(5);
     expect(result!.baseAmount).toBe(260000);
@@ -48,22 +41,42 @@ describe('buildCommissionData', () => {
     expect(result!.status).toBe('PENDING');
   });
 
-  it('con agente sin commissionValue → default 4 %', () => {
-    const result = buildCommissionData(
-      contract({ agentId: 'agent-2', totalPrice: 100000 }),
-      project({ commissionValue: null }),
-    );
-    expect(result).not.toBeNull();
-    expect(result!.percentage).toBe(DEFAULT_COMMISSION_RATE);
-    expect(result!.percentage).toBe(4);
-    expect(result!.commissionAmount).toBe(4000); // 100000 * 4 / 100
+  it('con agente pero percentage=0 → null (no hay comisión que capturar)', () => {
+    const result = buildCommissionData({
+      contractId: 'c-2',
+      agentId: 'agent-2',
+      percentage: 0,
+      baseAmount: 100000,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('con agente pero percentage negativo → null', () => {
+    const result = buildCommissionData({
+      contractId: 'c-3',
+      agentId: 'agent-3',
+      percentage: -2,
+      baseAmount: 100000,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('con agente pero percentage null/undefined → null', () => {
+    expect(
+      buildCommissionData({ contractId: 'c-4', agentId: 'agent-4', percentage: null, baseAmount: 100000 }),
+    ).toBeNull();
+    expect(
+      buildCommissionData({ contractId: 'c-4', agentId: 'agent-4', baseAmount: 100000 }),
+    ).toBeNull();
   });
 
   it('redondea commissionAmount a 2 decimales', () => {
-    const result = buildCommissionData(
-      contract({ agentId: 'agent-3', totalPrice: 333333.33 }),
-      project({ commissionValue: 4 }),
-    );
+    const result = buildCommissionData({
+      contractId: 'c-5',
+      agentId: 'agent-5',
+      percentage: 4,
+      baseAmount: 333333.33,
+    });
     // 333333.33 * 4 / 100 = 13333.3332 → 13333.33
     expect(result!.commissionAmount).toBe(13333.33);
   });

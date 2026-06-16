@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/store/auth.store';
 
-const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos'];
+const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos', '/comisiones'];
 const ADMIN_ONLY       = ['/usuarios'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

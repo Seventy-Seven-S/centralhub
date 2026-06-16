@@ -148,6 +148,8 @@ export class ContractService {
           moraMonthsCount: 0,
           startDate: data.startDate,
           notes: data.notes,
+          // Vendedor asignado (rol AGENT o MANAGER), opcional.
+          agentId: data.agentId ?? null,
         },
       });
 
@@ -253,19 +255,25 @@ export class ContractService {
       });
     }
 
-    // Auto-creación de comisión (SECUNDARIA — nunca debe romper el contrato).
+    // Creación de comisión MANUAL (SECUNDARIA — nunca debe romper el contrato).
     // Se hace DESPUÉS de la transacción principal, igual que cuotas/payments.
-    // Si no hay agente asignado, buildCommissionData devuelve null y no se crea nada.
+    // Solo se crea si el contrato trae vendedor (agentId) Y un % de comisión
+    // tecleado (> 0). El monto se calcula sobre el precio del contrato.
     // Todo va envuelto en try/catch que solo loggea: una comisión fallida NO
     // debe abortar la creación del contrato.
     try {
-      const commissionData = buildCommissionData(contract, project);
+      const commissionData = buildCommissionData({
+        contractId: contract.id,
+        agentId: data.agentId,
+        percentage: data.commissionPercentage,
+        baseAmount: totalPrice,
+      });
       if (commissionData) {
         await prisma.commission.create({ data: commissionData });
       }
     } catch (err) {
       logger.error(
-        `Error creando comisión automática para contrato ${contract.id}: ${
+        `Error creando comisión manual para contrato ${contract.id}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );

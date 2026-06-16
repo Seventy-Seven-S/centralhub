@@ -3,34 +3,28 @@ import { PrismaClient, CommissionType, CommissionStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Tasa de comisión por defecto cuando el proyecto no define commissionValue.
-export const DEFAULT_COMMISSION_RATE = 4;
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // ────────────────────────────────────────────────────────────────────────────
 // buildCommissionData (función PURA — sin Prisma, sin side effects, testeable)
 //
-// Reglas:
-//  - Si el contrato no tiene agentId → null (sin agente no hay comisión).
-//  - rate = project.commissionValue ?? DEFAULT_COMMISSION_RATE (4 %).
-//  - baseAmount = contract.totalPrice.
-//  - commissionAmount = round2(baseAmount * rate / 100).
+// NUEVA SEMÁNTICA: "asignación de vendedor + comisión manual".
+// La comisión YA NO es 4 % automático del proyecto. Al crear el contrato se
+// elige un vendedor (agentId) y se teclea MANUALMENTE el % de comisión
+// (variable por venta). El monto se calcula sobre el precio del contrato.
 //
-// NOTA DE DISEÑO: la auto-comisión SIEMPRE se calcula como porcentaje sobre el
-// totalPrice. La config `commissionType` del proyecto (PERCENTAGE | FIXED) NO se
-// honra todavía: `commissionValue` se interpreta siempre como porcentaje. Si en
-// el futuro se quiere soportar FIXED, este helper es el único punto a cambiar.
+// Reglas:
+//  - Sin agentId → null (no hay a quién pagarle).
+//  - percentage null/undefined o <= 0 → null (no se captura comisión).
+//  - baseAmount = precio del contrato (totalPrice).
+//  - commissionAmount = round2(baseAmount * percentage / 100).
 // ────────────────────────────────────────────────────────────────────────────
 
-export interface BuildCommissionContractInput {
-  id: string;
-  agentId: string | null;
-  totalPrice: number;
-}
-
-export interface BuildCommissionProjectInput {
-  commissionValue: number | null;
+export interface BuildCommissionInput {
+  contractId: string;
+  agentId?: string | null;
+  percentage?: number | null;
+  baseAmount: number;
 }
 
 export interface CommissionCreateData {
@@ -44,23 +38,27 @@ export interface CommissionCreateData {
 }
 
 export function buildCommissionData(
-  contract: BuildCommissionContractInput,
-  project: BuildCommissionProjectInput,
+  input: BuildCommissionInput,
 ): CommissionCreateData | null {
   // Sin agente asignado no hay a quién pagarle: no se crea comisión.
-  if (!contract.agentId) {
+  if (!input.agentId) {
     return null;
   }
 
-  const rate = project.commissionValue ?? DEFAULT_COMMISSION_RATE;
-  const baseAmount = contract.totalPrice;
-  const commissionAmount = round2((baseAmount * rate) / 100);
+  // Comisión manual: sin % tecleado (o <= 0) no se crea comisión.
+  const percentage = input.percentage ?? 0;
+  if (percentage <= 0) {
+    return null;
+  }
+
+  const baseAmount = input.baseAmount;
+  const commissionAmount = round2((baseAmount * percentage) / 100);
 
   return {
-    contractId: contract.id,
-    agentId: contract.agentId,
+    contractId: input.contractId,
+    agentId: input.agentId,
     commissionType: CommissionType.SALE,
-    percentage: rate,
+    percentage,
     baseAmount,
     commissionAmount,
     status: CommissionStatus.PENDING,

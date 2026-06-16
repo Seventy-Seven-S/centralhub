@@ -6,6 +6,21 @@ import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 
 const INTERNAL_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'AGENT'];
 
+// Roles que pueden ser vendedores asignables a un contrato/apartado.
+const SELLER_ROLES: UserRole[] = ['AGENT', 'MANAGER'];
+
+// GET /users/sellers — vendedores activos (AGENT, MANAGER) para asignar en
+// contratos/apartados. Accesible a ADMIN y MANAGER (no solo ADMIN como /users).
+// Devuelve solo campos mínimos para poblar el selector.
+export const getSellers = asyncHandler(async (_req: Request, res: Response) => {
+  const sellers = await prisma.user.findMany({
+    where: { role: { in: SELLER_ROLES }, status: 'ACTIVE' },
+    select: { id: true, firstName: true, lastName: true, role: true },
+    orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+  });
+  res.json({ status: 'success', data: { sellers } });
+});
+
 export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
   const users = await prisma.user.findMany({
     where: { role: { in: INTERNAL_ROLES } },
