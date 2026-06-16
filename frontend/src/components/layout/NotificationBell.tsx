@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Bell, Calendar, FileText, DollarSign, CheckCheck } from 'lucide-react';
+import { useRole } from '@/hooks/useRole';
 import {
   useNotificaciones,
   useMarkNotificationRead,
@@ -21,7 +22,8 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading } = useNotificaciones();
+  const { isAdmin } = useRole();
+  const { data, isLoading } = useNotificaciones(isAdmin);
   const markRead    = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
