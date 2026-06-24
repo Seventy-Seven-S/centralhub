@@ -228,9 +228,17 @@ export function readCodigos(excelPath: string): CodigoEntry[] {
 
   const headers: string[] = (raw[headerRow] || []).map((h: any) => (h ?? '').toString().trim());
   const codigoIdx = colIndex(headers, 'CODIGO DE CLIENTE ASIGNADO', 'CODIGO DE CLIENTE', 'CODIGO', 'CÓDIGO');
-  const manzanaIdx = colIndex(headers, 'MANZANA', 'FRACCION', 'FRACCIÓN');
+  let manzanaIdx = colIndex(headers, 'MANZANA', 'FRACCION', 'FRACCIÓN');
   const loteIdx = colIndex(headers, 'LOTE');
   const nombreIdx = colIndex(headers, 'NOMBRE  DE CLIENTE', 'NOMBRE DE CLIENTE', 'NOMBRE');
+
+  // Fallback: en algunas hojas (p.ej. SISTEMA SANTANDER) la columna de manzana
+  // viene mal etiquetada (header duplicado "NOMBRE DE CLIENTE"). En todos los
+  // archivos la manzana es la columna inmediatamente anterior a LOTE, así que
+  // la deducimos por posición cuando no hay header MANZANA/FRACCION.
+  if (manzanaIdx === -1 && loteIdx > 0) {
+    manzanaIdx = loteIdx - 1;
+  }
 
   if (codigoIdx === -1 || manzanaIdx === -1 || loteIdx === -1) {
     throw new Error(`Columnas faltantes en "${sheet}": codigo=${codigoIdx}, manzana=${manzanaIdx}, lote=${loteIdx}`);
