@@ -473,6 +473,12 @@ function collectJSAPayments(wb: XLSX.WorkBook): Map<string, FilaIngreso[]> {
   for (const sheetName of wb.SheetNames) {
     const lower = sheetName.toLowerCase().trim();
     if (JSA_NON_PAYMENT_SHEETS.has(lower)) continue;
+    // Hojas "FASTIDIO …" (JSA 4) NO son de pagos: listan cada contrato con su
+    // valor total y un timestamp. Su layout (código=col1, timestamp=col3,
+    // $precioTotal=col4) hacía que el parser inyectara un EXTRA_PAYMENT igual
+    // al precio total. Los nombres varían ("FASTIDIO JULI0 2024", "FASTIDIO 12
+    // Oct 2024"), así que excluimos por prefijo.
+    if (lower.startsWith('fastidio')) continue;
 
     const ws = wb.Sheets[sheetName];
     const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
