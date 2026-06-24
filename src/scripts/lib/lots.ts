@@ -51,9 +51,10 @@ export function parseLoteNumbers(raw: string): number[] {
   const s = (raw || '').trim();
   if (!s) return [];
 
-  // Separa primero por comas y por la conjunción "y".
+  // Separa primero por comas/puntos y por la conjunción "y".
+  // (El punto aparece en hojas de Códigos como "7.8" = lotes 7 y 8.)
   const pieces = s
-    .split(/\s*,\s*|\s+y\s+|\s*\sy\s|\s*y\s*/i)
+    .split(/\s*[,.]\s*|\s+y\s+|\s*\sy\s|\s*y\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
 
@@ -420,7 +421,9 @@ export function readLotsFromTemplate(
     }
 
     const manzana = parseInt((row[manzanaIdx] ?? '').toString().trim(), 10) || 0;
-    const lote = parseInt((row[loteIdx] ?? '').toString().trim(), 10) || 0;
+    // Tolera formatos "L-1" / "L3" igual que las otras fuentes (la plantilla
+    // del becario usa una fila por lote → tomamos el primer número parseado).
+    const lote = parseLoteNumbers((row[loteIdx] ?? '').toString().trim())[0] || 0;
     if (!manzana || !lote) continue;
 
     const key = `${manzana}-${lote}`;

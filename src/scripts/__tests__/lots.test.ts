@@ -1,11 +1,27 @@
 import { describe, it, expect } from 'vitest';
+import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   parseLoteNumbers,
   computePrice,
   deduceStatus,
   jsaConcentradoStatus,
   parseMoney,
+  readLotsFromTemplate,
 } from '../lib/lots';
+
+/** Escribe una plantilla del becario temporal y devuelve su ruta. */
+function writeTemplate(rows: any[][]): string {
+  const header = ['Proyecto', 'Manzana', 'Lote', 'Superficie_m2', 'Precio', 'Precio_m2', 'Estatus'];
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  const file = path.join(os.tmpdir(), `tmpl-${process.pid}-${rows.length}-${Math.random().toString(36).slice(2)}.xlsx`);
+  XLSX.writeFile(wb, file);
+  return file;
+}
 
 describe('parseLoteNumbers — multi-lote', () => {
   it('lote simple', () => {
@@ -34,6 +50,10 @@ describe('parseLoteNumbers — multi-lote', () => {
 
   it('toma el primer número de tokens como "L3"', () => {
     expect(parseLoteNumbers('L3')).toEqual([3]);
+  });
+
+  it('"7.8" → [7, 8] (punto como separador, p.ej. E030 en VDB)', () => {
+    expect(parseLoteNumbers('7.8')).toEqual([7, 8]);
   });
 
   it('de-duplica preservando orden', () => {
@@ -117,5 +137,37 @@ describe('jsaConcentradoStatus — Code/Estatus de Concentrado', () => {
   });
   it('sin code, sin cliente → AVAILABLE', () => {
     expect(jsaConcentradoStatus('', '', false)).toBe('AVAILABLE');
+  });
+});
+
+describe('readLotsFromTemplate — formato de Lote', () => {
+  it('parsea Lote en formato "L-#" (plantilla Valle de Bugambilias)', () => {
+    const file = writeTemplate([
+      ['Valle de las Bugambilias', '1', 'L-1', '316.88', '', '', ''],
+      ['Valle de las Bugambilias', '1', 'L-2', '316.55', '', '', ''],
+    ]);
+    try {
+      const lots = readLotsFromTemplate(file);
+      expect(lots).toHaveLength(2);
+      expect(lots.map((l) => l.lotNumber)).toEqual(['1', '2']);
+      expect(lots[0].manzana).toBe(1);
+      expect(lots[0].areaM2).toBe(316.88);
+    } finally {
+      fs.unlinkSync(file);
+    }
+  });
+
+  it('sigue parseando Lote numérico plano', () => {
+    const file = writeTemplate([
+      ['Proj', '2', '7', '100', '', '', ''],
+    ]);
+    try {
+      const lots = readLotsFromTemplate(file);
+      expect(lots).toHaveLength(1);
+      expect(lots[0].lotNumber).toBe('7');
+      expect(lots[0].manzana).toBe(2);
+    } finally {
+      fs.unlinkSync(file);
+    }
   });
 });
