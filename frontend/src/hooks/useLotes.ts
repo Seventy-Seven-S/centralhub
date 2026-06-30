@@ -29,10 +29,10 @@ async function fetchLotes(projectId: string): Promise<Lote[]> {
   return data.data;
 }
 
-export function useLotes(projectId: string) {
+export function useLotes(projectId?: string) {
   return useQuery({
-    queryKey:  ['lotes', projectId],
-    queryFn:   () => fetchLotes(projectId),
+    queryKey:  ['lotes', projectId ?? 'none'],
+    queryFn:   () => fetchLotes(projectId as string),
     enabled:   !!projectId,
     staleTime: 60_000,
   });
