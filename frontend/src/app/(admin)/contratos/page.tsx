@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, FileText, AlertTriangle, DollarSign,
@@ -100,6 +100,8 @@ export default function ContratosPage() {
 
   const { selectedProjectId } = useProjectSelection();
   const { data: contratos = [], isLoading, isError } = useContratos(selectedProjectId ?? undefined);
+
+  useEffect(() => { setPage(1); }, [selectedProjectId]);
 
   // KPIs
   const kpis = useMemo(() => ({

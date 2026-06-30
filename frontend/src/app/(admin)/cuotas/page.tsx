@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -71,6 +71,8 @@ export default function CuotasPage() {
 
   const { selectedProjectId } = useProjectSelection();
   const { data: cuotas = [], isLoading, isError } = useCuotas(selectedProjectId ?? undefined, statusFilter || undefined);
+
+  useEffect(() => { setPage(1); }, [selectedProjectId]);
 
   const kpiPendientes = useMemo(() => cuotas.filter(c => c.status === 'PENDIENTE').length, [cuotas]);
   const kpiPagadas    = useMemo(() => cuotas.filter(c => c.status === 'PAGADA').length, [cuotas]);

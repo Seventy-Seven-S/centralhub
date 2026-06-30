@@ -9,7 +9,6 @@ import { useVendedores } from '@/hooks/useVendedores';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
-
 const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const INE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const INE_REQUIRED = process.env.NEXT_PUBLIC_INE_REQUIRED === 'true';
