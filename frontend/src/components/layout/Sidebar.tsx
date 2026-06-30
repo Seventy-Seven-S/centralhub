@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
 import { cn } from '@/lib/utils';
+import ProjectSelector from '@/components/layout/ProjectSelector';
 
 const NAV_ITEMS = [
   { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard },
@@ -91,18 +92,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </button>
       </div>
 
-      {/* Badge proyecto activo */}
+      {/* Selector de proyecto activo */}
       <div
-        className="flex items-center gap-2 px-5 py-2.5"
+        className="px-4 py-2.5"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <span
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: 'var(--accent)' }}
-        />
-        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Monarca II
-        </span>
+        <ProjectSelector />
       </div>
 
       {/* Navegación */}
