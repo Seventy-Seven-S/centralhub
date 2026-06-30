@@ -51,9 +51,10 @@ export function parseLoteNumbers(raw: string): number[] {
   const s = (raw || '').trim();
   if (!s) return [];
 
-  // Separa primero por comas y por la conjunción "y".
+  // Separa primero por comas/puntos y por la conjunción "y".
+  // (El punto aparece en hojas de Códigos como "7.8" = lotes 7 y 8.)
   const pieces = s
-    .split(/\s*,\s*|\s+y\s+|\s*\sy\s|\s*y\s*/i)
+    .split(/\s*[,.]\s*|\s+y\s+|\s*\sy\s|\s*y\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
 
@@ -227,9 +228,17 @@ export function readCodigos(excelPath: string): CodigoEntry[] {
 
   const headers: string[] = (raw[headerRow] || []).map((h: any) => (h ?? '').toString().trim());
   const codigoIdx = colIndex(headers, 'CODIGO DE CLIENTE ASIGNADO', 'CODIGO DE CLIENTE', 'CODIGO', 'CÓDIGO');
-  const manzanaIdx = colIndex(headers, 'MANZANA', 'FRACCION', 'FRACCIÓN');
+  let manzanaIdx = colIndex(headers, 'MANZANA', 'FRACCION', 'FRACCIÓN');
   const loteIdx = colIndex(headers, 'LOTE');
   const nombreIdx = colIndex(headers, 'NOMBRE  DE CLIENTE', 'NOMBRE DE CLIENTE', 'NOMBRE');
+
+  // Fallback: en algunas hojas (p.ej. SISTEMA SANTANDER) la columna de manzana
+  // viene mal etiquetada (header duplicado "NOMBRE DE CLIENTE"). En todos los
+  // archivos la manzana es la columna inmediatamente anterior a LOTE, así que
+  // la deducimos por posición cuando no hay header MANZANA/FRACCION.
+  if (manzanaIdx === -1 && loteIdx > 0) {
+    manzanaIdx = loteIdx - 1;
+  }
 
   if (codigoIdx === -1 || manzanaIdx === -1 || loteIdx === -1) {
     throw new Error(`Columnas faltantes en "${sheet}": codigo=${codigoIdx}, manzana=${manzanaIdx}, lote=${loteIdx}`);
@@ -420,7 +429,9 @@ export function readLotsFromTemplate(
     }
 
     const manzana = parseInt((row[manzanaIdx] ?? '').toString().trim(), 10) || 0;
-    const lote = parseInt((row[loteIdx] ?? '').toString().trim(), 10) || 0;
+    // Tolera formatos "L-1" / "L3" igual que las otras fuentes (la plantilla
+    // del becario usa una fila por lote → tomamos el primer número parseado).
+    const lote = parseLoteNumbers((row[loteIdx] ?? '').toString().trim())[0] || 0;
     if (!manzana || !lote) continue;
 
     const key = `${manzana}-${lote}`;
