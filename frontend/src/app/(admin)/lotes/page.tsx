@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, AlertCircle, ArrowLeft } from 'lucide-react';
+import { X, AlertCircle, ArrowLeft, Map as MapIcon } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLotes, Lote } from '@/hooks/useLotes';
+import { useProjectSelection } from '@/contexts/ProjectContext';
 import { useVendedores } from '@/hooks/useVendedores';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
-
-const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
 
 const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const INE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -459,7 +458,8 @@ export default function LotesPage() {
   const [filterStatus,  setFilterStatus]  = useState('todos');
   const [selectedLote,  setSelectedLote]  = useState<Lote | null>(null);
 
-  const { data: lotes = [], isLoading, isError } = useLotes(PROJECT_ID);
+  const { selectedProjectId, selectedProject } = useProjectSelection();
+  const { data: lotes = [], isLoading, isError } = useLotes(selectedProjectId ?? undefined);
 
   const manzanas = useMemo(
     () => [...new Set(lotes.map(l => l.manzana))].sort((a, b) => a - b),
@@ -486,6 +486,18 @@ export default function LotesPage() {
     return [...map.entries()].sort(([a], [b]) => a - b);
   }, [filtered]);
 
+  if (!selectedProjectId) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+      <MapIcon className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
+      <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+        Elige un proyecto para ver su lotificación
+      </p>
+      <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+        Usa el selector de proyecto en la barra lateral.
+      </p>
+    </div>
+  );
+
   if (isLoading) return (
     <div className="space-y-4">
       <div className="h-7 w-48 rounded animate-pulse" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
@@ -506,7 +518,7 @@ export default function LotesPage() {
       {/* ── SECCIÓN 1: Header + filtros ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Lotes — Monarca II</h2>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Lotes — {selectedProject?.name ?? ''}</h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{filtered.length} lotes encontrados</p>
         </div>
         <div className="flex gap-2 flex-wrap">

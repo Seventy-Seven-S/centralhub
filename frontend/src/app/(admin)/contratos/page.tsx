@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, FileText, AlertTriangle, DollarSign,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useContratos, ContratoDetalle } from '@/hooks/useContratos';
+import { useProjectSelection } from '@/contexts/ProjectContext';
 import KPICard           from '@/components/dashboard/KPICard';
 import { formatCurrency } from '@/lib/utils';
 
@@ -97,7 +98,10 @@ export default function ContratosPage() {
   const [page,         setPage]         = useState(1);
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data: contratos = [], isLoading, isError } = useContratos();
+  const { selectedProjectId } = useProjectSelection();
+  const { data: contratos = [], isLoading, isError } = useContratos(selectedProjectId ?? undefined);
+
+  useEffect(() => { setPage(1); }, [selectedProjectId]);
 
   // KPIs
   const kpis = useMemo(() => ({
