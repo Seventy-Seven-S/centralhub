@@ -75,9 +75,7 @@ export interface Pago {
   balanceAfter:  number | null;
 }
 
-const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
-
-async function fetchContratos(projectId: string): Promise<ContratoDetalle[]> {
+async function fetchContratos(projectId?: string): Promise<ContratoDetalle[]> {
   const { data } = await api.get('/contracts', { params: { projectId } });
   return data.data;
 }
@@ -87,9 +85,9 @@ async function fetchContrato(id: string): Promise<ContratoDetalle> {
   return data.data;
 }
 
-export function useContratos(projectId = PROJECT_ID) {
+export function useContratos(projectId?: string) {
   return useQuery<ContratoDetalle[]>({
-    queryKey: ['contratos', 'list', projectId],
+    queryKey: ['contratos', 'list', projectId ?? 'all'],
     queryFn:  () => fetchContratos(projectId),
     staleTime: 60_000,
   });
