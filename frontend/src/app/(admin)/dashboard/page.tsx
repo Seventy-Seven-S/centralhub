@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useDashboardSummary, useMoraDetail } from '@/hooks/useDashboard';
 import { useRole }        from '@/hooks/useRole';
+import { useProjectSelection } from '@/contexts/ProjectContext';
 import KPICard            from '@/components/dashboard/KPICard';
 import DistribucionPlazo  from '@/components/dashboard/DistribucionPlazo';
 import LotesDisponibles   from '@/components/dashboard/LotesDisponibles';
@@ -328,8 +329,9 @@ function MoraTable({ mora, loading }: { mora: any[] | undefined; loading: boolea
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('ingresos');
   const { canAccessDashboard }    = useRole();
-  const { data, isLoading, isError, error } = useDashboardSummary();
-  const { data: mora, isLoading: moraLoading } = useMoraDetail(activeTab === 'mora');
+  const { selectedProjectId, selectedProject } = useProjectSelection();
+  const { data, isLoading, isError, error } = useDashboardSummary(selectedProjectId ?? undefined);
+  const { data: mora, isLoading: moraLoading } = useMoraDetail(selectedProjectId ?? undefined, activeTab === 'mora');
 
   if (!canAccessDashboard) {
     return (
@@ -373,7 +375,7 @@ export default function DashboardPage() {
           Resumen General
         </h2>
         <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-          Monarca II — datos actualizados
+          {selectedProject ? selectedProject.name : 'Todos los proyectos'} — datos actualizados
         </p>
       </div>
 
