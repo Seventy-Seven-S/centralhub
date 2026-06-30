@@ -18,18 +18,18 @@ export interface Cuota {
   };
 }
 
-async function fetchCuotas(projectId: string, status?: string): Promise<Cuota[]> {
-  const params: Record<string, string> = { projectId };
+async function fetchCuotas(projectId?: string, status?: string): Promise<Cuota[]> {
+  const params: Record<string, string> = {};
+  if (projectId) params.projectId = projectId;
   if (status) params.status = status;
   const { data } = await api.get('/cuotas', { params });
   return data.data;
 }
 
-export function useCuotas(projectId: string, status?: string) {
+export function useCuotas(projectId?: string, status?: string) {
   return useQuery<Cuota[]>({
-    queryKey: ['cuotas', projectId, status ?? 'all'],
+    queryKey: ['cuotas', projectId ?? 'all', status ?? 'all'],
     queryFn:  () => fetchCuotas(projectId, status),
     staleTime: 60_000,
-    enabled: !!projectId,
   });
 }

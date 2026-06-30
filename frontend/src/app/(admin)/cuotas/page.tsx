@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { FileText, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useCuotas, type Cuota } from '@/hooks/useCuotas';
+import { useProjectSelection } from '@/contexts/ProjectContext';
 
-const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
 const PAGE_SIZE  = 25;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -69,7 +69,8 @@ export default function CuotasPage() {
   const [search,       setSearch]       = useState('');
   const [page,         setPage]         = useState(1);
 
-  const { data: cuotas = [], isLoading, isError } = useCuotas(PROJECT_ID, statusFilter || undefined);
+  const { selectedProjectId } = useProjectSelection();
+  const { data: cuotas = [], isLoading, isError } = useCuotas(selectedProjectId ?? undefined, statusFilter || undefined);
 
   const kpiPendientes = useMemo(() => cuotas.filter(c => c.status === 'PENDIENTE').length, [cuotas]);
   const kpiPagadas    = useMemo(() => cuotas.filter(c => c.status === 'PAGADA').length, [cuotas]);
