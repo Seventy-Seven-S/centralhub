@@ -1,7 +1,12 @@
 import { PrismaClient, CuotaStatus, ContractStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const PROJECT_ID = '74b9deb6-a793-408d-8087-0e30ef0f288d';
+
+// Reconcilia pagos INSTALLMENT contra el calendario de cuotas de TODOS los
+// proyectos (antes estaba fijo a Monarca II). Idempotente: recalcula el estado
+// de cada cuota desde cero en cada corrida. Excluye contratos CANCELED (no se
+// les debe reescribir el status). Opcional: pasar `--code XXX` para un solo
+// proyecto.
 
 // ── Lógica de saldo acumulado ─────────────────────────────────────────────────
 // Pool = remanente de pagos aún no asignado a ninguna cuota.
@@ -125,22 +130,50 @@ async function procesarContrato(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const contratos = await prisma.contract.findMany({
-    where:   { projectId: PROJECT_ID },
-    select:  { id: true, codigoLegado: true },
-    orderBy: { codigoLegado: 'asc' },
+  // Filtro opcional por proyecto: --code XXX
+  const args = process.argv.slice(2);
+  const codeIdx = args.indexOf('--code');
+  const onlyCode = codeIdx !== -1 ? args[codeIdx + 1] : undefined;
+
+  const projectWhere = onlyCode ? { code: onlyCode } : {};
+  const projects = await prisma.project.findMany({
+    where:   projectWhere,
+    select:  { id: true, code: true, name: true },
+    orderBy: { code: 'asc' },
   });
 
-  console.log(`Aplicando pagos a cuotas — ${contratos.length} contratos\n`);
+  if (projects.length === 0) {
+    console.error(onlyCode ? `No existe proyecto con code=${onlyCode}` : 'No hay proyectos');
+    await prisma.$disconnect();
+    process.exit(1);
+  }
 
-  let totalPagadas = 0, totalParciales = 0;
-  for (const c of contratos) {
-    const r = await procesarContrato(c.id, c.codigoLegado ?? c.id);
-    totalPagadas   += r.pagadas;
-    totalParciales += r.parciales;
+  console.log(`Reconciliando pagos→cuotas — ${projects.length} proyecto(s)\n`);
+
+  let totalPagadas = 0, totalParciales = 0, totalContratos = 0;
+  for (const proj of projects) {
+    const contratos = await prisma.contract.findMany({
+      where:   { projectId: proj.id, status: { not: ContractStatus.CANCELED } },
+      select:  { id: true, codigoLegado: true },
+      orderBy: { codigoLegado: 'asc' },
+    });
+    if (contratos.length === 0) continue;
+
+    console.log(`\n=== ${proj.code} — ${proj.name} (${contratos.length} contratos) ===`);
+    let projPagadas = 0, projParciales = 0;
+    for (const c of contratos) {
+      const r = await procesarContrato(c.id, c.codigoLegado ?? c.id);
+      projPagadas   += r.pagadas;
+      projParciales += r.parciales;
+    }
+    console.log(`  → ${proj.code}: ${projPagadas} cuotas PAGADAS, ${projParciales} parciales`);
+    totalPagadas   += projPagadas;
+    totalParciales += projParciales;
+    totalContratos += contratos.length;
   }
 
   console.log('\n════════════════════════════════════');
+  console.log(`Contratos procesados   : ${totalContratos}`);
   console.log(`Total cuotas PAGADAS   : ${totalPagadas}`);
   console.log(`Total cuotas parciales : ${totalParciales}`);
   console.log('════════════════════════════════════');
