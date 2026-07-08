@@ -41,3 +41,24 @@ export function formatRelativeTime(date: string | Date): string {
 
   return formatDate(date);
 }
+
+/**
+ * Etiqueta con TODOS los lotes de un contrato, agrupados por manzana.
+ *   [M9-L9, M9-L10]        → "M9 L-9, L-10"
+ *   [M9-L9, M10-L3]        → "M9 L-9 · M10 L-3"
+ *   [] / undefined         → "—"
+ */
+export function formatLotsLabel(
+  lots?: Array<{ lot: { manzana: number; lotNumber: string } }>,
+): string {
+  if (!lots || lots.length === 0) return '—';
+  const byManzana = new Map<number, string[]>();
+  for (const { lot } of lots) {
+    if (!byManzana.has(lot.manzana)) byManzana.set(lot.manzana, []);
+    byManzana.get(lot.manzana)!.push(lot.lotNumber);
+  }
+  return [...byManzana.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([m, nums]) => `M${m} ${nums.map(n => `L-${n}`).join(', ')}`)
+    .join(' · ');
+}
