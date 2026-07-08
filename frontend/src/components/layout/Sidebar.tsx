@@ -1,15 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
   Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt, DollarSign,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
 import { cn } from '@/lib/utils';
 import ProjectSelector from '@/components/layout/ProjectSelector';
+import { RegistrarPagoModal } from '@/components/pagos/RegistrarPagoModal';
 
 const NAV_GROUPS: Array<{ title: string; items: Array<{ label: string; href: string; icon: typeof LayoutDashboard }> }> = [
   {
@@ -55,6 +58,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const router   = useRouter();
   const { user, logout } = useAuthStore();
   const { theme, toggle } = useTheme();
+  const [showPago, setShowPago] = useState(false);
 
   function handleLogout() {
     logout();
@@ -113,6 +117,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       >
         <ProjectSelector />
       </div>
+
+      {/* Botón global: registrar pago (solo ADMIN/MANAGER — la API es adminOrManager) */}
+      {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setShowPago(true)}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+          >
+            <CreditCard className="w-4 h-4" />
+            Registrar pago
+          </button>
+        </div>
+      )}
 
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
@@ -239,6 +257,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
+      {showPago && <RegistrarPagoModal onClose={() => setShowPago(false)} />}
       <div className="hidden lg:flex flex-col h-screen sticky top-0 flex-shrink-0" style={{ width: 260 }}>
         {sidebar}
       </div>
