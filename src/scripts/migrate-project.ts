@@ -42,6 +42,7 @@ import { PrismaClient, CuotaStatus, PaymentType, PaymentMethod, ContractStatus }
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
+import { parsePlazo, buildScheduleAmounts } from './lib/installments';
 
 const prisma = new PrismaClient();
 
@@ -382,53 +383,6 @@ function parseMoney(val: string): number {
 const PLAZO_FALLBACK = 60;
 const PLAZO_OPCIONES = [60, 72, 84];
 
-interface PlazoParsed {
-  months: number | null;  // null → no se pudo determinar (inferir desde pagos)
-  isContado: boolean;
-  source: 'codigos' | 'contado' | 'inferido';
-}
-
-/**
- * Parsea el campo "PLAZO (AÑOS)" de la hoja Códigos.
- *   ""              → null  (inferir desde pagos)
- *   "DE CONTADO"    → contado (sin cuotas, 1 exhibición)
- *   "6" / "5"       → años → 6*12 = 72 meses
- *   "4a-2m"         → 4 años 2 meses = 50 meses (Valle del Roble; tolera espacios)
- *   "4a"            → 4 años = 48 meses
- */
-function parsePlazo(raw: string): PlazoParsed {
-  const s = (raw || '').trim();
-  if (!s) return { months: null, isContado: false, source: 'inferido' };
-
-  const upper = s.toUpperCase();
-  if (upper.includes('CONTADO')) {
-    return { months: 0, isContado: true, source: 'contado' };
-  }
-
-  // Formato "Xa-Ym" / "Xa - Ym" / "4a- 2m" (años y meses)
-  const ym = s.match(/(\d+)\s*a\s*-?\s*(\d+)\s*m/i);
-  if (ym) {
-    const years = parseInt(ym[1]);
-    const months = parseInt(ym[2]);
-    return { months: years * 12 + months, isContado: false, source: 'codigos' };
-  }
-
-  // Formato "Xa" (solo años, con sufijo a)
-  const yOnly = s.match(/^(\d+)\s*a$/i);
-  if (yOnly) {
-    return { months: parseInt(yOnly[1]) * 12, isContado: false, source: 'codigos' };
-  }
-
-  // Número puro = años (header dice "PLAZO (AÑOS)")
-  const n = parseInt(s);
-  if (!isNaN(n) && n > 0 && n <= 30) {
-    return { months: n * 12, isContado: false, source: 'codigos' };
-  }
-
-  // No reconocido → inferir
-  return { months: null, isContado: false, source: 'inferido' };
-}
-
 // Fila semilla / dummy: código terminado en "000" (X000) o nombre "Primera Fila"
 function isDummyRow(codigo: string, nombre = ''): boolean {
   return /0{3}$/.test(codigo.trim()) || /primera\s*fila/i.test(nombre);
@@ -627,26 +581,6 @@ function readExcelFile(excelPath: string): SheetRow[] {
 
   // ── CRUZAR: construir SheetRow por cliente ──
 
-  // Devuelve el monto que más se repite entre los pagos de mensualidad
-  function modaMensualidad(pagos: FilaIngreso[]): number {
-    const montos = pagos
-      .filter(p => p.tipo.toLowerCase().includes('mensualidad'))
-      .map(p => Math.round(p.monto));
-    if (!montos.length) return 0;
-    const freq = new Map<number, number>();
-    for (const m of montos) freq.set(m, (freq.get(m) || 0) + 1);
-    return [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
-  }
-
-  // Redondea al plazo más cercano entre las opciones dadas
-  function inferirPlazo(financiado: number, mensualidad: number): number {
-    if (!mensualidad) return PLAZO_FALLBACK;
-    const calculado = financiado / mensualidad;
-    return PLAZO_OPCIONES.reduce((best, p) =>
-      Math.abs(p - calculado) < Math.abs(best - calculado) ? p : best
-    );
-  }
-
   const rows: SheetRow[] = [];
 
   for (const cod of filaCodigos) {
@@ -665,25 +599,25 @@ function readExcelFile(excelPath: string): SheetRow[] {
       .filter(p => p.tipo.toLowerCase().includes('enganche'))
       .reduce((s, p) => s + p.monto, 0);
 
-    // mensualidad = monto más frecuente en pagos tipo "Mensualidad"
-    const mensualidad = modaMensualidad(pagos);
-
-    // ── PLAZO: primero desde la hoja Códigos; si no, inferir desde pagos ──
+    // ── PLAZO primero (autoritativo desde Códigos) ──
     const plazoCodigos = parsePlazo(cod.plazoRaw);
     const financiado   = precioTotal - enganche;
     let plazoMeses: number;
     let plazoSource: SheetRow['plazoSource'];
     const isContado = plazoCodigos.isContado;
     if (plazoCodigos.isContado) {
-      plazoMeses  = 0;          // de contado → sin cuotas
+      plazoMeses  = 0;
       plazoSource = 'contado';
     } else if (plazoCodigos.months != null) {
       plazoMeses  = plazoCodigos.months;
       plazoSource = 'codigos';
     } else {
-      plazoMeses  = inferirPlazo(financiado, mensualidad);
+      plazoMeses  = PLAZO_FALLBACK;      // sin PLAZO en Códigos → fallback (se reporta en revisión humana)
       plazoSource = 'inferido';
     }
+
+    // ── MENSUALIDAD derivada: financiado / plazo (la última cuota absorbe redondeo) ──
+    const mensualidad = plazoMeses > 0 ? buildScheduleAmounts(financiado, plazoMeses)[0] : 0;
 
     // ── CANCELACIÓN: detectar notas de rescisión/cancelación ──
     const cancelReason = detectCancellation(cod.notas);
@@ -788,29 +722,26 @@ async function findOrCreateClient(
 async function generarCuotas(
   tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
   contractId: string,
-  mensualidad: number,
+  financiado: number,
   plazoMeses: number,
   fechaInicio: Date,
   logger: MigrationLogger,
   rowIdx: number
 ): Promise<number> {
-  const cuotasData = [];
-
-  for (let i = 0; i < plazoMeses; i++) {
+  const amounts = buildScheduleAmounts(financiado, plazoMeses);
+  const cuotasData = amounts.map((monto, i) => {
     const fechaVencimiento = new Date(fechaInicio);
     fechaVencimiento.setMonth(fechaVencimiento.getMonth() + i + 1);
-
-    cuotasData.push({
+    return {
       contractId,
       numeroCuota: i + 1,
       mes: formatSpanishMonth(fechaVencimiento),
-      montoEsperado: mensualidad,
+      montoEsperado: monto,
       montoPagado: 0,
       fechaVencimiento,
       status: CuotaStatus.PENDIENTE,
-    });
-  }
-
+    };
+  });
   await tx.cuota.createMany({ data: cuotasData });
   logger.info(`  → ${cuotasData.length} cuotas generadas para contrato ${contractId}`);
   return cuotasData.length;
@@ -1042,7 +973,7 @@ export async function migrateProject(projectId: string, excelPath: string, payme
             const cuotasCount = await generarCuotas(
               tx,
               contract.id,
-              row.mensualidad,
+              row.precioTotal - row.enganche,
               row.plazoMeses,
               fechaInicio,
               logger,
