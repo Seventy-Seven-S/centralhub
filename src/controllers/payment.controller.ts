@@ -1,25 +1,16 @@
 // src/controllers/payment.controller.ts
 import { Request, Response } from 'express';
 import paymentService from '../services/payment.service';
-import { CreatePaymentDto, UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
+import { UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
 
 export class PaymentController {
-  // POST /api/v1/payments
+  // POST /api/v1/payments — registra una mensualidad (servicio unificado)
   async create(req: Request, res: Response) {
     try {
-      const data: CreatePaymentDto = req.body;
-      const payment = await paymentService.createPayment(data);
-      
-      res.status(201).json({
-        success: true,
-        message: 'Pago registrado exitosamente',
-        data: payment,
-      });
+      const result = await paymentService.registrarPagoMensualidad(req.body);
+      res.status(201).json({ success: true, message: 'Pago registrado', data: result });
     } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message || 'Error al registrar pago',
-      });
+      res.status(400).json({ success: false, message: error.message || 'Error al registrar pago' });
     }
   }
 

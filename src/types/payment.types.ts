@@ -13,6 +13,16 @@ export interface CreatePaymentDto {
   notes?: string;
 }
 
+export interface RegistrarPagoDto {
+  contractId: string;
+  amount: number;
+  paymentDate: Date | string;
+  paymentMethod: PaymentMethod;
+  concept?: string;
+  reference?: string;
+  notes?: string;
+}
+
 // DTO para actualizar pago
 export interface UpdatePaymentDto {
   amount?: number;
