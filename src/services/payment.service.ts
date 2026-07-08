@@ -52,10 +52,14 @@ export class PaymentService {
         ? `Mensualidades #${cuotasAfectadas[0]}–#${cuotasAfectadas[cuotasAfectadas.length - 1]}`
         : `Mensualidad #${cuotasAfectadas[0] ?? ''}${primera ? ` — ${primera.mes}` : ''}`);
 
+    // Folio generado fuera de la tx: si la transacción hace rollback puede quedar un hueco de folio.
     const paymentNumber = await this.generatePaymentNumber(contract.projectId);
-    const newBalance = (contract.balance ?? 0) - data.amount;
 
     const created = await prisma.$transaction(async (tx) => {
+      // Releer balance dentro de la tx para evitar valor stale bajo concurrencia.
+      const fresh = await tx.contract.findUnique({ where: { id: data.contractId }, select: { balance: true } });
+      const newBalance = (fresh?.balance ?? 0) - data.amount;
+
       const p = await tx.payment.create({
         data: {
           paymentNumber,
