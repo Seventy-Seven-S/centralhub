@@ -30,16 +30,40 @@ const FILE_BY_CODE: Record<string, string> = {
   JSA1: 'JSA 1.xlsx', JSA2: 'JSA 2.xlsx', JSA3: 'JSA 3.xlsx', JSA4: 'JSA 4.xlsx',
 };
 
+// JSA1-4 excluidos: su historial de pagos en BD está incompleto (los Excel JSA
+// no tienen hoja "Ingresos" y los pagos viejos no se capturaron; downPayment=0
+// en todos) → el financiado está inflado y la mensualidad derivada saldría mal.
+// Se corregirán cuando se repare su historial de pagos.
+const EXCLUDED_CODES = new Set(['JSA1', 'JSA2', 'JSA3', 'JSA4']);
+
 async function main() {
   const confirm = process.argv.includes('--confirm');
   const projects = await prisma.project.findMany({ select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } });
 
-  let fixed = 0, skippedNoPlazo = 0, unchanged = 0;
-  const sinPlazo: string[] = ['proyecto,codigo,cliente,totalPrice,financiado,installmentAmount_actual'];
+  let fixed = 0, skippedNoPlazo = 0, unchanged = 0, skippedJsa = 0;
+  const sinPlazo: string[] = ['proyecto,codigo,cliente,totalPrice,financiado,installmentAmount_actual,motivo'];
 
   for (const proj of projects) {
     const file = proj.code ? FILE_BY_CODE[proj.code] : undefined;
     if (!file) continue;
+
+    // Proyectos excluidos: reportar todos sus contratos y saltar
+    if (proj.code && EXCLUDED_CODES.has(proj.code)) {
+      const contratosJsa = await prisma.contract.findMany({
+        where: { projectId: proj.id, status: { not: ContractStatus.CANCELED }, paymentPlanType: 'INSTALLMENTS' },
+        select: { id: true, codigoLegado: true, totalPrice: true, downPayment: true, installmentAmount: true,
+          client: { select: { firstName: true, lastName: true } } },
+      });
+      for (const c of contratosJsa) {
+        const cod = (c.codigoLegado ?? '').toUpperCase();
+        const financiado = (c.totalPrice ?? 0) - (c.downPayment ?? 0);
+        skippedJsa++;
+        sinPlazo.push(`${proj.code},${cod},"${c.client?.firstName ?? ''} ${c.client?.lastName ?? ''}",${c.totalPrice},${financiado},${c.installmentAmount},HISTORIAL_PAGOS_INCOMPLETO_JSA`);
+      }
+      console.log(`${proj.code}: excluido (historial de pagos incompleto) — ${contratosJsa.length} contratos omitidos`);
+      continue;
+    }
+
     let plazos: Map<string, PlazoParsed>;
     try { plazos = readPlazosByCodigo(BASE + file); }
     catch (e) { console.log(`${proj.code}: no se pudo leer plazos (${(e as Error).message}) — omitido`); continue; }
@@ -58,7 +82,7 @@ async function main() {
       // Sin plazo confiable → reportar y omitir
       if (!plazo || plazo.months == null || plazo.months <= 0) {
         skippedNoPlazo++;
-        sinPlazo.push(`${proj.code},${cod},"${c.client?.firstName ?? ''} ${c.client?.lastName ?? ''}",${c.totalPrice},${financiado},${c.installmentAmount}`);
+        sinPlazo.push(`${proj.code},${cod},"${c.client?.firstName ?? ''} ${c.client?.lastName ?? ''}",${c.totalPrice},${financiado},${c.installmentAmount},SIN_PLAZO_EN_CODIGOS`);
         continue;
       }
 
@@ -101,6 +125,7 @@ async function main() {
   console.log(`Contratos corregidos     : ${fixed}`);
   console.log(`Ya estaban bien          : ${unchanged}`);
   console.log(`Sin plazo (omitidos)     : ${skippedNoPlazo}  → ${csvPath}`);
+  console.log(`Excluidos JSA (historial incompleto): ${skippedJsa}`);
   console.log('='.repeat(60));
   if (confirm) console.log('\n⚠ Cuotas regeneradas en PENDIENTE. Corre apply-payments-to-cuotas.ts para reconciliar.');
 
