@@ -14,7 +14,7 @@ import {
 } from '@/hooks/useContratos';
 import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
 import api from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, formatLotsLabel } from '@/lib/utils';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ContratoCompraventa } from '@/components/pdf/ContratoCompraventa';
 import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
@@ -154,9 +154,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const pagado      = totalPrice - balance;
   const pctPagado   = totalPrice > 0 ? Math.round((pagado / totalPrice) * 100) : 0;
   const fullName    = `${contrato.client.firstName} ${contrato.client.lastName}`;
-  const lote        = contrato.lots?.[0]?.lot;
-  const loteLabel   = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
-  const extraLotes  = (contrato.lots?.length ?? 0) - 1;
+  const loteLabel   = formatLotsLabel(contrato.lots);
 
   const CUOTAS_INITIAL = 12;
   const cuotasToShow   = showAllCuotas ? cuotas : cuotas.slice(0, CUOTAS_INITIAL);
@@ -207,7 +205,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{contrato.project.name}</span>
               <span style={{ color: 'var(--border)' }}>·</span>
               <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {loteLabel}{extraLotes > 0 && <span className="ml-1" style={{ color: 'var(--text-tertiary)' }}>+{extraLotes}</span>}
+                {loteLabel}
               </span>
             </div>
           </div>

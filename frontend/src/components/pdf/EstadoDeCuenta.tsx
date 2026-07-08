@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
+import { formatLotsLabel } from '@/lib/utils';
 
 // ── Paleta (idéntica a ReciboContrato) ───────────────────────────────────────
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
@@ -175,9 +176,10 @@ const PAGE_ROWS = 38;
 export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: EstadoDeCuentaProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
-  const lote          = contrato.lots?.[0]?.lot;
-  const loteLabel     = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
-  const loteArea      = lote ? `${lote.areaM2} m²` : '';
+  // Todos los lotes del contrato (no solo el primero); área total solo si se conoce.
+  const loteLabel     = formatLotsLabel(contrato.lots);
+  const totalArea     = (contrato.lots ?? []).reduce((s, l) => s + (l.lot.areaM2 || 0), 0);
+  const loteArea      = totalArea > 0 ? `${Math.round(totalArea * 100) / 100} m²` : '';
 
   const totalPagado   = pagos
     .filter(p => p.status === 'CONFIRMED')
@@ -185,7 +187,12 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
   const saldo         = contrato.totalPrice - totalPagado;
 
   const cuotasPagadas  = cuotas.filter(c => c.status === 'PAGADA').length;
-  const cuotasVencidas = cuotas.filter(c => c.status === 'MORA').length;
+  // Vencida = pendiente con fecha de vencimiento pasada (igual que la UI de la app;
+  // el status 'MORA' no se usa en los datos — las cuotas viven PENDIENTE/PAGADA).
+  const ahora = new Date();
+  const cuotasVencidas = cuotas.filter(
+    c => c.status === 'PENDIENTE' && new Date(c.fechaVencimiento) < ahora
+  ).length;
   const proximaCuota   = cuotas.find(c => c.status === 'PENDIENTE');
 
   // Paginar cuotas en bloques de PAGE_ROWS
