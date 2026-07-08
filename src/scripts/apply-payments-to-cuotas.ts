@@ -1,4 +1,5 @@
 import { PrismaClient, CuotaStatus, ContractStatus } from '@prisma/client';
+import { aplicarPagoACuotas, CuotaLike } from '../services/lib/pagoCuotas';
 
 const prisma = new PrismaClient();
 
@@ -25,49 +26,29 @@ function calcularUpdates(
   pagos:  Array<{ id: string; amount: number; paymentDate: Date }>,
   cuotas: Array<{ id: string; montoEsperado: number; numeroCuota: number }>,
 ): CuotaUpdate[] {
-  const estado = new Map<string, { pagado: number; fechaPago: Date | null }>();
-  for (const c of cuotas) estado.set(c.id, { pagado: 0, fechaPago: null });
-
-  let cuotaIdx = 0;
+  // Estado desde cero (el script SIEMPRE recalcula todo el contrato).
+  const estado: Array<CuotaLike & { fechaPago: Date | null }> = cuotas.map(c => ({
+    id: c.id, montoEsperado: c.montoEsperado, montoPagado: 0, status: 'PENDIENTE', fechaPago: null,
+  }));
 
   for (const pago of pagos) {
-    let pool = pago.amount;
-
-    while (pool > 0 && cuotaIdx < cuotas.length) {
-      const cuota  = cuotas[cuotaIdx];
-      const est    = estado.get(cuota.id)!;
-      const needed = cuota.montoEsperado - est.pagado;
-
-      if (pool >= needed) {
-        est.pagado    = cuota.montoEsperado;
-        est.fechaPago = pago.paymentDate;
-        pool         -= needed;
-        cuotaIdx++;
-      } else {
-        est.pagado   += pool;
-        est.fechaPago = pago.paymentDate;
-        pool          = 0;
-      }
-    }
-
-    if (cuotaIdx >= cuotas.length) break;
-  }
-
-  const updates: CuotaUpdate[] = [];
-  for (const cuota of cuotas) {
-    const est = estado.get(cuota.id)!;
-    if (est.pagado > 0 && est.fechaPago) {
-      updates.push({
-        id:          cuota.id,
-        montoPagado: est.pagado,
-        fechaPago:   est.fechaPago,
-        status:      est.pagado >= cuota.montoEsperado
-                     ? CuotaStatus.PAGADA
-                     : CuotaStatus.PENDIENTE,
-      });
+    const updates = aplicarPagoACuotas(pago.amount, pago.paymentDate, estado);
+    for (const u of updates) {
+      const e = estado.find(x => x.id === u.id)!;
+      e.montoPagado = u.montoPagado;
+      e.status      = u.status;
+      e.fechaPago   = u.fechaPago;
     }
   }
-  return updates;
+
+  return estado
+    .filter(e => e.montoPagado > 0 && e.fechaPago)
+    .map(e => ({
+      id: e.id,
+      montoPagado: e.montoPagado,
+      fechaPago: e.fechaPago!,
+      status: e.status === 'PAGADA' ? CuotaStatus.PAGADA : CuotaStatus.PENDIENTE,
+    }));
 }
 
 // ── Procesar un contrato ──────────────────────────────────────────────────────
