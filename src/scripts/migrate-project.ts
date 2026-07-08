@@ -42,6 +42,7 @@ import { PrismaClient, CuotaStatus, PaymentType, PaymentMethod, ContractStatus }
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
+import { parsePlazo } from './lib/installments';
 
 const prisma = new PrismaClient();
 
@@ -381,53 +382,6 @@ function parseMoney(val: string): number {
 
 const PLAZO_FALLBACK = 60;
 const PLAZO_OPCIONES = [60, 72, 84];
-
-interface PlazoParsed {
-  months: number | null;  // null → no se pudo determinar (inferir desde pagos)
-  isContado: boolean;
-  source: 'codigos' | 'contado' | 'inferido';
-}
-
-/**
- * Parsea el campo "PLAZO (AÑOS)" de la hoja Códigos.
- *   ""              → null  (inferir desde pagos)
- *   "DE CONTADO"    → contado (sin cuotas, 1 exhibición)
- *   "6" / "5"       → años → 6*12 = 72 meses
- *   "4a-2m"         → 4 años 2 meses = 50 meses (Valle del Roble; tolera espacios)
- *   "4a"            → 4 años = 48 meses
- */
-function parsePlazo(raw: string): PlazoParsed {
-  const s = (raw || '').trim();
-  if (!s) return { months: null, isContado: false, source: 'inferido' };
-
-  const upper = s.toUpperCase();
-  if (upper.includes('CONTADO')) {
-    return { months: 0, isContado: true, source: 'contado' };
-  }
-
-  // Formato "Xa-Ym" / "Xa - Ym" / "4a- 2m" (años y meses)
-  const ym = s.match(/(\d+)\s*a\s*-?\s*(\d+)\s*m/i);
-  if (ym) {
-    const years = parseInt(ym[1]);
-    const months = parseInt(ym[2]);
-    return { months: years * 12 + months, isContado: false, source: 'codigos' };
-  }
-
-  // Formato "Xa" (solo años, con sufijo a)
-  const yOnly = s.match(/^(\d+)\s*a$/i);
-  if (yOnly) {
-    return { months: parseInt(yOnly[1]) * 12, isContado: false, source: 'codigos' };
-  }
-
-  // Número puro = años (header dice "PLAZO (AÑOS)")
-  const n = parseInt(s);
-  if (!isNaN(n) && n > 0 && n <= 30) {
-    return { months: n * 12, isContado: false, source: 'codigos' };
-  }
-
-  // No reconocido → inferir
-  return { months: null, isContado: false, source: 'inferido' };
-}
 
 // Fila semilla / dummy: código terminado en "000" (X000) o nombre "Primera Fila"
 function isDummyRow(codigo: string, nombre = ''): boolean {
