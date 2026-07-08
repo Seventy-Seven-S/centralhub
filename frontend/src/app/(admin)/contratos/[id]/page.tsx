@@ -17,6 +17,7 @@ import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ContratoCompraventa } from '@/components/pdf/ContratoCompraventa';
+import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
 
 // ── Status maps ───────────────────────────────────────────────────────────────
 const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -269,6 +270,34 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               Ver contrato firmado
             </a>
           )}
+
+          {/* PDF Estado de Cuenta */}
+          <PDFDownloadLink
+            document={
+              <EstadoDeCuenta
+                contrato={contrato as any}
+                cuotas={cuotas}
+                pagos={pagos}
+              />
+            }
+            fileName={`estado-cuenta-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
+          >
+            {({ loading }) => (
+              <button
+                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  color: 'var(--accent)',
+                  border: '1px solid var(--accent)',
+                  opacity: loading ? 0.7 : 1,
+                  cursor: loading ? 'wait' : 'pointer',
+                }}
+              >
+                <FileDown size={16} />
+                {loading ? 'Generando...' : 'Descargar Estado de Cuenta'}
+              </button>
+            )}
+          </PDFDownloadLink>
 
           {/* PDF Contrato */}
           <PDFDownloadLink
