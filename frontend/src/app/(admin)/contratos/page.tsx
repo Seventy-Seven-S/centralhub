@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, FileText, AlertTriangle, DollarSign,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Plus,
 } from 'lucide-react';
 import { useContratos, ContratoDetalle } from '@/hooks/useContratos';
 import { useProjectSelection } from '@/contexts/ProjectContext';
@@ -158,9 +158,19 @@ export default function ContratosPage() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Contratos</h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{filtered.length} contratos encontrados</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Contratos</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{filtered.length} contratos encontrados</p>
+        </div>
+        <button
+          onClick={() => router.push('/nuevo-contrato')}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+          style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+        >
+          <Plus size={16} />
+          Nuevo contrato
+        </button>
       </div>
 
       {/* KPIs */}
