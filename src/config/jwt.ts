@@ -1,8 +1,19 @@
 import jwt from 'jsonwebtoken';
 
+// En producción los secretos son OBLIGATORIOS: sin fallback silencioso
+// (el viejo 'your-secret-key' permitía forjar tokens si faltaba el env).
+function requireSecret(name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', devFallback: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${name} es obligatorio en producción — configúralo en las variables de entorno`);
+  }
+  return devFallback;
+}
+
 export const jwtConfig = {
-  secret: process.env.JWT_SECRET || 'your-secret-key',
-  refreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key',
+  secret: requireSecret('JWT_SECRET', 'dev-only-secret'),
+  refreshSecret: requireSecret('JWT_REFRESH_SECRET', 'dev-only-refresh-secret'),
   expiresIn: process.env.JWT_EXPIRES_IN || '15m',
   refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 };

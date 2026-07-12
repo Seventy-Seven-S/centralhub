@@ -36,6 +36,11 @@ const app: Application = express();
 app.use(helmet());
 
 // CORS - Cross-Origin Resource Sharing
+// En producción CORS_ORIGIN es OBLIGATORIO (dominio real del frontend);
+// el fallback localhost es solo para desarrollo.
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+  throw new Error('CORS_ORIGIN es obligatorio en producción — configura el dominio real del frontend');
+}
 const corsOptions = {
   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
   credentials: true,
@@ -54,8 +59,9 @@ app.use(rateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// NOTA: se eliminó el mount estático /uploads — los contratos firmados (datos
+// personales) viven en el storage privado y se sirven con RBAC vía
+// GET /contracts/:id/signed-file.
 
 // Compression
 app.use(compression());

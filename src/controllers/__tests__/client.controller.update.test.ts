@@ -30,6 +30,8 @@ function runHandler(req: Partial<Request>) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.prisma.client.update.mockResolvedValue({ id: 'cli-1' });
+  // Los campos sensibles se cifran en reposo (AES-256-GCM) dentro del handler
+  process.env.FIELD_ENCRYPTION_KEY = 'a'.repeat(64);
 });
 
 describe('updateClient — whitelist anti mass-assignment', () => {
@@ -70,8 +72,8 @@ describe('updateClient — whitelist anti mass-assignment', () => {
     expect(arg.where).toEqual({ id: 'cli-1' });
 
     const data = arg.data;
-    // Campos editables presentes:
-    expect(data).toEqual({
+    // Campos editables no-sensibles pasan tal cual:
+    expect(data).toMatchObject({
       firstName: 'Ana',
       lastName: 'López',
       email: 'ana@example.com',
@@ -81,13 +83,13 @@ describe('updateClient — whitelist anti mass-assignment', () => {
       city: 'Torreón',
       state: 'Coahuila',
       zipCode: '27000',
-      ine: '1234567890123',
-      curp: 'LOPA900101MCLLNN09',
-      estadoCivil: 'Soltera',
-      lugarNacimiento: 'Torreón',
       status: 'ACTIVE',
       notes: 'cliente preferente',
     });
+    // Los sensibles llegan CIFRADOS (AES-256-GCM, prefijo versionado):
+    for (const campo of ['ine', 'curp', 'estadoCivil', 'lugarNacimiento']) {
+      expect(data[campo]).toMatch(/^enc:v1:/);
+    }
     // Campos prohibidos ausentes:
     expect(data).not.toHaveProperty('id');
     expect(data).not.toHaveProperty('globalCode');

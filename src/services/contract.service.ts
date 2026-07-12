@@ -6,6 +6,7 @@ import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { migrateIneToClient } from './ineDocument';
 import { buildCommissionData } from './commission.service';
 import { nextContractCode } from './lib/contractCode';
+import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS, COOWNER_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
@@ -365,7 +366,7 @@ export class ContractService {
       if (filters.startDateTo) where.startDate.lte = filters.startDateTo;
     }
 
-    return await prisma.contract.findMany({
+    const contracts = await prisma.contract.findMany({
       where,
       include: {
         client: {
@@ -400,6 +401,13 @@ export class ContractService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Descifrar campos sensibles de cotitulares (el select de client aquí no
+    // incluye sensibles)
+    return contracts.map(c => ({
+      ...c,
+      coOwners: c.coOwners.map(co => decryptFields(co, [...COOWNER_SENSITIVE_FIELDS])),
+    }));
   }
 
   // Obtener un contrato por ID
@@ -452,7 +460,12 @@ export class ContractService {
       throw new Error('Contrato no encontrado');
     }
 
-    return contract;
+    // Descifrar campos sensibles del cliente y cotitulares (AES-256 en reposo)
+    return {
+      ...contract,
+      client: decryptFields(contract.client, [...CLIENT_SENSITIVE_FIELDS]),
+      coOwners: contract.coOwners.map(co => decryptFields(co, [...COOWNER_SENSITIVE_FIELDS])),
+    };
   }
 
   // Actualizar un contrato
@@ -526,17 +539,24 @@ export class ContractService {
       throw new Error('Contrato no encontrado');
     }
 
-    return await prisma.coOwner.create({
+    const created = await prisma.coOwner.create({
       data: {
         contractId,
         firstName: data.firstName,
         lastName: data.lastName,
-        ine: data.ine,
-        estadoCivil: data.estadoCivil || 'Soltero/a',
-        lugarNacimiento: data.lugarNacimiento || 'No especificado',
+        // Cifrado en reposo de los campos sensibles del cotitular
+        ...encryptFields(
+          {
+            ine: data.ine,
+            estadoCivil: data.estadoCivil || 'Soltero/a',
+            lugarNacimiento: data.lugarNacimiento || 'No especificado',
+          },
+          [...COOWNER_SENSITIVE_FIELDS],
+        ),
         isPrimary: data.isPrimary,
       },
     });
+    return decryptFields(created, [...COOWNER_SENSITIVE_FIELDS]);
   }
 
   // Generar número de contrato único: continúa la serie del proyecto
