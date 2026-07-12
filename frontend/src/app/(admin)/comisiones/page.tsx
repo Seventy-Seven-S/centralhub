@@ -7,6 +7,7 @@ import {
   Commission, CommissionStatus, CommissionFilters,
 } from '@/hooks/useComisiones';
 import { formatCurrency } from '@/lib/utils';
+import { useRole } from '@/hooks/useRole';
 
 // ── Status badge config ─────────────────────────────────────────────────────
 
@@ -72,6 +73,8 @@ export default function ComisionesPage() {
 
   const { data: commissions = [], isLoading } = useComisiones(filters);
   const pagarMutation = usePagarComision();
+  // El AGENT ve solo SUS comisiones (el backend lo fuerza) y no puede pagar
+  const { isAgent } = useRole();
 
   const totals = useMemo(() => {
     const all = commissions.reduce((s, c) => s + (c.commissionAmount ?? 0), 0);
@@ -171,7 +174,7 @@ export default function ComisionesPage() {
                         <span className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                           <CheckCircle2 className="w-4 h-4" /> Pagada
                         </span>
-                      ) : c.status === 'CANCELED' ? (
+                      ) : c.status === 'CANCELED' || isAgent ? (
                         <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>—</span>
                       ) : (
                         <button

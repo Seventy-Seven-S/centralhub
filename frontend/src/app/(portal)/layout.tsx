@@ -1,13 +1,21 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import NotificationBell from '@/components/layout/NotificationBell';
 
+const PORTAL_NAV = [
+  { label: 'Mis contratos', href: '/mis-contratos' },
+  { label: 'Mis pagos',     href: '/mis-pagos' },
+  { label: 'Mi cuenta',     href: '/mi-cuenta' },
+];
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuthStore();
 
   useEffect(() => {
@@ -53,6 +61,26 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </div>
           </div>
 
+          {/* Navegación */}
+          <div className="hidden md:flex items-center gap-1">
+            {PORTAL_NAV.map(({ label, href }) => {
+              const active = pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition"
+                  style={{
+                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    backgroundColor: active ? 'var(--bg-secondary)' : 'transparent',
+                  }}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+
           {/* Usuario + logout */}
           <div className="flex items-center gap-3">
             <NotificationBell scope="portal" />
@@ -78,6 +106,26 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
+        </div>
+
+        {/* Navegación móvil (los clientes entran mayormente desde el teléfono) */}
+        <div className="md:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+          {PORTAL_NAV.map(({ label, href }) => {
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition"
+                style={{
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  backgroundColor: active ? 'var(--bg-secondary)' : 'transparent',
+                }}
+              >
+                {label}
+              </Link>
+            );
+          })}
         </div>
       </nav>
 

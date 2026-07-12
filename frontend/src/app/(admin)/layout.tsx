@@ -6,7 +6,8 @@ import Sidebar from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 
-const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos', '/comisiones'];
+// El AGENT sí entra a /comisiones (el backend le sirve solo las suyas)
+const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos'];
 const ADMIN_ONLY       = ['/usuarios'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
