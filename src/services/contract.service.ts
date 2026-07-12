@@ -5,6 +5,7 @@ import { sendWelcomeEmail } from './email.service';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { migrateIneToClient } from './ineDocument';
 import { buildCommissionData } from './commission.service';
+import { nextContractCode } from './lib/contractCode';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
@@ -538,25 +539,32 @@ export class ContractService {
     });
   }
 
-  // Generar número de contrato único
+  // Generar número de contrato único: continúa la serie del proyecto
+  // (máximo numérico del prefijo dominante), no "K" hardcodeado ni el último
+  // por createdAt — eso generaba colisiones de codigo_legado (unique global)
+  // en cualquier proyecto migrado. Verifica unicidad global por si acaso.
   private async generateContractNumber(projectId: string): Promise<string> {
-    const lastContract = await prisma.contract.findFirst({
-      where: {
-        projectId,
-        codigoLegado: { not: null },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [project, contracts] = await Promise.all([
+      prisma.project.findUnique({ where: { id: projectId }, select: { code: true } }),
+      prisma.contract.findMany({
+        where: { projectId, codigoLegado: { not: null } },
+        select: { codigoLegado: true },
+      }),
+    ]);
 
-    if (lastContract?.codigoLegado) {
-      const match = lastContract.codigoLegado.match(/^K(\d+)$/);
-      if (match) {
-        const nextNum = parseInt(match[1]) + 1;
-        return `K${String(nextNum).padStart(3, '0')}`;
-      }
+    let candidate = nextContractCode(
+      contracts.map(c => c.codigoLegado!),
+      project?.code ?? 'CTO',
+    );
+
+    // codigo_legado es unique GLOBAL: si la serie de este proyecto choca con
+    // otra (data legada sucia), avanza hasta encontrar hueco.
+    while (await prisma.contract.findFirst({ where: { codigoLegado: candidate }, select: { id: true } })) {
+      const m = candidate.match(/^([A-Z]+)(\d+)$/)!;
+      candidate = `${m[1]}${String(parseInt(m[2], 10) + 1).padStart(3, '0')}`;
     }
 
-    return 'K001';
+    return candidate;
   }
 }
 
