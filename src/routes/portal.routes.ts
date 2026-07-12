@@ -7,6 +7,7 @@ import contractService from '../services/contract.service';
 import cuotaService from '../services/cuota.service';
 import crypto from 'crypto';
 import * as estadoCuentaService from '../services/estadoCuenta.service';
+import notificationService from '../services/notification.service';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -99,6 +100,44 @@ router.get('/contratos/:id/pagos', async (req: Request, res: Response) => {
       orderBy: { paymentDate: 'desc' },
     });
     res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    const status = error instanceof ApiError ? error.statusCode : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+});
+
+// ── Notificaciones del cliente (buzón del portal) ───────────────────────────
+
+// GET /api/v1/portal/notificaciones
+router.get('/notificaciones', async (req: Request, res: Response) => {
+  try {
+    const clientId = await resolveClientId(req);
+    const { notifications, unreadCount } = await notificationService.getNotifications('CLIENT', clientId);
+    res.status(200).json({ success: true, notifications, unreadCount });
+  } catch (error: any) {
+    const status = error instanceof ApiError ? error.statusCode : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+});
+
+// PATCH /api/v1/portal/notificaciones/:id/read
+router.patch('/notificaciones/:id/read', async (req: Request, res: Response) => {
+  try {
+    const clientId = await resolveClientId(req);
+    const result = await notificationService.markRead(req.params.id, 'CLIENT', clientId);
+    res.status(200).json({ success: true, count: result.count });
+  } catch (error: any) {
+    const status = error instanceof ApiError ? error.statusCode : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/v1/portal/notificaciones/read-all
+router.post('/notificaciones/read-all', async (req: Request, res: Response) => {
+  try {
+    const clientId = await resolveClientId(req);
+    const result = await notificationService.markAllRead('CLIENT', clientId);
+    res.status(200).json({ success: true, count: result.count });
   } catch (error: any) {
     const status = error instanceof ApiError ? error.statusCode : 400;
     res.status(status).json({ success: false, message: error.message });

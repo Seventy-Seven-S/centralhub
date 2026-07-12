@@ -1,6 +1,10 @@
 // src/services/notification.service.ts
-// Buzón de notificaciones in-app. Solo el ADMIN las consume.
-import { PrismaClient, NotificationType } from '@prisma/client';
+// Buzón de notificaciones in-app, dirigido por audiencia:
+//   ADMIN   — "copia de todo": recibe una fila por CADA evento del sistema
+//   MANAGER — operación de ventanilla (nuevos apartados)
+//   CLIENT  — notificaciones personales del portal (sus pagos), con clientId
+// Se crea UNA FILA POR AUDIENCIA para que el estado de leído sea independiente.
+import { PrismaClient, NotificationType, NotificationAudience } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +16,8 @@ export interface CreateNotificationInput {
   message: string;
   relatedEntity?: string;
   relatedEntityId?: string;
+  audience?: NotificationAudience;
+  clientId?: string;
 }
 
 export class NotificationService {
@@ -23,37 +29,68 @@ export class NotificationService {
         message: input.message,
         relatedEntity: input.relatedEntity ?? null,
         relatedEntityId: input.relatedEntityId ?? null,
+        audience: input.audience ?? 'ADMIN',
+        clientId: input.clientId ?? null,
       },
     });
   }
 
-  // Últimas ~50 notificaciones (más recientes primero) + conteo de no leídas.
-  async getNotifications() {
+  // Crea la misma notificación para varias audiencias de staff (fan-out).
+  // Los llamadores incluyen ADMIN en cada evento ("copia de todo").
+  async createForAudiences(
+    input: Omit<CreateNotificationInput, 'audience' | 'clientId'>,
+    audiences: NotificationAudience[],
+  ) {
+    return prisma.notification.createMany({
+      data: audiences.map(audience => ({
+        type: input.type,
+        message: input.message,
+        relatedEntity: input.relatedEntity ?? null,
+        relatedEntityId: input.relatedEntityId ?? null,
+        audience,
+        clientId: null,
+      })),
+    });
+  }
+
+  // Últimas ~50 notificaciones de la audiencia (más recientes primero) + no leídas.
+  // Para CLIENT el clientId es obligatorio: jamás devolver el stream completo.
+  async getNotifications(audience: NotificationAudience, clientId?: string) {
+    const where = this.scopeWhere(audience, clientId);
     const [notifications, unreadCount] = await Promise.all([
       prisma.notification.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         take: MAX_NOTIFICATIONS,
       }),
-      prisma.notification.count({ where: { read: false } }),
+      prisma.notification.count({ where: { ...where, read: false } }),
     ]);
 
     return { notifications, unreadCount };
   }
 
-  // Marca una notificación como leída.
-  async markRead(id: string) {
-    return prisma.notification.update({
-      where: { id },
+  // Marca una notificación como leída, solo si pertenece al solicitante.
+  async markRead(id: string, audience: NotificationAudience, clientId?: string) {
+    return prisma.notification.updateMany({
+      where: { id, ...this.scopeWhere(audience, clientId) },
       data: { read: true },
     });
   }
 
-  // Marca todas las notificaciones no leídas como leídas.
-  async markAllRead() {
+  // Marca todas las no leídas del solicitante como leídas.
+  async markAllRead(audience: NotificationAudience, clientId?: string) {
     return prisma.notification.updateMany({
-      where: { read: false },
+      where: { ...this.scopeWhere(audience, clientId), read: false },
       data: { read: true },
     });
+  }
+
+  private scopeWhere(audience: NotificationAudience, clientId?: string) {
+    if (audience === 'CLIENT') {
+      if (!clientId) throw new Error('clientId es obligatorio para notificaciones de cliente');
+      return { audience, clientId };
+    }
+    return { audience };
   }
 }
 

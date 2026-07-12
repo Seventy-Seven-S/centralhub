@@ -97,14 +97,24 @@ export class PaymentService {
       return p;
     });
 
-    // Notificación in-app (fire-and-forget)
+    // Notificaciones in-app (fire-and-forget): ADMIN (copia de todo) + el
+    // cliente en su portal.
     try {
       const cliente = `${contract.client?.firstName ?? ''} ${contract.client?.lastName ?? ''}`.trim() || 'cliente';
+      const montoFmt = data.amount.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
       await notificationService.createNotification({
         type: 'PAYMENT',
-        message: `Pago registrado: ${data.amount} — ${cliente}`,
+        message: `Pago registrado: ${montoFmt} — ${cliente}`,
         relatedEntity: 'payment',
         relatedEntityId: created.id,
+      });
+      await notificationService.createNotification({
+        type: 'PAYMENT',
+        message: `Tu pago de ${montoFmt} fue registrado. ¡Gracias!`,
+        relatedEntity: 'payment',
+        relatedEntityId: created.id,
+        audience: 'CLIENT',
+        clientId: contract.clientId,
       });
     } catch (err) {
       logger.error(`Error creando notificación de pago ${created.id}: ${err instanceof Error ? err.message : String(err)}`);
