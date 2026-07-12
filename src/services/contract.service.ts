@@ -188,22 +188,25 @@ export class ContractService {
       return newContract;
     });
 
-    // Generar cuotas automáticamente
-    const cuotas = [];
-    for (let i = 1; i <= contract.installmentCount; i++) {
-      const fechaVencimiento = new Date(contract.startDate);
-      fechaVencimiento.setMonth(fechaVencimiento.getMonth() + i);
-      cuotas.push({
-        contractId: contract.id,
-        numeroCuota: i,
-        mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
-        fechaVencimiento,
-        montoEsperado: contract.installmentAmount,
-        status: CuotaStatus.PENDIENTE,
-      });
-    }
+    // Generar cuotas automáticamente (solo contratos financiados: los campos
+    // son nullable en el schema para ventas de contado)
+    if (contract.installmentCount && contract.startDate && contract.installmentAmount != null) {
+      const cuotas = [];
+      for (let i = 1; i <= contract.installmentCount; i++) {
+        const fechaVencimiento = new Date(contract.startDate);
+        fechaVencimiento.setMonth(fechaVencimiento.getMonth() + i);
+        cuotas.push({
+          contractId: contract.id,
+          numeroCuota: i,
+          mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
+          fechaVencimiento,
+          montoEsperado: contract.installmentAmount,
+          status: CuotaStatus.PENDIENTE,
+        });
+      }
 
-    await prisma.cuota.createMany({ data: cuotas });
+      await prisma.cuota.createMany({ data: cuotas });
+    }
 
     // Registrar pagos bajo la semántica 'pago separado':
     //   - Si hubo depósito de apartado → Payment tipo RESERVATION_DEPOSIT (fecha = min(reservedAt))
@@ -332,7 +335,7 @@ export class ContractService {
         fullContract.codigoLegado ?? fullContract.contractNumber,
         fullContract.project.name,
         lotLabel,
-        fullContract.installmentAmount,
+        fullContract.installmentAmount ?? 0,
         undefined,
         tempPassword,
       ).catch(err => console.error('Error enviando email de bienvenida:', err));
