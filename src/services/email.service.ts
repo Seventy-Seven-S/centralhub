@@ -1,9 +1,19 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Inicialización perezosa: `new Resend(undefined)` lanza en el constructor y
+// tiraba TODO el server al arrancar si faltaba la env. Así el error aparece
+// al intentar ENVIAR, con mensaje accionable (y el 2FA de staff depende de esto).
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY no configurada — no se pueden enviar emails (2FA/bienvenida)');
+  }
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 export async function sendVerificationCode(email: string, firstName: string, code: string) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from:    process.env.EMAIL_FROM ?? 'onboarding@resend.dev',
     to:      email,
     subject: `Tu código de verificación: ${code}`,
@@ -70,10 +80,9 @@ export async function sendWelcomeEmail(
   portalUrl: string = 'http://localhost:3000/portal',
   tempPassword?: string
 ): Promise<void> {
-  const resend = new Resend(process.env.RESEND_API_KEY);
   const monthlyFormatted = monthlyPayment.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
     to: email,
     subject: `Bienvenido a Central Inmobiliaria — Contrato ${contractNumber}`,
