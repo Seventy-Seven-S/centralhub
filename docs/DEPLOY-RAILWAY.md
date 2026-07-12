@@ -70,3 +70,17 @@ Railway Postgres incluye backups automáticos **según plan** (Hobby: diarios co
 ## Pendientes conocidos
 
 - Driver S3 sobre `FileStorage`: mejora futura; el volumen cubre el piloto.
+
+## Notas del deploy real (2026-07-12)
+
+- Proyecto Railway: `centralhub` (workspace seventy-seven-studio, cuenta info@seventyss.com).
+- Backend: `https://backend-production-8ed1.up.railway.app` — servicio linkeado a GitHub `main` (auto-deploy en cada push), volumen `backend-volume` en `/data`.
+- Frontend: `https://frontend-production-96a0.up.railway.app` — **deploy manual con `railway up`** (el servicio NO está linkeado a GitHub porque el CLI no permite fijar Root Directory en monorepo). Para redeployar el frontend:
+  ```bash
+  rsync -a --exclude node_modules --exclude .next --exclude .env.local --exclude tsconfig.tsbuildinfo frontend/ /tmp/frontend-deploy/
+  cd /tmp/frontend-deploy && railway link --project 831c0220-45b8-40f4-a374-977f54f73050 --environment production --service frontend && railway up --detach -y
+  ```
+  Alternativa recomendada: en el dashboard, conectar el servicio frontend al repo con Root Directory = `frontend` para tener auto-deploy.
+- Vars especiales del frontend: `NIXPACKS_NODE_VERSION=20` (Next exige ≥20; Nixpacks default era 18) y `NIXPACKS_NO_CACHE=1` (un build fallido dejó un cache mount corrupto sobre `tsconfig.tsbuildinfo`; se puede quitar cuando se conecte a GitHub).
+- Secretos de producción generados y respaldados en `~/.centralhub-railway-secrets` (600) de la máquina de Miguel — ⚠ respaldar FIELD_ENCRYPTION_KEY en un gestor de contraseñas.
+- PENDIENTE: `RESEND_API_KEY`/`EMAIL_FROM` en el backend (sin ellos el 2FA de staff no puede enviar códigos → el login de producción quedará bloqueado en ese paso); verificar retención de backups del plan en el dashboard.
