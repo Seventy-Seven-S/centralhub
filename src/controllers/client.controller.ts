@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
+import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
+
+const SENSITIVE = [...CLIENT_SENSITIVE_FIELDS];
 
 export const getAllClients = asyncHandler(async (req: Request, res: Response) => {
   const clients = await prisma.client.findMany({
@@ -16,7 +19,7 @@ export const getAllClients = asyncHandler(async (req: Request, res: Response) =>
 
   res.status(200).json({
     status: 'success',
-    data: { clients },
+    data: { clients: clients.map(c => decryptFields(c, SENSITIVE)) },
   });
 });
 
@@ -49,7 +52,7 @@ export const getClientById = asyncHandler(async (req: Request, res: Response) =>
 
   res.status(200).json({
     status: 'success',
-    data: { client: { ...client, ineDocument } },
+    data: { client: { ...decryptFields(client, SENSITIVE), ineDocument } },
   });
 });
 
@@ -130,12 +133,14 @@ export const updateClient = asyncHandler(async (req: Request, res: Response) => 
 
   const client = await prisma.client.update({
     where: { id },
-    data,
+    // Cifrado en reposo de los campos sensibles (INE, CURP, estado civil,
+    // lugar de nacimiento) — AES-256-GCM a nivel aplicación
+    data: encryptFields(data, SENSITIVE as any),
   });
 
   res.status(200).json({
     status: 'success',
-    data: { client },
+    data: { client: decryptFields(client, SENSITIVE) },
   });
 });
 

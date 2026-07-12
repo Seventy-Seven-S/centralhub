@@ -1,21 +1,14 @@
 // src/routes/contract.routes.ts
 import { Router } from 'express';
-import path from 'path';
 import multer from 'multer';
 import contractController from '../controllers/contract.controller';
 import cuotaController from '../controllers/cuota.controller';
 import { authenticate, authorize } from '../middlewares/auth';
 
-const storage = multer.diskStorage({
-  destination: path.join(__dirname, '../../uploads/contratos'),
-  filename: (_req, file, cb) => {
-    const contractId = (_req as any).params.id;
-    cb(null, `${contractId}-signed.pdf`);
-  },
-});
-
+// El PDF firmado va al storage PRIVADO (FileStorage), no a /uploads público:
+// contiene INE/datos personales. memoryStorage → el controller lo persiste.
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') cb(null, true);
@@ -43,6 +36,7 @@ router.post('/:id/coowners', adminOrManager, contractController.addCoOwner);
 
 // Upload contrato firmado
 router.post('/:id/upload-signed', adminOrManager, upload.single('file'), contractController.uploadSigned);
+router.get('/:id/signed-file', adminOrManager, contractController.getSignedFile);
 
 // Cuotas del contrato
 router.get('/:id/cuotas', adminOrManager, cuotaController.getByContract.bind(cuotaController));

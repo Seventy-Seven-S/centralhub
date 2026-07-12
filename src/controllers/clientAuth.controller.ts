@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../config/database';
 import { generateClientAccessToken, generateClientRefreshToken } from '../config/jwt';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
+import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
 
 /**
  * Registro de cliente con acceso al portal
@@ -70,10 +71,8 @@ export const registerClient = asyncHandler(async (req: Request, res: Response) =
         city,
         state,
         zipCode,
-        ine,
-        curp,
-        estadoCivil,
-        lugarNacimiento,
+        // Cifrado en reposo (AES-256-GCM) de los campos sensibles
+        ...encryptFields({ ine, curp, estadoCivil, lugarNacimiento }, [...CLIENT_SENSITIVE_FIELDS]),
         status: 'ACTIVE',
       },
     });
@@ -249,7 +248,7 @@ export const getClientProfile = asyncHandler(async (req: Request, res: Response)
 
   res.status(200).json({
     status: 'success',
-    data: { client: clientUser.client },
+    data: { client: decryptFields(clientUser.client, [...CLIENT_SENSITIVE_FIELDS]) },
   });
 });
 

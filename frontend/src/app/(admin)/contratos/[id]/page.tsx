@@ -93,6 +93,21 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const fileInputRef           = useRef<HTMLInputElement>(null);
   const [uploading, setUploading]   = useState(false);
   const [activating, setActivating] = useState(false);
+  const [openingSigned, setOpeningSigned] = useState(false);
+
+  // El PDF firmado se sirve con RBAC desde el storage privado (no URL pública)
+  async function handleVerFirmado() {
+    setOpeningSigned(true);
+    try {
+      const res = await api.get(`/contracts/${id}/signed-file`, { responseType: 'blob' });
+      window.open(URL.createObjectURL(res.data), '_blank');
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo abrir el contrato firmado.');
+    } finally {
+      setOpeningSigned(false);
+    }
+  }
 
   async function handleActivate() {
     if (!window.confirm('¿Activar este contrato manualmente, sin requerir el PDF firmado?')) return;
@@ -255,18 +270,17 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             </button>
           )}
 
-          {/* Botón ver contrato firmado — cuando ya existe */}
+          {/* Botón ver contrato firmado — servido con RBAC desde storage privado */}
           {contrato.status !== 'DRAFT' && (contrato as any).contractFileUrl && (
-            <a
-              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '')}${(contrato as any).contractFileUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            <button
+              onClick={handleVerFirmado}
+              disabled={openingSigned}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
               style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success)' }}
             >
               <ExternalLink size={16} />
-              Ver contrato firmado
-            </a>
+              {openingSigned ? 'Abriendo…' : 'Ver contrato firmado'}
+            </button>
           )}
 
           {/* PDF Estado de Cuenta */}

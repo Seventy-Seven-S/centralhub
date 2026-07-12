@@ -5,6 +5,7 @@ import contractService from '../services/contract.service';
 import { logger } from '../utils/logger';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
+import { getFileStorage } from '../services/storage';
 
 const prisma = new PrismaClient();
 
@@ -161,16 +162,50 @@ export class ContractController {
         return;
       }
 
-      const contractFileUrl = `/uploads/contratos/${file.filename}`;
+      // El PDF firmado va al storage PRIVADO (contiene datos personales);
+      // contractFileUrl guarda la KEY del storage, no una URL pública.
+      const storageKey = `contracts/${id}/signed.pdf`;
+      await getFileStorage().saveFile(storageKey, file.buffer, 'application/pdf');
 
       await prisma.contract.update({
         where: { id },
-        data: { contractFileUrl, status: 'ACTIVE' },
+        data: { contractFileUrl: storageKey, status: 'ACTIVE' },
       });
 
-      res.json({ success: true, data: { contractFileUrl, status: 'ACTIVE' } });
+      res.json({ success: true, data: { contractFileUrl: storageKey, status: 'ACTIVE' } });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message || 'Error al subir el contrato' });
+    }
+  }
+
+  // GET /api/v1/contracts/:id/signed-file — sirve el PDF firmado desde el
+  // storage privado (solo ADMIN/MANAGER, enforced en la ruta)
+  async getSignedFile(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const contract = await prisma.contract.findUnique({
+        where: { id },
+        select: { contractFileUrl: true, contractNumber: true },
+      });
+
+      if (!contract?.contractFileUrl) {
+        res.status(404).json({ success: false, message: 'Este contrato no tiene PDF firmado' });
+        return;
+      }
+
+      const buffer = await getFileStorage().getFile(contract.contractFileUrl);
+
+      // Log de acceso a datos sensibles (Arquitectura §7.3)
+      logger.info(
+        `[acceso-doc-sensible] user=${req.user?.userId ?? 'desconocido'} role=${req.user?.role ?? '?'} ` +
+        `contrato=${id} archivo=contrato-firmado ip=${req.ip}`,
+      );
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${contract.contractNumber}-firmado.pdf"`);
+      res.send(buffer);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || 'Error al obtener el contrato firmado' });
     }
   }
 }
