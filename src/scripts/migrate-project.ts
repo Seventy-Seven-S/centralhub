@@ -43,6 +43,7 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parsePlazo, buildScheduleAmounts } from './lib/installments';
+import { readJSAPaymentSheet, JSAFamily, reconciliarContrato } from './lib/jsaSheets';
 
 const prisma = new PrismaClient();
 
@@ -96,6 +97,7 @@ interface SheetRow {
   fechaInicio: string;
   mensualidad: number;
   pagos: SheetPago[];
+  pagadoDirectorio?: number;   // Directorio.Pagado — target de reconciliación (undefined si no aparece)
 }
 
 interface SheetPago {
@@ -301,16 +303,6 @@ function generateContractNumber(codigoLegado: string, projectCode: string): stri
 // Aliases para la hoja de Códigos según el formato del archivo
 const CODIGOS_SHEET_ALIASES = ['Códigos', 'Códigos de Cliente', 'Códigos de Clientes', 'Codigo de Cliente', 'Codigos de Cliente'];
 
-// Hojas no-pago en archivos JSA (todo lo demás se trata como hoja de pagos)
-const JSA_NON_PAYMENT_SHEETS = new Set([
-  'codigos de cliente', 'directorio', 'directorio.d', 'capturas', 'concentrado ', 'concentrado',
-  'layout', 'config', 'bitacora', 'nvscriptsproperties', 'do not delete - autocrat job se',
-  'clientes con contrato mal', 'retenidos campana', 'presidencia', 'presidencia pagos',
-  'prospectación', 'prospectacion', 'mapa', 'hoja cobranza ', 'hoja cobranza',
-  'lineamientos generales', 'ref1', 'ref2', 'cc1', 'cc2', 'r.cortes', 'r.propiedad',
-  'r.cliente', 'r.aportes1', 'r.aportes2', 'r2', 'reporte.1', 'retencion campana', 'hoja 22',
-]);
-
 // Detecta en qué fila (0-based) están los headers buscando "CODIGO" o "NOMBRE"
 function detectHeaderRow(ws: XLSX.WorkSheet): number {
   const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
@@ -420,47 +412,36 @@ function parseLotTokens(loteRaw: string): string[] {
   return [...new Set(tokens)];
 }
 
-// Recolecta pagos de todas las hojas de fecha en archivos JSA (sin hoja "Ingresos")
+// Recolecta pagos de todas las hojas de fecha en archivos JSA (sin hoja "Ingresos").
+// Cada hoja se clasifica en una familia con lector propio (ver lib/jsaSheets.ts);
+// las hojas DESCONOCIDA se reportan en consola en vez de adivinarse.
 function collectJSAPayments(wb: XLSX.WorkBook): Map<string, FilaIngreso[]> {
   const ingresosMap = new Map<string, FilaIngreso[]>();
+  const familyCounts = new Map<JSAFamily, { hojas: number; pagos: number }>();
+  const desconocidas: string[] = [];
 
   for (const sheetName of wb.SheetNames) {
-    const lower = sheetName.toLowerCase().trim();
-    if (JSA_NON_PAYMENT_SHEETS.has(lower)) continue;
-    // Hojas "FASTIDIO …" (JSA 4) NO son de pagos: listan cada contrato con su
-    // valor total y un timestamp. Su layout (código=col1, timestamp=col3,
-    // $precioTotal=col4) hacía que el parser inyectara un EXTRA_PAYMENT igual
-    // al precio total. Los nombres varían ("FASTIDIO JULI0 2024", "FASTIDIO 12
-    // Oct 2024"), así que excluimos por prefijo.
-    if (lower.startsWith('fastidio')) continue;
+    const raw: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', raw: false });
+    const { family, pagos } = readJSAPaymentSheet(sheetName, raw as string[][]);
 
-    const ws = wb.Sheets[sheetName];
-    const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    const fc = familyCounts.get(family) ?? { hojas: 0, pagos: 0 };
+    fc.hojas++; fc.pagos += pagos.length;
+    familyCounts.set(family, fc);
+    if (family === 'DESCONOCIDA') desconocidas.push(sheetName);
 
-    for (const row of raw) {
-      if (!row || row.length < 3) continue;
-
-      // col1 debe ser un código tipo C001, A005, etc.
-      const codigo = row[1]?.toString().trim().toUpperCase();
-      if (!codigo || !/^[A-Z]\d+$/.test(codigo)) continue;
-      if (isDummyRow(codigo)) continue;
-
-      const fecha = row[0]?.toString().trim() || '';
-      const tipo = row[2]?.toString().trim() || '';
-      const concepto = row[3]?.toString().trim() || '';
-
-      // El monto puede estar en cualquier col ≥2 que empiece con "$"
-      let monto = 0;
-      for (let c = 2; c < row.length; c++) {
-        const val = row[c]?.toString().trim() || '';
-        if (val.startsWith('$')) { monto = parseMoney(val); break; }
-      }
-      if (monto <= 0) continue;
-
-      const ingreso: FilaIngreso = { codigo, fecha, tipo, concepto, monto };
-      if (!ingresosMap.has(codigo)) ingresosMap.set(codigo, []);
-      ingresosMap.get(codigo)!.push(ingreso);
+    for (const p of pagos) {
+      if (!ingresosMap.has(p.codigo)) ingresosMap.set(p.codigo, []);
+      ingresosMap.get(p.codigo)!.push(p);
     }
+  }
+
+  console.log('  Hojas JSA por familia:');
+  for (const [family, fc] of familyCounts) {
+    console.log(`    ${family.padEnd(14)}: ${fc.hojas} hojas, ${fc.pagos} pagos`);
+  }
+  if (desconocidas.length) {
+    console.log(`  ⚠ Hojas DESCONOCIDAS (tienen códigos de cliente pero nada se pudo leer — revisar):`);
+    for (const s of desconocidas) console.log(`    - "${s}"`);
   }
 
   return ingresosMap;
@@ -643,6 +624,7 @@ function readExcelFile(excelPath: string): SheetRow[] {
       cancelReason: cancelReason ?? undefined,
       fechaInicio:    cod.fechaVenta || new Date().toISOString(),
       mensualidad,
+      pagadoDirectorio: dir ? dir.pagado : undefined,
       pagos: pagos.map(p => ({
         fecha:    p.fecha,
         monto:    p.monto,
@@ -795,6 +777,7 @@ export async function migrateProject(projectId: string, excelPath: string, payme
     logger.info('Leyendo archivo Excel...');
     const rows = readExcelFile(excelPath);
     logger.info(`Filas a procesar: ${rows.length}`);
+    writeReconciliationCSV(rows, projectId);
 
     // TRANSFORM + LOAD: procesar fila por fila
     for (let idx = 0; idx < rows.length; idx++) {
@@ -1020,6 +1003,37 @@ function validateRow(row: SheetRow): string | null {
   return null;
 }
 
+// CSV de reconciliación por contrato: Directorio.Pagado vs Σ pagos parseados.
+// Todo delta > $1 va a revisión humana; no bloquea la migración (el Directorio
+// también puede estar desactualizado), pero destapa huecos y dobles conteos.
+function writeReconciliationCSV(rows: SheetRow[], label: string): void {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const csvPath = path.join(process.cwd(), 'logs', `reconciliacion_${label}_${ts}.csv`);
+  fs.mkdirSync(path.dirname(csvPath), { recursive: true });
+
+  const counts: Record<string, number> = {};
+  const lines = ['codigo,nombre,pagadoDirectorio,pagadoParseado,numPagos,delta,veredicto'];
+  for (const row of rows) {
+    const pagadoParseado = row.pagos.reduce((s, p) => s + p.monto, 0);
+    const { delta, veredicto } = reconciliarContrato(row.pagadoDirectorio, pagadoParseado);
+    counts[veredicto] = (counts[veredicto] || 0) + 1;
+    lines.push([
+      row.codigo,
+      `"${row.nombreCompleto.replace(/"/g, '""')}"`,
+      row.pagadoDirectorio ?? '',
+      pagadoParseado.toFixed(2),
+      row.pagos.length,
+      delta === null ? '' : delta.toFixed(2),
+      veredicto,
+    ].join(','));
+  }
+  fs.writeFileSync(csvPath, lines.join('\n') + '\n');
+
+  console.log(`\n── RECONCILIACIÓN vs Directorio.Pagado ──`);
+  for (const [v, n] of Object.entries(counts).sort()) console.log(`  ${v.padEnd(16)}: ${n} contratos`);
+  console.log(`  CSV: ${csvPath}`);
+}
+
 function runDryRun(excelPath: string, label: string): MigrationResult {
   const result: MigrationResult = {
     clientsCreated: 0, clientsReused: 0, contractsCreated: 0, contractsCanceled: 0,
@@ -1092,6 +1106,8 @@ function runDryRun(excelPath: string, label: string): MigrationResult {
     for (const r of shown) console.log(`  ⚠ ${r.codigo} (${r.nombre}): ${r.note}`);
     if (reviewRows.length > shown.length) console.log(`  … y ${reviewRows.length - shown.length} más`);
   }
+  writeReconciliationCSV(rows, label);
+
   console.log('\n(DRY-RUN — no se escribió NADA a la base de datos. Usa --confirm para migrar.)\n');
 
   return result;
