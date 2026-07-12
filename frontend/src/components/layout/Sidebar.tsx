@@ -1,27 +1,44 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
-  Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt, FilePlus, DollarSign,
+  Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt, DollarSign,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
 import { cn } from '@/lib/utils';
 import ProjectSelector from '@/components/layout/ProjectSelector';
+import { RegistrarPagoModal } from '@/components/pagos/RegistrarPagoModal';
 
-const NAV_ITEMS = [
-  { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard },
-  { label: 'Proyectos',  href: '/proyectos',  icon: Building2 },
-  { label: 'Clientes',   href: '/clientes',   icon: Users },
-  { label: 'Contratos',      href: '/contratos',      icon: FileText },
-  { label: 'Nuevo Contrato', href: '/nuevo-contrato', icon: FilePlus },
-  { label: 'Cuotas',         href: '/cuotas',         icon: Calendar },
-  { label: 'Lotes',      href: '/lotes',      icon: Map },
-  { label: 'Gastos',     href: '/gastos',     icon: Receipt },
-  { label: 'Comisiones', href: '/comisiones', icon: DollarSign },
-  { label: 'Usuarios',   href: '/usuarios',   icon: UserCog },
+const NAV_GROUPS: Array<{ title: string; items: Array<{ label: string; href: string; icon: typeof LayoutDashboard }> }> = [
+  {
+    title: 'Operación',
+    items: [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Proyectos', href: '/proyectos', icon: Building2 },
+      { label: 'Lotes',     href: '/lotes',     icon: Map },
+      { label: 'Contratos', href: '/contratos', icon: FileText },
+      { label: 'Cuotas',    href: '/cuotas',    icon: Calendar },
+      { label: 'Clientes',  href: '/clientes',  icon: Users },
+    ],
+  },
+  {
+    title: 'Finanzas',
+    items: [
+      { label: 'Gastos',     href: '/gastos',     icon: Receipt },
+      { label: 'Comisiones', href: '/comisiones', icon: DollarSign },
+    ],
+  },
+  {
+    title: 'Sistema',
+    items: [
+      { label: 'Usuarios', href: '/usuarios', icon: UserCog },
+    ],
+  },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -41,6 +58,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const router   = useRouter();
   const { user, logout } = useAuthStore();
   const { theme, toggle } = useTheme();
+  const [showPago, setShowPago] = useState(false);
 
   function handleLogout() {
     logout();
@@ -100,49 +118,73 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <ProjectSelector />
       </div>
 
+      {/* Botón global: registrar pago (solo ADMIN/MANAGER — la API es adminOrManager) */}
+      {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setShowPago(true)}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+          >
+            <CreditCard className="w-4 h-4" />
+            Registrar pago
+          </button>
+        </div>
+      )}
+
       {/* Navegación */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {(() => {
-          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos', '/comisiones'];
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {NAV_GROUPS.map(group => {
+          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas', '/gastos', '/comisiones'];
           const ADMIN_ONLY   = ['/usuarios'];
-          return NAV_ITEMS.filter(item => {
+          const visibles = group.items.filter(item => {
             if (user?.role === 'AGENT' && AGENT_HIDDEN.includes(item.href)) return false;
             if (user?.role !== 'ADMIN' && ADMIN_ONLY.includes(item.href)) return false;
             return true;
           });
-        })().map(({ label, href, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
+          if (visibles.length === 0) return null;
           return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onClose}
-              className="flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150"
-              style={
-                active
-                  ? {
-                      backgroundColor: 'var(--accent-pale)',
-                      color: 'var(--accent-hover)',
-                      borderLeft: '2px solid var(--accent)',
-                      paddingLeft: 'calc(0.75rem - 2px)',
-                      paddingRight: '0.75rem',
-                    }
-                  : {
-                      color: 'var(--text-secondary)',
-                      paddingLeft: '0.75rem',
-                      paddingRight: '0.75rem',
-                    }
-              }
-              onMouseEnter={e => {
-                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
-              }}
-              onMouseLeave={e => {
-                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = '';
-              }}
-            >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {label}
-            </Link>
+            <div key={group.title} className="mb-4">
+              <p
+                className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {group.title}
+              </p>
+              <div className="space-y-0.5">
+                {visibles.map(({ label, href, icon: Icon }) => {
+                  const active = pathname === href || pathname.startsWith(href + '/');
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={onClose}
+                      className="flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150"
+                      style={
+                        active
+                          ? {
+                              backgroundColor: 'var(--accent-pale)',
+                              color: 'var(--accent-hover)',
+                              borderLeft: '2px solid var(--accent)',
+                              paddingLeft: 'calc(0.75rem - 2px)',
+                              paddingRight: '0.75rem',
+                            }
+                          : { color: 'var(--text-secondary)', paddingLeft: '0.75rem', paddingRight: '0.75rem' }
+                      }
+                      onMouseEnter={e => {
+                        if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-tertiary)';
+                      }}
+                      onMouseLeave={e => {
+                        if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = '';
+                      }}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
@@ -215,6 +257,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
+      {showPago && <RegistrarPagoModal onClose={() => setShowPago(false)} />}
       <div className="hidden lg:flex flex-col h-screen sticky top-0 flex-shrink-0" style={{ width: 260 }}>
         {sidebar}
       </div>

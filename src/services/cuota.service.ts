@@ -1,7 +1,6 @@
 // src/services/cuota.service.ts
-import { PrismaClient, CuotaStatus, ContractStatus } from '@prisma/client';
-import notificationService from './notification.service';
-import { logger } from '../utils/logger';
+import { PrismaClient, CuotaStatus, PaymentMethod } from '@prisma/client';
+import paymentService from './payment.service';
 
 const prisma = new PrismaClient();
 
@@ -52,89 +51,15 @@ export class CuotaService {
     if (!cuota) throw new Error('Cuota no encontrada');
     if (cuota.status === CuotaStatus.PAGADA) throw new Error('La cuota ya fue pagada');
 
-    const fechaPago  = data.fechaPago instanceof Date
-      ? data.fechaPago
-      : data.fechaPago ? new Date(data.fechaPago) : new Date();
-    const contractId = cuota.contractId;
-
-    // Obtener todas las cuotas del contrato en orden
-    const todasCuotas = await prisma.cuota.findMany({
-      where:   { contractId },
-      orderBy: { numeroCuota: 'asc' },
-      select:  { id: true, montoEsperado: true, montoPagado: true, status: true, numeroCuota: true },
+    // Delegar en el servicio unificado: crea el Payment (antes este flujo no lo
+    // creaba y los pagos por-cuota no aparecían en el historial), aplica la
+    // cascada, baja balance y recalcula mora. La notificación vive allá.
+    await paymentService.registrarPagoMensualidad({
+      contractId: cuota.contractId,
+      amount: data.montoPagado,
+      paymentDate: data.fechaPago ?? new Date(),
+      paymentMethod: PaymentMethod.TRANSFER,
     });
-
-    // Primera cuota no PAGADA (donde empieza el pool)
-    const startIdx = todasCuotas.findIndex(c => c.status !== CuotaStatus.PAGADA);
-    if (startIdx === -1) throw new Error('Todas las cuotas ya están pagadas');
-
-    // Drenar pool a partir de la primera cuota pendiente
-    let pool = data.montoPagado;
-    const updates: Array<{ id: string; montoPagado: number; fechaPago: Date; status: CuotaStatus }> = [];
-
-    for (let i = startIdx; i < todasCuotas.length && pool > 0; i++) {
-      const c      = todasCuotas[i];
-      const needed = c.montoEsperado - c.montoPagado;
-
-      if (pool >= needed) {
-        updates.push({ id: c.id, montoPagado: c.montoEsperado, fechaPago, status: CuotaStatus.PAGADA });
-        pool -= needed;
-      } else {
-        updates.push({ id: c.id, montoPagado: c.montoPagado + pool, fechaPago, status: CuotaStatus.PENDIENTE });
-        pool = 0;
-      }
-    }
-
-    await prisma.$transaction([
-      ...updates.map(u =>
-        prisma.cuota.update({
-          where: { id: u.id },
-          data:  { montoPagado: u.montoPagado, fechaPago: u.fechaPago, status: u.status },
-        })
-      ),
-      prisma.contract.update({
-        where: { id: contractId },
-        data:  { balance: { decrement: data.montoPagado } },
-      }),
-    ]);
-
-    // Recalcular mora
-    const hoy      = new Date();
-    const vencidas = await prisma.cuota.count({
-      where: { contractId, status: CuotaStatus.PENDIENTE, fechaVencimiento: { lt: hoy } },
-    });
-    await prisma.contract.update({
-      where: { id: contractId },
-      data:  {
-        moraMonthsCount: vencidas,
-        status: vencidas > 0 ? ContractStatus.IN_MORA : ContractStatus.ACTIVE,
-      },
-    });
-
-    // Notificación in-app (fire-and-forget): nunca debe romper el registro del pago.
-    // Solo se dispara aquí, en el registro MANUAL de pago (PATCH /cuotas/:id/pay).
-    // Los pagos automáticos que createContract genera NO pasan por aquí.
-    try {
-      const contract = await prisma.contract.findUnique({
-        where: { id: contractId },
-        select: { client: { select: { firstName: true, lastName: true } } },
-      });
-      const cliente = contract?.client
-        ? `${contract.client.firstName ?? ''} ${contract.client.lastName ?? ''}`.trim()
-        : 'cliente';
-      await notificationService.createNotification({
-        type: 'PAYMENT',
-        message: `Pago registrado: ${data.montoPagado} — ${cliente}`,
-        relatedEntity: 'cuota',
-        relatedEntityId: id,
-      });
-    } catch (err) {
-      logger.error(
-        `Error creando notificación de pago para cuota ${id}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
 
     return prisma.cuota.findUnique({ where: { id } });
   }

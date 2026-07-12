@@ -1,44 +1,66 @@
 // src/services/payment.service.ts
-import { PrismaClient, PaymentStatus, PaymentType } from '@prisma/client';
-import { CreatePaymentDto, UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
+import { PrismaClient, PaymentStatus, PaymentType, CuotaStatus, ContractStatus } from '@prisma/client';
+import { RegistrarPagoDto, UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
+import { aplicarPagoACuotas } from './lib/pagoCuotas';
+import notificationService from './notification.service';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
 export class PaymentService {
-  // Registrar un pago
-  async createPayment(data: CreatePaymentDto) {
-    // Validar que el contrato existe
+  /**
+   * Registra un pago de MENSUALIDAD de forma unificada:
+   * Payment + cascada sobre cuotas + balance + mora, en UNA transacción.
+   * Lo usan POST /payments y PATCH /cuotas/:id/pay.
+   */
+  async registrarPagoMensualidad(data: RegistrarPagoDto): Promise<{ payment: any; cuotasAfectadas: number[] }> {
+    if (!data.amount || data.amount <= 0) throw new Error('El monto debe ser mayor a 0');
+
     const contract = await prisma.contract.findUnique({
       where: { id: data.contractId },
-      include: {
-        client: true,
-        project: true,
-      },
+      include: { client: true, project: true },
     });
+    if (!contract) throw new Error('Contrato no encontrado');
+    if (contract.status === ContractStatus.CANCELED) throw new Error('El contrato está cancelado');
 
-    if (!contract) {
-      throw new Error('Contrato no encontrado');
-    }
+    const cuotas = await prisma.cuota.findMany({
+      where: { contractId: data.contractId },
+      orderBy: { numeroCuota: 'asc' },
+    });
+    const hayPendientes = cuotas.some(c => c.status !== CuotaStatus.PAGADA);
+    if (!hayPendientes) throw new Error('El contrato no tiene cuotas pendientes');
 
-    // Separar monto de pago en mensualidad + extra
-    const installmentAmount = data.installmentAmount || data.amount;
-    const extraAmount = data.extraAmount || 0;
+    const fechaPago = data.paymentDate instanceof Date ? data.paymentDate : new Date(data.paymentDate);
 
-    // Validar que la suma coincida
-    if (installmentAmount + extraAmount !== data.amount) {
-      throw new Error('La suma de installmentAmount + extraAmount debe ser igual al monto total');
-    }
+    const updates = aplicarPagoACuotas(
+      data.amount,
+      fechaPago,
+      cuotas.map(c => ({
+        id: c.id,
+        montoEsperado: c.montoEsperado,
+        montoPagado: c.montoPagado ?? 0,
+        status: c.status === CuotaStatus.PAGADA ? 'PAGADA' as const : 'PENDIENTE' as const,
+      })),
+    );
+    const cuotasAfectadas = cuotas
+      .filter(c => updates.some(u => u.id === c.id))
+      .map(c => c.numeroCuota);
 
-    // Generar número de pago único
+    const primera = cuotas.find(c => c.numeroCuota === cuotasAfectadas[0]);
+    const concept = data.concept?.trim()
+      || (cuotasAfectadas.length > 1
+        ? `Mensualidades #${cuotasAfectadas[0]}–#${cuotasAfectadas[cuotasAfectadas.length - 1]}`
+        : `Mensualidad #${cuotasAfectadas[0] ?? ''}${primera ? ` — ${primera.mes}` : ''}`);
+
+    // Folio generado fuera de la tx: si la transacción hace rollback puede quedar un hueco de folio.
     const paymentNumber = await this.generatePaymentNumber(contract.projectId);
 
-    // Calcular nuevo balance
-    const newBalance = (contract.balance || 0) - extraAmount;
+    const created = await prisma.$transaction(async (tx) => {
+      // Releer balance dentro de la tx para evitar valor stale bajo concurrencia.
+      const fresh = await tx.contract.findUnique({ where: { id: data.contractId }, select: { balance: true } });
+      const newBalance = (fresh?.balance ?? 0) - data.amount;
 
-    // Crear pago y actualizar balance del contrato en transacción
-    const payment = await prisma.$transaction(async (tx) => {
-      // 1. Crear el pago
-      const newPayment = await tx.payment.create({
+      const p = await tx.payment.create({
         data: {
           paymentNumber,
           contractId: data.contractId,
@@ -46,30 +68,50 @@ export class PaymentService {
           paymentType: PaymentType.INSTALLMENT,
           paymentMethod: data.paymentMethod,
           amount: data.amount,
-          installmentAmount,
-          extraAmount,
-          paymentDate: data.paymentDate,
-          concept: `Pago de mensualidad - ${contract.contractNumber}`,
+          paymentDate: fechaPago,
+          concept,
           referenceNumber: data.reference,
+          notes: data.notes,
           status: PaymentStatus.CONFIRMED,
           balanceAfter: newBalance,
-          notes: data.notes,
         },
       });
-
-      // 2. Actualizar balance del contrato
-      if (extraAmount > 0 && contract.balance) {
-        await tx.contract.update({
-          where: { id: data.contractId },
-          data: { balance: newBalance },
+      for (const u of updates) {
+        await tx.cuota.update({
+          where: { id: u.id },
+          data: { montoPagado: u.montoPagado, fechaPago: u.fechaPago, status: u.status as CuotaStatus },
         });
       }
-
-      return newPayment;
+      await tx.contract.update({
+        where: { id: data.contractId },
+        data: { balance: { decrement: data.amount } },
+      });
+      const hoy = new Date();
+      const vencidas = await tx.cuota.count({
+        where: { contractId: data.contractId, status: CuotaStatus.PENDIENTE, fechaVencimiento: { lt: hoy } },
+      });
+      await tx.contract.update({
+        where: { id: data.contractId },
+        data: { moraMonthsCount: vencidas, status: vencidas > 0 ? ContractStatus.IN_MORA : ContractStatus.ACTIVE },
+      });
+      return p;
     });
 
-    // Retornar con relaciones
-    return await this.getPaymentById(payment.id);
+    // Notificación in-app (fire-and-forget)
+    try {
+      const cliente = `${contract.client?.firstName ?? ''} ${contract.client?.lastName ?? ''}`.trim() || 'cliente';
+      await notificationService.createNotification({
+        type: 'PAYMENT',
+        message: `Pago registrado: ${data.amount} — ${cliente}`,
+        relatedEntity: 'payment',
+        relatedEntityId: created.id,
+      });
+    } catch (err) {
+      logger.error(`Error creando notificación de pago ${created.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    const payment = await this.getPaymentById(created.id);
+    return { payment, cuotasAfectadas };
   }
 
   // Listar pagos con filtros
