@@ -8,7 +8,7 @@ export function useRole() {
     isAdmin:            role === 'ADMIN',
     isManager:          role === 'MANAGER',
     isAgent:            role === 'AGENT',
-    canAccessDashboard: role === 'ADMIN',
+    canAccessDashboard: role === 'ADMIN' || role === 'MANAGER',
     canManageContracts: role === 'ADMIN' || role === 'MANAGER',
     canOnlyViewLots:    role === 'AGENT',
   };

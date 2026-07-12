@@ -19,6 +19,12 @@ export class CommissionController {
         filters.agentId = agentId;
       }
 
+      // Un AGENT solo ve SUS comisiones: se fuerza su propio id sin importar
+      // lo que venga en el query.
+      if (req.user?.role === 'AGENT') {
+        filters.agentId = req.user.userId;
+      }
+
       const commissions = await commissionService.getCommissions(filters);
       res.status(200).json({
         success: true,

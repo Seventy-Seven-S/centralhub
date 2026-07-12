@@ -137,7 +137,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {NAV_GROUPS.map(group => {
-          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas', '/gastos', '/comisiones'];
+          // El AGENT sí ve Comisiones (solo las suyas — el backend lo fuerza)
+          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas', '/gastos'];
           const ADMIN_ONLY   = ['/usuarios'];
           const visibles = group.items.filter(item => {
             if (user?.role === 'AGENT' && AGENT_HIDDEN.includes(item.href)) return false;
