@@ -8,6 +8,12 @@ const prisma = new PrismaClient();
 // de cada cuota desde cero en cada corrida. Excluye contratos CANCELED (no se
 // les debe reescribir el status). Opcional: pasar `--code XXX` para un solo
 // proyecto.
+//
+// `--include-extra`: además de INSTALLMENT, drena EXTRA_PAYMENT al calendario.
+// Necesario para JSA: los ajustes históricos tipo "Otro" (mensualidades 2022
+// que solo existían agregadas en el Excel) entran como EXTRA_PAYMENT y sí son
+// dinero que cubre cuotas — sin esto quedarían contratos en mora falsa.
+// El enganche (DOWN_PAYMENT) nunca entra: las cuotas ya lo excluyen.
 
 // ── Lógica de saldo acumulado ─────────────────────────────────────────────────
 // Pool = remanente de pagos aún no asignado a ninguna cuota.
@@ -56,9 +62,13 @@ function calcularUpdates(
 async function procesarContrato(
   contractId: string,
   codigo: string,
+  includeExtra: boolean,
 ): Promise<{ pagadas: number; parciales: number }> {
+  const tipos: Array<'INSTALLMENT' | 'EXTRA_PAYMENT'> = includeExtra
+    ? ['INSTALLMENT', 'EXTRA_PAYMENT']
+    : ['INSTALLMENT'];
   const pagos = await prisma.payment.findMany({
-    where:   { contractId, paymentType: 'INSTALLMENT' },
+    where:   { contractId, paymentType: { in: tipos } },
     orderBy: { paymentDate: 'asc' },
     select:  { id: true, amount: true, paymentDate: true },
   });
@@ -115,6 +125,7 @@ async function main() {
   const args = process.argv.slice(2);
   const codeIdx = args.indexOf('--code');
   const onlyCode = codeIdx !== -1 ? args[codeIdx + 1] : undefined;
+  const includeExtra = args.includes('--include-extra');
 
   const projectWhere = onlyCode ? { code: onlyCode } : {};
   const projects = await prisma.project.findMany({
@@ -143,7 +154,7 @@ async function main() {
     console.log(`\n=== ${proj.code} — ${proj.name} (${contratos.length} contratos) ===`);
     let projPagadas = 0, projParciales = 0;
     for (const c of contratos) {
-      const r = await procesarContrato(c.id, c.codigoLegado ?? c.id);
+      const r = await procesarContrato(c.id, c.codigoLegado ?? c.id, includeExtra);
       projPagadas   += r.pagadas;
       projParciales += r.parciales;
     }
