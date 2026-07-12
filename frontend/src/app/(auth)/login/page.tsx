@@ -369,7 +369,7 @@ export default function LoginPage() {
           </Link>
         </p>
         <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>
-          © 2025 Central Inmobiliaria · Seventy Seven Studio
+          © {new Date().getFullYear()} Central Inmobiliaria · Seventy Seven Studio
         </p>
       </div>
     </div>
