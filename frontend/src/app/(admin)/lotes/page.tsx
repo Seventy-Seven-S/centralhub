@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, AlertCircle, ArrowLeft, Map as MapIcon } from 'lucide-react';
+import { X, AlertCircle, ArrowLeft, Map as MapIcon, Pencil } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLotes, Lote } from '@/hooks/useLotes';
+import { useLotes, useUpdateLote, Lote } from '@/hooks/useLotes';
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import { useVendedores } from '@/hooks/useVendedores';
+import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -40,6 +41,13 @@ const STATUS_CONFIG = {
 // ── Modal de detalle / apartado ───────────────────────────────────────────────
 function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [showApartarForm, setShowApartarForm] = useState(false);
+  const [showEditForm,    setShowEditForm]    = useState(false);
+  const [editAreaM2,  setEditAreaM2]  = useState(String(lote.areaM2 || ''));
+  const [editBase,    setEditBase]    = useState(String(lote.basePrice || ''));
+  const [editCurrent, setEditCurrent] = useState(String(lote.currentPrice || ''));
+  const updateLote = useUpdateLote();
+  const { isAdmin, isManager } = useRole();
+  const canEdit = isAdmin || isManager;
   const [clientName,  setClientName]  = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -78,6 +86,26 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
     color: 'var(--text-primary)',
     fontSize: '14px',
     outline: 'none',
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    const areaM2       = parseFloat(editAreaM2);
+    const basePrice    = parseFloat(editBase);
+    const currentPrice = parseFloat(editCurrent);
+    if ([areaM2, basePrice, currentPrice].some(v => isNaN(v) || v < 0)) {
+      setError('Los tres campos deben ser números ≥ 0');
+      return;
+    }
+
+    try {
+      await updateLote.mutateAsync({ lotId: lote.id, data: { areaM2, basePrice, currentPrice } });
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al guardar el lote');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,9 +148,9 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
         {/* ── HEADER ── */}
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
-            {showApartarForm && (
+            {(showApartarForm || showEditForm) && (
               <button
-                onClick={() => { setShowApartarForm(false); setError(''); }}
+                onClick={() => { setShowApartarForm(false); setShowEditForm(false); setError(''); }}
                 className="p-1.5 rounded-lg transition"
                 style={{ color: 'var(--text-tertiary)' }}
               >
@@ -133,9 +161,11 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {showApartarForm
                   ? `Apartar — L-${lote.lotNumber} M${lote.manzana}`
+                  : showEditForm
+                  ? `Editar — L-${lote.lotNumber} M${lote.manzana}`
                   : `Lote ${lote.lotNumber} — M${lote.manzana}`}
               </h3>
-              {!showApartarForm && (
+              {!showApartarForm && !showEditForm && (
                 <span
                   className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold mt-1"
                   style={{ backgroundColor: cfg.bg, color: cfg.text }}
@@ -151,7 +181,7 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
         </div>
 
         {/* ── VISTA 1: DETALLE ── */}
-        {!showApartarForm && (
+        {!showApartarForm && !showEditForm && (
           <>
             <div className="px-6 py-5 space-y-3 text-sm">
               <div className="flex justify-between">
@@ -200,6 +230,18 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                 </button>
               </div>
             )}
+            {canEdit && (
+              <div className="px-6 pb-5">
+                <button
+                  onClick={() => { setShowEditForm(true); setError(''); }}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ border: '1px solid var(--border)', color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  <Pencil className="w-4 h-4" />
+                  Editar medidas y precios
+                </button>
+              </div>
+            )}
             {lote.status === 'RESERVED' && lote.ineDocument && (
               <div className="px-6 pb-5 space-y-2">
                 {error && (
@@ -216,6 +258,72 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               </div>
             )}
           </>
+        )}
+
+        {/* ── VISTA 3: EDITAR MEDIDAS Y PRECIOS ── */}
+        {showEditForm && (
+          <form onSubmit={handleEditSubmit} className="px-6 py-5 space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Superficie (m²)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editAreaM2}
+                onChange={e => setEditAreaM2(e.target.value)}
+                placeholder="0.00"
+                style={inputStyle}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Precio base (MXN)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editBase}
+                onChange={e => setEditBase(e.target.value)}
+                placeholder="0.00"
+                style={inputStyle}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Precio actual (MXN)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editCurrent}
+                onChange={e => setEditCurrent(e.target.value)}
+                placeholder="0.00"
+                style={inputStyle}
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 text-xs font-medium" style={{ color: 'var(--danger)' }}>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={updateLote.isPending}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+            >
+              {updateLote.isPending ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </form>
         )}
 
         {/* ── VISTA 2: FORM DE APARTADO ── */}
