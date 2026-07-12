@@ -690,22 +690,33 @@ model EstadoCuentaLog {
   @@map("estado_cuenta_logs")
 }
 
-// Buzón de notificaciones in-app — solo el ADMIN las consume.
+// Buzón de notificaciones in-app.
 enum NotificationType {
   RESERVATION
   CONTRACT
   PAYMENT
 }
 
+// A quién va dirigida la notificación. Se crea UNA FILA POR AUDIENCIA para que
+// el estado de leído no se pise entre roles (el ADMIN es "copia de todo").
+enum NotificationAudience {
+  ADMIN
+  MANAGER
+  CLIENT
+}
+
 model Notification {
-  id              String           @id @default(uuid())
+  id              String               @id @default(uuid())
   type            NotificationType
   message         String
   relatedEntity   String?
   relatedEntityId String?
-  read            Boolean          @default(false)
-  createdAt       DateTime         @default(now())
+  audience        NotificationAudience @default(ADMIN)
+  clientId        String?              // solo para audience=CLIENT
+  read            Boolean              @default(false)
+  createdAt       DateTime             @default(now())
 
-  @@index([read, createdAt])
+  @@index([audience, read, createdAt])
+  @@index([clientId, read])
   @@map("notifications")
 }

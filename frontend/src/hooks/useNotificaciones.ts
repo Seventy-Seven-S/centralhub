@@ -20,17 +20,26 @@ export interface NotificationsResponse {
   unreadCount:   number;
 }
 
-// ── Constantes ───────────────────────────────────────────────────────────────
+// El buzón vive en dos contextos con endpoints distintos:
+//   staff  → /notifications         (ADMIN "copia de todo", MANAGER apartados;
+//                                    el backend resuelve la audiencia por rol)
+//   portal → /portal/notificaciones (cliente autenticado: solo las suyas)
+export type NotificationScope = 'staff' | 'portal';
 
-const QUERY_KEY = ['notifications'];
+const BASE_PATH: Record<NotificationScope, string> = {
+  staff:  '/notifications',
+  portal: '/portal/notificaciones',
+};
+
+const queryKeyFor = (scope: NotificationScope) => ['notifications', scope];
 
 // Refetch cada 45s para que las notificaciones lleguen solas sin intervención.
 const REFETCH_INTERVAL = 45_000;
 
 // ── Query ────────────────────────────────────────────────────────────────────
 
-async function fetchNotifications(): Promise<NotificationsResponse> {
-  const { data } = await api.get('/notifications');
+async function fetchNotifications(scope: NotificationScope): Promise<NotificationsResponse> {
+  const { data } = await api.get(BASE_PATH[scope]);
   return {
     notifications: data.notifications ?? [],
     unreadCount:   data.unreadCount ?? 0,
@@ -38,14 +47,14 @@ async function fetchNotifications(): Promise<NotificationsResponse> {
 }
 
 /**
- * Buzón de notificaciones del ADMIN.
- * Pasar `enabled: false` cuando el usuario no es ADMIN (la API es solo-ADMIN
- * y devolvería 403).
+ * Buzón de notificaciones.
+ * Pasar `enabled: false` cuando el rol no tiene buzón en ese contexto
+ * (la API devolvería 403).
  */
-export function useNotificaciones(enabled = true) {
+export function useNotificaciones(enabled = true, scope: NotificationScope = 'staff') {
   return useQuery<NotificationsResponse>({
-    queryKey:        QUERY_KEY,
-    queryFn:         fetchNotifications,
+    queryKey:        queryKeyFor(scope),
+    queryFn:         () => fetchNotifications(scope),
     enabled,
     refetchInterval: enabled ? REFETCH_INTERVAL : false,
     staleTime:       30_000,
@@ -54,22 +63,22 @@ export function useNotificaciones(enabled = true) {
 
 // ── Mutations ────────────────────────────────────────────────────────────────
 
-export function useMarkNotificationRead() {
+export function useMarkNotificationRead(scope: NotificationScope = 'staff') {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.patch(`/notifications/${id}/read`),
+    mutationFn: (id: string) => api.patch(`${BASE_PATH[scope]}/${id}/read`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: queryKeyFor(scope) });
     },
   });
 }
 
-export function useMarkAllNotificationsRead() {
+export function useMarkAllNotificationsRead(scope: NotificationScope = 'staff') {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post('/notifications/read-all'),
+    mutationFn: () => api.post(`${BASE_PATH[scope]}/read-all`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: queryKeyFor(scope) });
     },
   });
 }

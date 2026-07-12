@@ -9,6 +9,7 @@ import {
   useMarkAllNotificationsRead,
   type Notification,
   type NotificationType,
+  type NotificationScope,
 } from '@/hooks/useNotificaciones';
 import { formatRelativeTime } from '@/lib/utils';
 
@@ -18,14 +19,25 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   PAYMENT:     DollarSign,
 };
 
-export default function NotificationBell() {
+// scope 'staff' (default): backoffice — ADMIN ve todo, MANAGER sus apartados.
+// scope 'portal': portal del cliente — solo sus notificaciones.
+// align: hacia qué lado abre el panel; 'left' cuando la campana vive en el
+// sidebar (260px) para que el dropdown se extienda hacia el contenido.
+export default function NotificationBell({
+  scope = 'staff',
+  align = 'right',
+}: {
+  scope?: NotificationScope;
+  align?: 'left' | 'right';
+}) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { isAdmin } = useRole();
-  const { data, isLoading } = useNotificaciones(isAdmin);
-  const markRead    = useMarkNotificationRead();
-  const markAllRead = useMarkAllNotificationsRead();
+  const { isAdmin, isManager } = useRole();
+  const enabled = scope === 'portal' ? true : isAdmin || isManager;
+  const { data, isLoading } = useNotificaciones(enabled, scope);
+  const markRead    = useMarkNotificationRead(scope);
+  const markAllRead = useMarkAllNotificationsRead(scope);
 
   const notifications = data?.notifications ?? [];
   const unreadCount   = data?.unreadCount ?? 0;
@@ -82,7 +94,7 @@ export default function NotificationBell() {
       {/* Panel dropdown */}
       {open && (
         <div
-          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl overflow-hidden z-50"
+          className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-80 sm:w-96 rounded-xl overflow-hidden z-50`}
           style={{
             backgroundColor: 'var(--surface)',
             border: '1px solid var(--border)',

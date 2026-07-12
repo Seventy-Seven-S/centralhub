@@ -259,13 +259,17 @@ export class LotService {
     }
 
     // Notificación in-app (fire-and-forget): nunca debe romper el apartado.
+    // ADMIN (copia de todo) + MANAGER (secretaria/ventanilla).
     try {
-      await notificationService.createNotification({
-        type: 'RESERVATION',
-        message: `Nuevo apartado: lote ${lot.lotNumber} M${lot.manzana} — ${data.clientName.trim()}`,
-        relatedEntity: 'lot',
-        relatedEntityId: id,
-      });
+      await notificationService.createForAudiences(
+        {
+          type: 'RESERVATION',
+          message: `Nuevo apartado: lote ${lot.lotNumber} M${lot.manzana} — ${data.clientName.trim()}`,
+          relatedEntity: 'lot',
+          relatedEntityId: id,
+        },
+        ['ADMIN', 'MANAGER'],
+      );
     } catch (err) {
       logger.error(
         `Error creando notificación de apartado para lote ${id}: ${

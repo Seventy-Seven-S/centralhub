@@ -5,13 +5,14 @@ import { authenticate, authorize } from '../middlewares/auth';
 
 const router = Router();
 
-// Solo el ADMIN consume el buzón de notificaciones.
-const adminOnly = authorize('ADMIN');
+// Buzón de staff: ADMIN ("copia de todo") y MANAGER (apartados). El controller
+// resuelve la audiencia según el rol del token.
+const staffOnly = authorize('ADMIN', 'MANAGER');
 
 router.use(authenticate);
 
-router.get('/', adminOnly, notificationController.getAll.bind(notificationController));
-router.patch('/:id/read', adminOnly, notificationController.markRead.bind(notificationController));
-router.post('/read-all', adminOnly, notificationController.markAllRead.bind(notificationController));
+router.get('/', staffOnly, notificationController.getAll.bind(notificationController));
+router.patch('/:id/read', staffOnly, notificationController.markRead.bind(notificationController));
+router.post('/read-all', staffOnly, notificationController.markAllRead.bind(notificationController));
 
 export default router;

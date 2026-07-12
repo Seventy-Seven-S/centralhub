@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
 import { cn } from '@/lib/utils';
 import ProjectSelector from '@/components/layout/ProjectSelector';
+import NotificationBell from '@/components/layout/NotificationBell';
 import { RegistrarPagoModal } from '@/components/pagos/RegistrarPagoModal';
 
 const NAV_GROUPS: Array<{ title: string; items: Array<{ label: string; href: string; icon: typeof LayoutDashboard }> }> = [
@@ -99,6 +100,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             CentralHub
           </span>
         </div>
+        {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && <NotificationBell align="left" />}
         <button
           onClick={onClose}
           className="lg:hidden p-1 transition-colors duration-150"

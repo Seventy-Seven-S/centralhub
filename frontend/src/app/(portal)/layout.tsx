@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -54,6 +55,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
           {/* Usuario + logout */}
           <div className="flex items-center gap-3">
+            <NotificationBell scope="portal" />
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium leading-tight" style={{ color: 'var(--text-primary)' }}>{user.name}</p>
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{user.email}</p>
