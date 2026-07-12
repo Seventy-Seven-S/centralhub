@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 export interface Lote {
@@ -35,5 +35,26 @@ export function useLotes(projectId?: string) {
     queryFn:   () => fetchLotes(projectId as string),
     enabled:   !!projectId,
     staleTime: 60_000,
+  });
+}
+
+// Campos editables del lote desde la UI (el equipo del cliente corrige
+// medidas y precios directamente en producción durante el piloto).
+export interface UpdateLoteInput {
+  areaM2?:       number;
+  basePrice?:    number;
+  currentPrice?: number;
+}
+
+export function useUpdateLote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lotId, data }: { lotId: string; data: UpdateLoteInput }) => {
+      const res = await api.put(`/lots/${lotId}`, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['lotes'] });
+    },
   });
 }
