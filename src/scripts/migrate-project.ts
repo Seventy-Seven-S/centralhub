@@ -43,7 +43,7 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parsePlazo, buildScheduleAmounts } from './lib/installments';
-import { readJSAPaymentSheet, JSAFamily, reconciliarContrato } from './lib/jsaSheets';
+import { readJSAPaymentSheet, JSAFamily, reconciliarContrato, calcularAjusteHistorico, AJUSTE_CONCEPTO } from './lib/jsaSheets';
 
 const prisma = new PrismaClient();
 
@@ -537,8 +537,12 @@ function readExcelFile(excelPath: string): SheetRow[] {
       if (!ingresosMap.has(codigo)) ingresosMap.set(codigo, []);
       ingresosMap.get(codigo)!.push(ingreso);
     }
-  } else {
+  }
+
+  let esFormatoJSA = false;
+  if (!ingresosSheetFound) {
     // Formato C (JSA): recolectar de todas las hojas de fecha
+    esFormatoJSA = true;
     const jsaMap = collectJSAPayments(wb);
     for (const [k, v] of jsaMap) ingresosMap.set(k, v);
   }
@@ -576,9 +580,25 @@ function readExcelFile(excelPath: string): SheetRow[] {
       : pagadoTotal;   // fallback si Directorio está vacío
 
     // enganche = suma de pagos tipo "Enganche"
-    const enganche = pagos
+    const engancheParseado = pagos
       .filter(p => p.tipo.toLowerCase().includes('enganche'))
       .reduce((s, p) => s + p.monto, 0);
+
+    // ── AJUSTE HISTÓRICO (solo formato JSA): el residuo vs Directorio.Pagado
+    // que no existe como filas de pago (enganches/pagos tempranos agregados) ──
+    let ajustePago: SheetPago | null = null;
+    if (esFormatoJSA) {
+      const ajuste = calcularAjusteHistorico(dir ? dir.pagado : undefined, pagadoTotal, engancheParseado > 0);
+      if (ajuste) {
+        ajustePago = {
+          fecha:    cod.fechaVenta || '',
+          monto:    ajuste.monto,
+          concepto: AJUSTE_CONCEPTO,
+          tipo:     ajuste.tipo === 'Enganche' ? 'enganche' : 'otro',
+        };
+      }
+    }
+    const enganche = engancheParseado + (ajustePago?.tipo === 'enganche' ? ajustePago.monto : 0);
 
     // ── PLAZO primero (autoritativo desde Códigos) ──
     const plazoCodigos = parsePlazo(cod.plazoRaw);
@@ -625,14 +645,17 @@ function readExcelFile(excelPath: string): SheetRow[] {
       fechaInicio:    cod.fechaVenta || new Date().toISOString(),
       mensualidad,
       pagadoDirectorio: dir ? dir.pagado : undefined,
-      pagos: pagos.map(p => ({
-        fecha:    p.fecha,
-        monto:    p.monto,
-        concepto: p.concepto,
-        tipo:     p.tipo.toLowerCase().includes('enganche')   ? 'enganche'
-                : p.tipo.toLowerCase().includes('mensualidad') ? 'mensualidad'
-                : 'otro',
-      })),
+      pagos: [
+        ...pagos.map(p => ({
+          fecha:    p.fecha,
+          monto:    p.monto,
+          concepto: p.concepto,
+          tipo:     (p.tipo.toLowerCase().includes('enganche')   ? 'enganche'
+                  :  p.tipo.toLowerCase().includes('mensualidad') ? 'mensualidad'
+                  :  'otro') as SheetPago['tipo'],
+        })),
+        ...(ajustePago ? [ajustePago] : []),
+      ],
     });
   }
 
@@ -1012,16 +1035,25 @@ function writeReconciliationCSV(rows: SheetRow[], label: string): void {
   fs.mkdirSync(path.dirname(csvPath), { recursive: true });
 
   const counts: Record<string, number> = {};
-  const lines = ['codigo,nombre,pagadoDirectorio,pagadoParseado,numPagos,delta,veredicto'];
+  let totalAjustes = 0;
+  let sumAjustes = 0;
+  const lines = ['codigo,nombre,pagadoDirectorio,pagadoParseado,ajusteHistorico,numPagos,delta,veredicto'];
   for (const row of rows) {
-    const pagadoParseado = row.pagos.reduce((s, p) => s + p.monto, 0);
-    const { delta, veredicto } = reconciliarContrato(row.pagadoDirectorio, pagadoParseado);
+    const ajuste = row.pagos
+      .filter(p => p.concepto === AJUSTE_CONCEPTO)
+      .reduce((s, p) => s + p.monto, 0);
+    const pagadoParseado = row.pagos.reduce((s, p) => s + p.monto, 0) - ajuste;
+    // El veredicto se evalúa sobre el total final (parseado + ajuste); la
+    // columna ajusteHistorico muestra cuánto tuvo que sintetizarse
+    const { delta, veredicto } = reconciliarContrato(row.pagadoDirectorio, pagadoParseado + ajuste);
     counts[veredicto] = (counts[veredicto] || 0) + 1;
+    if (ajuste > 0) { totalAjustes++; sumAjustes += ajuste; }
     lines.push([
       row.codigo,
       `"${row.nombreCompleto.replace(/"/g, '""')}"`,
       row.pagadoDirectorio ?? '',
       pagadoParseado.toFixed(2),
+      ajuste.toFixed(2),
       row.pagos.length,
       delta === null ? '' : delta.toFixed(2),
       veredicto,
@@ -1031,6 +1063,7 @@ function writeReconciliationCSV(rows: SheetRow[], label: string): void {
 
   console.log(`\n── RECONCILIACIÓN vs Directorio.Pagado ──`);
   for (const [v, n] of Object.entries(counts).sort()) console.log(`  ${v.padEnd(16)}: ${n} contratos`);
+  if (totalAjustes) console.log(`  Ajustes históricos sintetizados: ${totalAjustes} contratos, $${sumAjustes.toLocaleString('es-MX')}`);
   console.log(`  CSV: ${csvPath}`);
 }
 

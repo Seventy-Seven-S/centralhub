@@ -109,27 +109,43 @@ function readResumenSheet(sheetName: string, rows: string[][]): JSASheetResult {
 
   for (const row of rows) {
     if (!row) continue;
-    // código en cualquier columna (hay hojas con columnas corridas); el monto
-    // debe estar en la celda INMEDIATA siguiente y con formato $ — las filas
-    // diferidas traen el mes ("Marzo") en esa celda y se ignoran
-    const i = row.findIndex(c => CODIGO_RE.test((c || '').trim().toUpperCase()));
+    // código en cualquier columna (hay hojas con columnas corridas)
+    const cells = row.map(c => (c || '').toString().trim());
+    const i = cells.findIndex(v => CODIGO_RE.test(v.toUpperCase()));
     if (i === -1) continue;
-    const codigo = row[i].trim().toUpperCase();
+    const codigo = cells[i].toUpperCase();
     if (isDummy(codigo)) continue;
     hasCodigo = true;
 
-    const montoCell = (row[i + 1] || '').trim();
-    if (!montoCell.startsWith('$')) continue;
-    const monto = parseMoney(montoCell);
-    if (monto <= 0) continue;
+    // Una fila de pago Resumen tiene EXACTAMENTE una celda de dinero después
+    // del código ($ o número plano ≥ 100). Las tablas de estatus acumulado
+    // ("Resumen Julio 2022" JSA1: Precio, Pagado, Remanente) tienen varias y
+    // se ignoran; las filas diferidas ("Marzo") no tienen ninguna.
+    const moneyIdxs: number[] = [];
+    for (let c = i + 1; c < cells.length; c++) {
+      const v = cells[c];
+      if (v.startsWith('$') && parseMoney(v) > 0) moneyIdxs.push(c);
+      else if (PLAIN_NUMBER_RE.test(v) && parseMoney(v) >= 100) moneyIdxs.push(c);
+    }
+    if (moneyIdxs.length !== 1) continue;
+    const monto = parseMoney(cells[moneyIdxs[0]]);
 
-    pagos.push({ codigo, fecha, tipo: 'Mensualidad', concepto: sheetName.trim(), monto });
+    // concepto: la celda tipo "Manzana X Lote Y" si existe; si no, la hoja
+    const conceptoCell = cells.find((v, idx) => idx !== i && /manzana|lote|fracci/i.test(v));
+    pagos.push({ codigo, fecha, tipo: 'Mensualidad', concepto: conceptoCell || sheetName.trim(), monto });
   }
 
   if (pagos.length > 0) return { family: 'RESUMEN', pagos };
   return { family: hasCodigo ? 'DESCONOCIDA' : 'VACIA', pagos: [] };
 }
 
+const TIPO_RE = /^(mensualidad|enganche|abono|anticipo|apartado|deposito|depósito)\b/i;
+
+// Hojas de fecha: una fila por pago con timestamp. Las columnas varían entre
+// hojas (corridas +1, código primero, fecha en col 3…), así que las celdas
+// clave se localizan por CONTENIDO, no por posición fija:
+//   código = primera celda [A-Z]\d+ · fecha = primera celda M/D/YYYY
+//   tipo   = primera celda con palabra de tipo (Mensualidad, Enganche…)
 function readFechaSheet(rows: string[][]): JSASheetResult {
   const pagos: JSAPagoRow[] = [];
   let hasCodigo = false;
@@ -139,36 +155,66 @@ function readFechaSheet(rows: string[][]): JSASheetResult {
   for (const row of rows) {
     if (!row || row.length < 3) continue;
 
-    const codigo = (row[1] || '').toString().trim().toUpperCase();
-    if (!CODIGO_RE.test(codigo)) continue;
+    const cells = row.map(c => (c || '').toString().trim());
+    const cIdx = cells.findIndex(v => CODIGO_RE.test(v.toUpperCase()));
+    if (cIdx === -1) continue;
+    const codigo = cells[cIdx].toUpperCase();
     if (isDummy(codigo)) continue;
     hasCodigo = true;
 
-    const fecha = (row[0] || '').toString().trim();
-    const tipo = (row[2] || '').toString().trim();
-    const concepto = (row[3] || '').toString().trim();
+    const fIdx = cells.findIndex(v => SLASH_DATE_RE.test(v));
+    const tIdx = cells.findIndex(v => TIPO_RE.test(v));
+    // Una fila de pago de hoja-fecha tiene timestamp o celda de tipo; las filas
+    // [nombre, código, $monto] de los Resumen mensuales no, y van al otro lector
+    if (fIdx === -1 && tIdx === -1) continue;
 
-    // 1) Monto con $: primera celda ≥2 que empiece con "$" (comportamiento original)
+    // 1) Monto con $: primera celda con "$" (después del código el $ del monto
+    //    siempre precede al del balance)
     let monto = 0;
+    let montoIdx = -1;
     let numeric = false;
-    for (let c = 2; c < row.length; c++) {
-      const val = (row[c] || '').toString().trim();
-      if (val.startsWith('$')) { monto = parseMoney(val); break; }
-    }
-
-    // 2) Sin $: última celda puramente numérica, SOLO si col 0 es una fecha
-    //    válida (las hojas basura tipo FASTIDIO no tienen timestamp en col 0)
-    if (monto <= 0 && SLASH_DATE_RE.test(fecha)) {
-      for (let c = row.length - 1; c >= 2; c--) {
-        const val = (row[c] || '').toString().trim();
-        if (PLAIN_NUMBER_RE.test(val)) {
-          const parsed = parseMoney(val);
-          if (parsed > 0) { monto = parsed; numeric = true; break; }
-        }
+    for (let c = cIdx + 1; c < cells.length; c++) {
+      if (cells[c].startsWith('$')) {
+        const parsed = parseMoney(cells[c]);
+        if (parsed > 0) { monto = parsed; montoIdx = c; break; }
       }
     }
 
+    // 2) Sin $: primera celda puramente numérica ≥ 100 después de la celda de
+    //    tipo, saltando la fecha. Primera y no última porque hay hojas con
+    //    columna de saldo DESPUÉS del monto ("Resumen Mayo 2 2023" JSA2);
+    //    ≥ 100 para no confundir números de lote/manzana con el monto.
+    //    Guardias anti-basura (lección FASTIDIO): esta vía exige que la fila
+    //    tenga timestamp Y celda de tipo reconocible.
+    if (monto <= 0 && fIdx !== -1 && tIdx !== -1) {
+      for (let c = tIdx + 1; c < cells.length; c++) {
+        if (c === fIdx) continue;
+        if (PLAIN_NUMBER_RE.test(cells[c])) {
+          const parsed = parseMoney(cells[c]);
+          if (parsed >= 100) { monto = parsed; montoIdx = c; numeric = true; break; }
+        }
+      }
+    }
     if (monto <= 0) continue;
+
+    const fecha = fIdx !== -1 ? cells[fIdx] : '';
+    let tipo: string;
+    let concepto: string;
+    if (tIdx !== -1) {
+      tipo = cells[tIdx];
+      // concepto = primera celda con contenido después del tipo que no sea la
+      // fecha ni el monto (en el layout código-primero la fecha va en medio)
+      concepto = '';
+      for (let c = tIdx + 1; c < cells.length; c++) {
+        if (c === fIdx || c === montoIdx) continue;
+        if (cells[c]) { concepto = cells[c]; break; }
+      }
+    } else {
+      // Sin celda de tipo (solo posible en la vía $): posicional como antes
+      tipo = cells[cIdx + 1] || '';
+      concepto = cells[cIdx + 2] || '';
+    }
+
     if (numeric) numericRows++; else dollarRows++;
     pagos.push({ codigo, fecha, tipo, concepto, monto });
   }
@@ -194,11 +240,36 @@ export function reconciliarContrato(
   return { delta, veredicto: delta > 0 ? 'PARSEADO_MENOR' : 'PARSEADO_MAYOR' };
 }
 
+// Ajuste histórico: los enganches y pagos tempranos (2022) de JSA solo existen
+// en los Excel como acumulados ("Enganches cobrados $1,131,000", tablas de
+// Pagado por corte), nunca como filas de pago. Para que los balances no queden
+// inflados se sintetiza UN pago por contrato con el residuo vs Directorio.Pagado.
+// Tipo Enganche solo si el contrato no tiene ningún enganche parseado (el
+// residuo temprano lo incluye); si ya tiene, va como Otro (EXTRA_PAYMENT).
+export const AJUSTE_CONCEPTO = 'Ajuste histórico vs Directorio.Pagado';
+
+export function calcularAjusteHistorico(
+  pagadoDirectorio: number | undefined,
+  pagadoParseado: number,
+  tieneEnganche: boolean
+): { monto: number; tipo: 'Enganche' | 'Otro' } | null {
+  if (pagadoDirectorio === undefined) return null;
+  const delta = pagadoDirectorio - pagadoParseado;
+  if (delta <= 1) return null;
+  return { monto: Math.round(delta * 100) / 100, tipo: tieneEnganche ? 'Otro' : 'Enganche' };
+}
+
 export function readJSAPaymentSheet(sheetName: string, rows: string[][]): JSASheetResult {
   const lower = sheetName.toLowerCase().trim();
   if (JSA_NON_PAYMENT_SHEETS.has(lower) || lower.startsWith('fastidio')) {
     return { family: 'NO_PAGO', pagos: [] };
   }
-  if (isResumenName(sheetName)) return readResumenSheet(sheetName, rows);
+  if (isResumenName(sheetName)) {
+    // Varias hojas "Resumen" son en realidad hojas de fecha (filas con
+    // timestamp por pago) — intentar esa vía primero, que trae la fecha real
+    const asFecha = readFechaSheet(rows);
+    if (asFecha.pagos.length > 0) return asFecha;
+    return readResumenSheet(sheetName, rows);
+  }
   return readFechaSheet(rows);
 }

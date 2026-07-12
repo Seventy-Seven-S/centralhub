@@ -175,3 +175,130 @@ describe('reconciliarContrato', () => {
     expect(reconciliarContrato(undefined, 5000)).toEqual({ delta: null, veredicto: 'SIN_DIRECTORIO' });
   });
 });
+
+describe('readJSAPaymentSheet — layouts adicionales descubiertos en dry-run', () => {
+  it('hoja de fecha con columnas corridas +1 (13 Noviembre 2025 JSA1)', () => {
+    const r = readJSAPaymentSheet('13 Noviembre 2025', [
+      ['texto pegado por error', '', '', '', '', '', ''],
+      ['', '10/31/2025 10:31:46', 'C033', 'Mensualidad', 'Manzana 1 Lote 16 (NOVIEMBRE)', 'Adriana López Pérez ', '3550'],
+    ]);
+    expect(r.pagos).toEqual([{
+      codigo: 'C033', fecha: '10/31/2025 10:31:46', tipo: 'Mensualidad',
+      concepto: 'Manzana 1 Lote 16 (NOVIEMBRE)', monto: 3550,
+    }]);
+  });
+
+  it('hoja Resumen que en realidad es hoja de fecha (Resumen Febrero 2022 JSA1)', () => {
+    const r = readJSAPaymentSheet('Resumen Febrero 2022', [
+      ['PAGOS ', '', '', 'CORTE ', '7 de Marzo del 2022 ', ''],
+      ['3/1/2022 12:04:36', 'C017', 'Mensualidad', 'Mensualidad Manzana 1 Lote 10', '$4,000.00', 'Monserrat Hernandez'],
+    ]);
+    expect(r.pagos).toEqual([{
+      codigo: 'C017', fecha: '3/1/2022 12:04:36', tipo: 'Mensualidad',
+      concepto: 'Mensualidad Manzana 1 Lote 10', monto: 4000,
+    }]);
+  });
+
+  it('layout código-primero con fecha en col 3 (Resumen Junio 2023 JSA1)', () => {
+    const r = readJSAPaymentSheet('Resumen Junio 2023', [
+      ['C053', 'Ana Maria Esquivel Nevarez', 'Mensualidad', '5/29/2023 12:54:14', 'Manzana 1 Lote 22 JUNIO', '$3,550.00'],
+    ]);
+    expect(r.pagos).toEqual([{
+      codigo: 'C053', fecha: '5/29/2023 12:54:14', tipo: 'Mensualidad',
+      concepto: 'Manzana 1 Lote 22 JUNIO', monto: 3550,
+    }]);
+  });
+
+  it('fila FASTIDIO-like sin celda de tipo NO pasa por la vía numérica aunque tenga timestamp', () => {
+    const r = readJSAPaymentSheet('Hoja rara', [
+      ['', 'D073', '', '7/1/2024 10:00:00', '825000'],
+    ]);
+    expect(r.pagos).toEqual([]);
+  });
+
+  it('enganche con monto numérico conserva el tipo Enganche', () => {
+    const r = readJSAPaymentSheet('Octubre 2023', [
+      ['9/16/2023 12:41:52', 'D001', 'Enganche', 'Manzana 3 Lote 7', '50000', 'Jovita Ibarra '],
+    ]);
+    expect(r.pagos[0].tipo).toBe('Enganche');
+  });
+});
+
+describe('readJSAPaymentSheet — columna de saldo tras el monto (Resumen Mayo 2 2023 JSA2)', () => {
+  it('toma el monto y NO el saldo cuando ambos son numéricos', () => {
+    const r = readJSAPaymentSheet('Resumen Mayo 2 2023', [
+      ['A036', 'Porfiria Hernandez Morales ', 'Mensualidad', '5/4/2023 8:52:48', 'Manzana 2 Lote 18', '3700', '127533'],
+    ]);
+    expect(r.pagos).toEqual([{
+      codigo: 'A036', fecha: '5/4/2023 8:52:48', tipo: 'Mensualidad',
+      concepto: 'Manzana 2 Lote 18', monto: 3700,
+    }]);
+  });
+
+  it('enganche numérico con deuda restante al final toma el enganche', () => {
+    const r = readJSAPaymentSheet('Resumen Mayo 2 2023', [
+      ['A097', 'Ludivina Alvarez Muñiz ', 'Enganche', '5/6/2023 8:48:18', 'Manzana 2 Lote 15', '46000', '184000'],
+    ]);
+    expect(r.pagos[0].monto).toBe(46000);
+  });
+});
+
+describe('readJSAPaymentSheet — Resumen con monto numérico y tablas de estatus', () => {
+  it('lee filas [código, nombre, concepto, monto-numérico] (RESUMEN JULIO 2022 JSA2)', () => {
+    const r = readJSAPaymentSheet('RESUMEN JULIO 2022', [
+      ['CORTE AL :', '7 July 2022', '', '', ''],
+      ['A001', 'Viridiana Hernandez Andrade', 'Manzana 1 Lote 27', '4000', ''],
+    ]);
+    expect(r.family).toBe('RESUMEN');
+    expect(r.pagos).toEqual([{
+      codigo: 'A001', fecha: '2022-07-07', tipo: 'Mensualidad',
+      concepto: 'Manzana 1 Lote 27', monto: 4000,
+    }]);
+  });
+
+  it('NO parsea tablas de estatus acumulado con varias celdas de dinero (Resumen Julio 2022 JSA1)', () => {
+    const r = readJSAPaymentSheet('Resumen Julio 2022', [
+      ['C001', 'Lucia Gabriela Álvarez Cerón', '1', 'Al dia ', '$190,000.00', '$62,400.00', '$127,600.00'],
+    ]);
+    expect(r.pagos).toEqual([]);
+  });
+
+  it('no confunde el número de lotes (<100) con el monto', () => {
+    const r = readJSAPaymentSheet('RESUMEN JULIO 2022', [
+      ['A002', 'Jorge Paredes Leal ', 'Manzana 2 Lote 2 y 3 ', '8000', ''],
+    ]);
+    expect(r.pagos[0].monto).toBe(8000);
+  });
+});
+
+describe('calcularAjusteHistorico', () => {
+  it('genera ajuste tipo Enganche cuando el contrato no tiene enganche parseado', async () => {
+    const { calcularAjusteHistorico } = await import('../jsaSheets');
+    expect(calcularAjusteHistorico(150000, 104000, false)).toEqual({ monto: 46000, tipo: 'Enganche' });
+  });
+
+  it('genera ajuste tipo Otro cuando ya hay enganche parseado', async () => {
+    const { calcularAjusteHistorico } = await import('../jsaSheets');
+    expect(calcularAjusteHistorico(150000, 120000, true)).toEqual({ monto: 30000, tipo: 'Otro' });
+  });
+
+  it('sin delta relevante (≤ $1) no genera ajuste', async () => {
+    const { calcularAjusteHistorico } = await import('../jsaSheets');
+    expect(calcularAjusteHistorico(100000, 99999.5, false)).toBeNull();
+  });
+
+  it('delta negativo (parseado > Directorio) no genera ajuste', async () => {
+    const { calcularAjusteHistorico } = await import('../jsaSheets');
+    expect(calcularAjusteHistorico(100000, 125000, true)).toBeNull();
+  });
+
+  it('sin dato de Directorio no genera ajuste', async () => {
+    const { calcularAjusteHistorico } = await import('../jsaSheets');
+    expect(calcularAjusteHistorico(undefined, 5000, false)).toBeNull();
+  });
+
+  it('redondea el monto a centavos', async () => {
+    const { calcularAjusteHistorico } = await import('../jsaSheets');
+    expect(calcularAjusteHistorico(100000.339, 50000, true)).toEqual({ monto: 50000.34, tipo: 'Otro' });
+  });
+});
