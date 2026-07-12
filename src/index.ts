@@ -3,6 +3,7 @@ import app from './app';
 import { logger } from './utils/logger';
 import { connectDatabase } from './config/database';
 import { startMoraJob } from './jobs/mora.job';
+import { startLiberarApartadosJob } from './jobs/liberarApartados.job';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ const startServer = async (): Promise<void> => {
       logger.info(`🌐 URL: http://localhost:${PORT}`);
       logger.info(`📚 API Version: ${process.env.API_VERSION || 'v1'}`);
       startMoraJob();
+      startLiberarApartadosJob();
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
