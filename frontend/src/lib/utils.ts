@@ -62,3 +62,13 @@ export function formatLotsLabel(
     .map(([m, nums]) => `M${m} ${nums.map(n => `L-${n}`).join(', ')}`)
     .join(' · ');
 }
+
+/**
+ * Fecha de HOY en horario local como YYYY-MM-DD (para inputs type="date").
+ * NO usar toISOString(): devuelve la fecha en UTC y en México (UTC-6) después
+ * de las 6pm pre-llena la fecha de MAÑANA en los formularios de pago/gasto.
+ */
+export function todayLocalISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

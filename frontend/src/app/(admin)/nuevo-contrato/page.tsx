@@ -6,7 +6,7 @@ import { ChevronRight, ChevronLeft, Check, AlertCircle, Loader2 } from 'lucide-r
 import { useProyectos } from '@/hooks/useProyectos';
 import { useLotes } from '@/hooks/useLotes';
 import { useVendedores } from '@/hooks/useVendedores';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, todayLocalISO } from '@/lib/utils';
 import api from '@/lib/api';
 
 function formatDate(d: string | Date | null | undefined): string {
@@ -155,7 +155,7 @@ export default function NuevoContratoPage() {
   const [lotId,        setLotId]        = useState('');
   const [downPayment,  setDownPayment]  = useState(0);
   const [plazo,        setPlazo]        = useState(60);
-  const [fechaInicio,  setFechaInicio]  = useState(() => new Date().toISOString().split('T')[0]);
+  const [fechaInicio,  setFechaInicio]  = useState(() => todayLocalISO());
   const [precioEditado, setPrecioEditado] = useState<number>(0);
   const [agentId,      setAgentId]      = useState('');
   const [commissionPct, setCommissionPct] = useState(0);

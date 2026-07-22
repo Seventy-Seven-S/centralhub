@@ -13,7 +13,7 @@ import {
   Expense, ExpenseCategory, CreateExpenseDto, UpdateExpenseDto,
   ExpenseFilters,
 } from '@/hooks/useGastos';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, todayLocalISO } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
@@ -77,7 +77,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
     categoryId:  expense?.categoryId  ?? '',
     amount:      expense ? String(Number(expense.amount)) : '',
     description: expense?.description ?? '',
-    date:        expense ? expense.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    date:        expense ? expense.date.slice(0, 10) : todayLocalISO(),
   });
   const [error, setError] = useState('');
 
