@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { authRateLimiter } from '../middlewares/rateLimiter';
+import { authRateLimiter, authIpRateLimiter } from '../middlewares/rateLimiter';
 import { authenticateClient } from '../middlewares/clientAuth';
 import {
   registerClient,
@@ -18,6 +18,7 @@ const router = Router();
  */
 router.post(
   '/register',
+  authIpRateLimiter,
   authRateLimiter,
   [
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -38,6 +39,7 @@ router.post(
  */
 router.post(
   '/login',
+  authIpRateLimiter,
   authRateLimiter,
   [
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -60,6 +62,7 @@ router.get('/profile', authenticateClient, getClientProfile);
  */
 router.post(
   '/change-password',
+  authIpRateLimiter,
   authRateLimiter,
   authenticateClient,
   [

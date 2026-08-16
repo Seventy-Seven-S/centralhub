@@ -5,7 +5,7 @@ import { X, FileDown, Loader2, CheckCircle2 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { usePayCuota, Cuota, ContratoDetalle } from '@/hooks/useContratos';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, todayLocalISO } from '@/lib/utils';
 
 interface Props {
   cuota:    Cuota;
@@ -17,7 +17,7 @@ type Step = 'form' | 'saving' | 'generating' | 'done';
 
 export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
   const [monto,    setMonto]    = useState(cuota.montoEsperado > 0 ? cuota.montoEsperado.toString() : '');
-  const [fecha,    setFecha]    = useState(new Date().toISOString().split('T')[0]);
+  const [fecha,    setFecha]    = useState(todayLocalISO());
   const [concepto, setConcepto] = useState(`Mensualidad #${cuota.numeroCuota} — ${cuota.mes}`);
   const [error,    setError]    = useState('');
   const [step,     setStep]     = useState<Step>('form');

@@ -720,3 +720,18 @@ model Notification {
   @@index([clientId, read])
   @@map("notifications")
 }
+
+// ============================================================================
+// RATE LIMITING — store persistente (sobrevive redeploys, a diferencia de
+// in-memory). Un bucket por llave (identidad compuesta o IP); se resetea
+// cuando pasa resetTime. Limpieza de buckets vencidos vía cron aparte.
+// ============================================================================
+
+model RateLimitBucket {
+  key       String   @id
+  points    Int      @default(0)
+  resetTime DateTime
+
+  @@index([resetTime])
+  @@map("rate_limit_buckets")
+}

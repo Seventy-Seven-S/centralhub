@@ -8,7 +8,7 @@ import { useContratos, useCuotasByContrato, ContratoDetalle } from '@/hooks/useC
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
 import api from '@/lib/api';
-import { formatCurrency, formatLotsLabel } from '@/lib/utils';
+import { formatCurrency, formatLotsLabel, todayLocalISO } from '@/lib/utils';
 
 type Step = 'pick' | 'form' | 'saving' | 'generating' | 'done';
 
@@ -28,7 +28,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
   const [contrato, setContrato] = useState<ContratoDetalle | null>(null);
   const [step, setStep]         = useState<Step>('pick');
   const [monto, setMonto]       = useState('');
-  const [fecha, setFecha]       = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha]       = useState(todayLocalISO());
   const [metodo, setMetodo]     = useState('TRANSFER');
   const [concepto, setConcepto] = useState('');
   const [error, setError]       = useState('');

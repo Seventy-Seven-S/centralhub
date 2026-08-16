@@ -2,6 +2,7 @@
 import { PrismaClient, PaymentStatus, PaymentType, CuotaStatus, ContractStatus } from '@prisma/client';
 import { RegistrarPagoDto, UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
 import { aplicarPagoACuotas } from './lib/pagoCuotas';
+import { nextPaymentNumber } from './lib/paymentNumber';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 
@@ -253,17 +254,30 @@ export class PaymentService {
     });
   }
 
-  // Generar número de pago único
+  // Generar número de pago único: continúa la serie del PROYECTO desde su
+  // máximo real (no count()+1 global, que colisionaba tras borrados o
+  // registros concurrentes — paymentNumber es unique global). Verifica
+  // existencia por si la serie trae huecos o números legados fuera de patrón.
   private async generatePaymentNumber(projectId: string): Promise<string> {
     const project = await prisma.project.findUnique({ where: { id: projectId } });
-    
+
     if (!project) {
       throw new Error('Proyecto no encontrado');
     }
 
-    const paymentCount = await prisma.payment.count();
-    const nextNumber = (paymentCount + 1).toString().padStart(6, '0');
-    return `${project.code}-PAY-${nextNumber}`;
+    const prefix = `${project.code}-PAY-`;
+    const last = await prisma.payment.findFirst({
+      where: { paymentNumber: { startsWith: prefix } },
+      orderBy: { paymentNumber: 'desc' },
+      select: { paymentNumber: true },
+    });
+
+    let candidate = nextPaymentNumber(last?.paymentNumber ?? null, prefix);
+    while (await prisma.payment.findFirst({ where: { paymentNumber: candidate }, select: { id: true } })) {
+      candidate = nextPaymentNumber(candidate, prefix);
+    }
+
+    return candidate;
   }
 }
 

@@ -3,7 +3,8 @@
 // La INE vive asociada al Lot al apartar y migra al Client al formalizar contrato
 // (ver docs/superpowers/specs/2026-06-10-ine-apartado-design.md).
 import { randomUUID } from 'node:crypto';
-import { IneUploadError } from '../utils/errors';
+import { IneUploadError, InvalidFileSignatureError } from '../utils/errors';
+import { validateFileSignature, DetectedFileType } from '../utils/fileSignature';
 
 export interface IneFileInput {
   buffer: Buffer;
@@ -24,18 +25,30 @@ export function isIneRequired(): boolean {
   return process.env.INE_REQUIRED_FOR_RESERVATION === 'true';
 }
 
-export function validateIneUpload(file: IneFileInput | undefined, required: boolean): void {
+// El Content-Type declarado (file.mimeType) NO se usa para validar el tipo —
+// solo la firma binaria real del buffer (magic bytes, RF seguridad). Retorna
+// el tipo REAL detectado, que es el que debe usarse para persistir (key,
+// extensión, mimeType guardado) — nunca el declarado.
+export async function validateIneUpload(
+  file: IneFileInput | undefined,
+  required: boolean,
+): Promise<DetectedFileType | undefined> {
   if (!file) {
     if (required) {
       throw new IneUploadError('INE_REQUIRED', 'La INE del cliente es obligatoria para apartar');
     }
-    return;
-  }
-  if (!ALLOWED_INE_MIMETYPES[file.mimeType]) {
-    throw new IneUploadError('INVALID_FILE_TYPE', 'Solo se aceptan JPG, PNG o PDF');
+    return undefined;
   }
   if (file.size > MAX_INE_FILE_SIZE) {
     throw new IneUploadError('FILE_TOO_LARGE', 'El archivo no debe superar 10 MB');
+  }
+  try {
+    return await validateFileSignature(file.buffer, Object.keys(ALLOWED_INE_MIMETYPES));
+  } catch (err) {
+    if (err instanceof InvalidFileSignatureError) {
+      throw new IneUploadError('INVALID_FILE_TYPE', err.message);
+    }
+    throw err;
   }
 }
 

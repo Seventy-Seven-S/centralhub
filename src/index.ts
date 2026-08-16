@@ -4,6 +4,7 @@ import { logger } from './utils/logger';
 import { connectDatabase } from './config/database';
 import { startMoraJob } from './jobs/mora.job';
 import { startLiberarApartadosJob } from './jobs/liberarApartados.job';
+import { startCleanRateLimitBucketsJob } from './jobs/cleanRateLimitBuckets.job';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ const startServer = async (): Promise<void> => {
       logger.info(`📚 API Version: ${process.env.API_VERSION || 'v1'}`);
       startMoraJob();
       startLiberarApartadosJob();
+      startCleanRateLimitBucketsJob();
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
