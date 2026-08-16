@@ -4,17 +4,19 @@ import multer from 'multer';
 import contractController from '../controllers/contract.controller';
 import cuotaController from '../controllers/cuota.controller';
 import { authenticate, authorize } from '../middlewares/auth';
+import { handleMulterUpload } from '../middlewares/handleMulterUpload';
 
 // El PDF firmado va al storage PRIVADO (FileStorage), no a /uploads público:
 // contiene INE/datos personales. memoryStorage → el controller lo persiste.
+// Sin fileFilter: el Content-Type declarado no es confiable (falsificable).
+// El tipo real se valida por magic bytes en el controller, una vez que el
+// buffer completo está disponible (ver validateFileSignature).
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype === 'application/pdf') cb(null, true);
-    else cb(new Error('Solo se aceptan archivos PDF'));
-  },
 });
+
+const handleSignedContractFile = handleMulterUpload(upload, 'file');
 
 const router = Router();
 
@@ -35,7 +37,7 @@ router.patch('/:id/activate', adminOrManager, contractController.activate);
 router.post('/:id/coowners', adminOrManager, contractController.addCoOwner);
 
 // Upload contrato firmado
-router.post('/:id/upload-signed', adminOrManager, upload.single('file'), contractController.uploadSigned);
+router.post('/:id/upload-signed', adminOrManager, handleSignedContractFile, contractController.uploadSigned);
 router.get('/:id/signed-file', adminOrManager, contractController.getSignedFile);
 
 // Cuotas del contrato

@@ -188,7 +188,7 @@ export class LotService {
       throw new Error('El teléfono del cliente es requerido');
     }
 
-    validateIneUpload(ineFile, isIneRequired());
+    const detectedIneType = await validateIneUpload(ineFile, isIneRequired());
 
     if (ineFile && !uploadedBy) {
       throw new Error('uploadedBy es requerido para subir la INE');
@@ -222,10 +222,17 @@ export class LotService {
         include: projectInclude,
       });
     } else {
+      // detectedIneType siempre está presente aquí: ineFile existe y
+      // validateIneUpload ya lo validó (lanza si no detecta un tipo real).
+      const detectedMime = detectedIneType!.mime;
+
       // Orden obligatorio (spec): guardar archivo → transacción DB → compensar si falla.
+      // key/mimeType usan el tipo REAL detectado, no el declarado por el
+      // cliente — si mintió en Content-Type y extensión, igual se guarda
+      // con la extensión/mimetype correctos.
       const storage = getFileStorage();
-      const key = buildIneKey(id, ineFile.mimeType);
-      await storage.saveFile(key, ineFile.buffer, ineFile.mimeType);
+      const key = buildIneKey(id, detectedMime);
+      await storage.saveFile(key, ineFile.buffer, detectedMime);
 
       try {
         reserved = await prisma.$transaction(async (tx) => {
@@ -242,7 +249,7 @@ export class LotService {
               fileName:        ineFile.originalName,
               fileUrl:         key,
               fileSize:        ineFile.size,
-              mimeType:        ineFile.mimeType,
+              mimeType:        detectedMime,
               uploadedBy:      uploadedBy!,
             },
           });

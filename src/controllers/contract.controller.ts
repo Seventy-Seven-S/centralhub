@@ -3,9 +3,12 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import contractService from '../services/contract.service';
 import { logger } from '../utils/logger';
-import { TotalUpfrontExceedsPriceError } from '../utils/errors';
+import { TotalUpfrontExceedsPriceError, InvalidFileSignatureError } from '../utils/errors';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { getFileStorage } from '../services/storage';
+import { validateFileSignature } from '../utils/fileSignature';
+
+const SIGNED_CONTRACT_ALLOWED_MIMETYPES = ['application/pdf'];
 
 const prisma = new PrismaClient();
 
@@ -162,10 +165,14 @@ export class ContractController {
         return;
       }
 
+      // Content-Type declarado no es confiable — se valida la firma binaria
+      // real. Si pasa, ya sabemos que detected.mime === 'application/pdf'.
+      const detected = await validateFileSignature(file.buffer, SIGNED_CONTRACT_ALLOWED_MIMETYPES);
+
       // El PDF firmado va al storage PRIVADO (contiene datos personales);
       // contractFileUrl guarda la KEY del storage, no una URL pública.
       const storageKey = `contracts/${id}/signed.pdf`;
-      await getFileStorage().saveFile(storageKey, file.buffer, 'application/pdf');
+      await getFileStorage().saveFile(storageKey, file.buffer, detected.mime);
 
       await prisma.contract.update({
         where: { id },
@@ -174,6 +181,10 @@ export class ContractController {
 
       res.json({ success: true, data: { contractFileUrl: storageKey, status: 'ACTIVE' } });
     } catch (error: any) {
+      if (error instanceof InvalidFileSignatureError) {
+        res.status(400).json({ success: false, code: error.code, message: error.message });
+        return;
+      }
       res.status(500).json({ success: false, message: error.message || 'Error al subir el contrato' });
     }
   }

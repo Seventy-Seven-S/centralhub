@@ -27,9 +27,16 @@ import { IneFileInput } from '../ineDocument';
 
 const RESERVE_DATA = { deposit: 5000, clientName: 'Juan Pérez', clientPhone: '8681234567' };
 
+// Firma binaria real de JPG — desde esta iteración la validación es por
+// magic bytes, no por el mimeType declarado (que puede mentir).
+const JPG_BYTES = Buffer.from([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
+  0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+]);
+
 function ineFile(over: Partial<IneFileInput> = {}): IneFileInput {
   return {
-    buffer: Buffer.from('ine-bytes'),
+    buffer: JPG_BYTES,
     originalName: 'ine-juan.jpg',
     mimeType: 'image/jpeg',
     size: 2048,
@@ -105,9 +112,11 @@ describe('reserveLot con INE', () => {
     expect(mocks.storage.deleteFile).toHaveBeenCalledWith(savedKey);
   });
 
-  it('mimetype inválido → INVALID_FILE_TYPE antes de tocar storage', async () => {
+  it('mimeType declarado dice JPG pero el buffer no tiene firma real → INVALID_FILE_TYPE antes de tocar storage', async () => {
+    // El cliente puede declarar cualquier Content-Type — ya no se le cree.
+    // Este buffer no tiene magic bytes de JPG/PNG/PDF real.
     await expect(
-      lotService.reserveLot('lot-1', RESERVE_DATA, ineFile({ mimeType: 'image/gif' }), 'user-7')
+      lotService.reserveLot('lot-1', RESERVE_DATA, ineFile({ buffer: Buffer.from('no-es-una-imagen-real') }), 'user-7')
     ).rejects.toThrow(IneUploadError);
     expect(mocks.storage.saveFile).not.toHaveBeenCalled();
   });
