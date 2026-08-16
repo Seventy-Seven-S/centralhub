@@ -21,6 +21,9 @@ export interface RegistrarPagoDto {
   concept?: string;
   reference?: string;
   notes?: string;
+  // Generada por el cliente (frontend), una por intento de pago. Protege
+  // contra doble-submit — requerida, ver payment.service.ts.
+  idempotencyKey: string;
 }
 
 // DTO para actualizar pago

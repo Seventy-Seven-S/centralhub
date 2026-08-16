@@ -38,7 +38,7 @@ function calcularUpdates(
   }));
 
   for (const pago of pagos) {
-    const updates = aplicarPagoACuotas(pago.amount, pago.paymentDate, estado);
+    const { updates } = aplicarPagoACuotas(pago.amount, pago.paymentDate, estado);
     for (const u of updates) {
       const e = estado.find(x => x.id === u.id)!;
       e.montoPagado = u.montoPagado;

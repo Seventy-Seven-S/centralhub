@@ -390,9 +390,14 @@ enum PaymentStatus {
 model Payment {
   id                String        @id @default(uuid())
   paymentNumber     String        @unique
+  // Generada por el cliente (frontend) por intento de pago — protege contra
+  // doble-submit (doble clic, retry de red, doble pestaña). Nullable: los
+  // pagos históricos migrados no la tienen. Nueva desde esta tanda, todo
+  // pago creado vía registrarPagoMensualidad la requiere.
+  idempotencyKey    String?       @unique @map("idempotency_key")
   contractId        String
   clientId          String
-  
+
   paymentType       PaymentType
   paymentMethod     PaymentMethod
   amount            Float

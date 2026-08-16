@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, Search, FileDown, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
@@ -33,6 +33,12 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
   const [concepto, setConcepto] = useState('');
   const [error, setError]       = useState('');
 
+  // Una sola idempotencyKey por intento de pago — se genera al elegir el
+  // contrato y se REUTILIZA en reintentos (doble clic, retry de red) para
+  // que el backend los reconozca como el mismo pago, no uno duplicado.
+  // Solo se regenera al elegir un contrato de nuevo (nuevo intento real).
+  const idempotencyKeyRef = useRef<string>('');
+
   const { data: cuotas = [] } = useCuotasByContrato(contrato?.id ?? '');
   const proximaCuota = cuotas.find(c => c.status === 'PENDIENTE');
 
@@ -51,6 +57,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
     setContrato(c);
     setMonto(c.installmentAmount ? String(c.installmentAmount) : '');
     setConcepto('');
+    idempotencyKeyRef.current = crypto.randomUUID();
     setStep('form');
   }
 
@@ -90,6 +97,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
         paymentDate: fecha,
         paymentMethod: metodo,
         concept: concepto.trim() || undefined,
+        idempotencyKey: idempotencyKeyRef.current,
       });
       const cuotasAfectadas: number[] = data?.data?.cuotasAfectadas ?? [];
       setStep('generating');

@@ -32,7 +32,7 @@ export class CuotaController {
   // PATCH /api/v1/cuotas/:id/pay
   async pay(req: Request, res: Response) {
     try {
-      const { montoPagado, fechaPago } = req.body;
+      const { montoPagado, fechaPago, idempotencyKey } = req.body;
       if (montoPagado === undefined || montoPagado <= 0) {
         res.status(400).json({ success: false, message: 'montoPagado debe ser mayor a 0' });
         return;
@@ -41,6 +41,7 @@ export class CuotaController {
       const cuota = await cuotaService.payCuota(req.params.id, {
         montoPagado: Number(montoPagado),
         fechaPago: fechaPago ? new Date(fechaPago) : undefined,
+        idempotencyKey,
       });
 
       res.status(200).json({ success: true, message: 'Cuota registrada', data: cuota });
