@@ -1,8 +1,17 @@
 import { Resend } from 'resend';
 
-// Inicialización perezosa: `new Resend(undefined)` lanza en el constructor y
-// tiraba TODO el server al arrancar si faltaba la env. Así el error aparece
-// al intentar ENVIAR, con mensaje accionable (y el 2FA de staff depende de esto).
+// Fail-fast en producción: sin RESEND_API_KEY no hay 2FA de staff ni emails
+// de bienvenida — mejor que el server no arranque a que arranque "sano" y
+// falle silenciosamente el primer login que dependa de 2FA. Mismo patrón
+// que JWT_SECRET (config/jwt.ts) y CORS_ORIGIN (app.ts).
+if (process.env.NODE_ENV === 'production' && !process.env.RESEND_API_KEY) {
+  throw new Error('RESEND_API_KEY es obligatorio en producción — configúralo en las variables de entorno');
+}
+
+// Inicialización perezosa del cliente: `new Resend(undefined)` lanza en el
+// constructor. En dev/test no hay fail-fast arriba, así que este segundo
+// chequeo sigue siendo necesario — da un error accionable al primer intento
+// de envío en vez de un stack trace de `resend` sin contexto.
 let _resend: Resend | null = null;
 function getResend(): Resend {
   if (!process.env.RESEND_API_KEY) {
