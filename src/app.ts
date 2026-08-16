@@ -28,6 +28,14 @@ import notificationRoutes from './routes/notification.routes';
 
 const app: Application = express();
 
+// Confiar en exactamente 1 proxy (el edge de Railway). Railway stripea el
+// X-Forwarded-For que mande el cliente y añade la IP real como el hop más
+// cercano al contenedor — con trust proxy=1, Express toma ese valor como
+// req.ip e ignora cualquier entrada previa que un atacante pudiera inyectar.
+// NUNCA usar `true`: eso confía en toda la cadena y permite falsificar la IP
+// vía X-Forwarded-For, anulando el rate-limiting por IP/identidad.
+app.set('trust proxy', 1);
+
 // =============================================================================
 // Security Middlewares
 // =============================================================================

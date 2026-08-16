@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { authRateLimiter } from '../middlewares/rateLimiter';
+import { authRateLimiter, authIpRateLimiter } from '../middlewares/rateLimiter';
 import { authenticate, authorize } from '../middlewares/auth';
 import { register, login, verify2fa } from '../controllers/auth.controller';
 
@@ -12,6 +12,7 @@ router.post(
   '/register',
   authenticate,
   authorize('ADMIN'),
+  authIpRateLimiter,
   authRateLimiter,
   [
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -26,6 +27,7 @@ router.post(
 
 router.post(
   '/login',
+  authIpRateLimiter,
   authRateLimiter,
   [
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -36,6 +38,7 @@ router.post(
 
 router.post(
   '/verify-2fa',
+  authIpRateLimiter,
   authRateLimiter,
   [
     body('email').isEmail().normalizeEmail(),
