@@ -2,7 +2,7 @@
 import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
-import { TotalUpfrontExceedsPriceError } from '../utils/errors';
+import { TotalUpfrontExceedsPriceError, UnsupportedInterestRateError, InstallmentScheduleMismatchError } from '../utils/errors';
 import { migrateIneToClient } from './ineDocument';
 import { buildCommissionData } from './commission.service';
 import { nextContractCode } from './lib/contractCode';
@@ -68,6 +68,45 @@ export function computeDepositSplit(
   return { totalDeposit, enganche, totalUpfront, depositSources };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// computeInstallmentSchedule (pure function — sin Prisma, sin side effects)
+// Semántica: financiamiento sin interés (interestRate debe ser 0). La cuota
+// base = round2(financiado/plazo); la última cuota absorbe el residuo de
+// redondeo, así la suma siempre cuadra exacto contra el financiado.
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface InstallmentScheduleResult {
+  installmentAmount: number; // monto base (cuotas 1..n-1)
+  cuotaAmounts: number[];    // longitud === termMonths; la última absorbe el residuo
+}
+
+export function computeInstallmentSchedule(
+  financingAmount: number,
+  termMonths: number,
+  interestRate: number,
+): InstallmentScheduleResult {
+  if (interestRate !== 0) {
+    throw new UnsupportedInterestRateError(interestRate);
+  }
+  if (!termMonths || termMonths <= 0) {
+    throw new Error('termMonths debe ser mayor a 0 (contado está fuera de alcance de este cálculo)');
+  }
+
+  const financed = round2(financingAmount);
+  const base = round2(financed / termMonths);
+
+  const cuotaAmounts = new Array(termMonths).fill(base);
+  const last = round2(financed - base * (termMonths - 1));
+  cuotaAmounts[termMonths - 1] = last;
+
+  const sum = cuotaAmounts.reduce((a, b) => a + b, 0);
+  if (Math.abs(round2(sum) - financed) > 0.01) {
+    throw new InstallmentScheduleMismatchError(round2(sum), financed);
+  }
+
+  return { installmentAmount: base, cuotaAmounts };
+}
+
 export class ContractService {
   // Crear un contrato nuevo
   async createContract(data: CreateContractDto) {
@@ -127,6 +166,22 @@ export class ContractService {
     // - Contract.balance = lo que queda por financiar
     const balance = Math.round((totalPrice - depositSplit.totalUpfront) * 100) / 100;
 
+    // Cálculo financiero: el backend es la única fuente de verdad para
+    // installmentAmount y las cuotas (RF1.3) — data.monthlyPayment del
+    // frontend queda ignorado, es solo un estimado visual para el vendedor.
+    // Contado (sin termMonths) sigue fuera de alcance: sin schedule, sin cuotas.
+    const schedule = data.termMonths && data.termMonths > 0
+      ? computeInstallmentSchedule(balance, data.termMonths, data.interestRate ?? 0)
+      : null;
+
+    if (schedule && data.monthlyPayment !== undefined
+      && Math.abs(data.monthlyPayment - schedule.installmentAmount) > 0.01) {
+      logger.warn(
+        `monthlyPayment del frontend (${data.monthlyPayment}) difiere del cálculo backend ` +
+        `(${schedule.installmentAmount}) para cliente ${data.clientId} — ignorado, se usa el del backend.`,
+      );
+    }
+
     // Crear contrato con transacción
     const contract = await prisma.$transaction(async (tx) => {
       // 1. Crear el contrato
@@ -145,7 +200,7 @@ export class ContractService {
           balance,
           paymentPlanType: PaymentPlanType.INSTALLMENTS,
           installmentCount: data.termMonths,
-          installmentAmount: data.monthlyPayment,
+          installmentAmount: schedule ? schedule.installmentAmount : null,
           interestRate: data.interestRate,
           status: ContractStatus.DRAFT,
           moraMonthsCount: 0,
@@ -190,11 +245,11 @@ export class ContractService {
       return newContract;
     });
 
-    // Generar cuotas automáticamente (solo contratos financiados: los campos
-    // son nullable en el schema para ventas de contado)
-    if (contract.installmentCount && contract.startDate && contract.installmentAmount != null) {
+    // Generar cuotas automáticamente a partir del schedule calculado por el
+    // backend (solo contratos financiados: contado queda sin schedule/cuotas)
+    if (schedule && contract.startDate) {
       const cuotas = [];
-      for (let i = 1; i <= contract.installmentCount; i++) {
+      for (let i = 1; i <= schedule.cuotaAmounts.length; i++) {
         const fechaVencimiento = new Date(contract.startDate);
         fechaVencimiento.setMonth(fechaVencimiento.getMonth() + i);
         cuotas.push({
@@ -202,7 +257,7 @@ export class ContractService {
           numeroCuota: i,
           mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
           fechaVencimiento,
-          montoEsperado: contract.installmentAmount,
+          montoEsperado: schedule.cuotaAmounts[i - 1],
           status: CuotaStatus.PENDIENTE,
         });
       }

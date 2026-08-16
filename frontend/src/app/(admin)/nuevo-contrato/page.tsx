@@ -243,7 +243,8 @@ export default function NuevoContratoPage() {
         financedAmount: saldoFinanciado,
         interestRate:  0,
         termMonths:    plazo,
-        monthlyPayment: Math.round(mensualidad * 100) / 100,
+        // installmentAmount lo calcula el backend (RF1.3) — mensualidad
+        // arriba solo se usa para el preview visual del wizard, ya no se envía.
         startDate:     new Date(fechaInicio + 'T12:00:00'),
         agentId:       agentId || undefined,
         commissionPercentage: agentId && commissionPct > 0 ? commissionPct : undefined,

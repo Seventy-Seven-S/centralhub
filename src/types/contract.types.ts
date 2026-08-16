@@ -10,7 +10,10 @@ export interface CreateContractDto {
   financedAmount: number;
   interestRate: number;
   termMonths: number; // 60, 72, 84 meses (5, 6, 7 años)
-  monthlyPayment: number;
+  // Legacy/informativo: el backend calcula installmentAmount por su cuenta
+  // (RF1.3) y NO usa este valor — se conserva opcional solo para el log de
+  // verificación cruzada durante la transición del frontend.
+  monthlyPayment?: number;
   startDate: Date;
   notes?: string;
   totalPrice?: number;
