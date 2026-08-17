@@ -7,6 +7,9 @@ const prisma = new PrismaClient();
 export interface PayCuotaDto {
   montoPagado: number;
   fechaPago?: Date;
+  // Reenviada tal cual a registrarPagoMensualidad — misma protección de
+  // idempotencia que POST /payments, sin duplicar la lógica.
+  idempotencyKey?: string;
 }
 
 export class CuotaService {
@@ -59,6 +62,7 @@ export class CuotaService {
       amount: data.montoPagado,
       paymentDate: data.fechaPago ?? new Date(),
       paymentMethod: PaymentMethod.TRANSFER,
+      idempotencyKey: data.idempotencyKey as string,
     });
 
     return prisma.cuota.findUnique({ where: { id } });

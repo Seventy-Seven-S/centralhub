@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X, FileDown, Loader2, CheckCircle2 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { usePayCuota, Cuota, ContratoDetalle } from '@/hooks/useContratos';
@@ -23,6 +23,10 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
   const [step,     setStep]     = useState<Step>('form');
 
   const { mutate: payCuota } = usePayCuota(contrato.id);
+
+  // Una key por intento de pago (el modal se monta fresco por cada cuota que
+  // se paga) — se reutiliza en reintentos, no se regenera en cada click.
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   async function generateAndDownload(montoPagado: number) {
     const balanceDespues = Math.max(0, (contrato.balance ?? 0) - montoPagado);
@@ -52,7 +56,7 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
     setStep('saving');
 
     payCuota(
-      { cuotaId: cuota.id, montoPagado: n, fechaPago: fecha },
+      { cuotaId: cuota.id, montoPagado: n, fechaPago: fecha, idempotencyKey: idempotencyKeyRef.current },
       {
         onSuccess: async () => {
           setStep('generating');

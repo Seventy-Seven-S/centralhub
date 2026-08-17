@@ -132,8 +132,8 @@ export function usePagosByContrato(contractId: string) {
 export function usePayCuota(contractId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ cuotaId, montoPagado, fechaPago }: { cuotaId: string; montoPagado: number; fechaPago?: string }) =>
-      api.patch(`/cuotas/${cuotaId}/pay`, { montoPagado, fechaPago }),
+    mutationFn: ({ cuotaId, montoPagado, fechaPago, idempotencyKey }: { cuotaId: string; montoPagado: number; fechaPago?: string; idempotencyKey: string }) =>
+      api.patch(`/cuotas/${cuotaId}/pay`, { montoPagado, fechaPago, idempotencyKey }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cuotas', contractId] });
       qc.invalidateQueries({ queryKey: ['contratos', contractId] });

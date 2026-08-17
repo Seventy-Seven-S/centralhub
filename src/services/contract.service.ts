@@ -10,6 +10,7 @@ import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS, COOWNER_SENSITIV
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
+import { round2 } from '../utils/money';
 
 const prisma = new PrismaClient();
 
@@ -18,8 +19,6 @@ const prisma = new PrismaClient();
 // Semántica: depósito de apartado y enganche al firmar son pagos
 // INDEPENDIENTES. El total upfront = depósito + enganche; debe ser ≤ precio.
 // ────────────────────────────────────────────────────────────────────────────
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export interface DepositSplitLot {
   id: string;

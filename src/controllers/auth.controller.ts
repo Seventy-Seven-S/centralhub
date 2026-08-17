@@ -4,6 +4,7 @@ import { prisma } from '../config/database';
 import { generateAccessToken, generateRefreshToken } from '../config/jwt';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { sendVerificationCode } from '../services/email.service';
+import { EmailSendError } from '../utils/errors';
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const { email, password, firstName, lastName, role } = req.body;
@@ -90,7 +91,18 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     where: { id: user.id },
     data:  { twoFactorCode: hashedCode, twoFactorExpiry: expiry },
   });
-  await sendVerificationCode(user.email, user.firstName, code);
+  try {
+    await sendVerificationCode(user.email, user.firstName, code);
+  } catch (err) {
+    // Credenciales ya se validaron arriba — no hay riesgo de filtrar
+    // información distinguiendo este error del de credenciales inválidas.
+    // El detalle real de Resend ya quedó en logs (email.service.ts); aquí
+    // solo un mensaje genérico y accionable, nunca el error interno.
+    if (err instanceof EmailSendError) {
+      throw new ApiError(502, 'No se pudo enviar el código de verificación. Contacta al administrador.');
+    }
+    throw err;
+  }
   res.status(200).json({ status: 'pending_2fa', data: { email: user.email } });
 });
 

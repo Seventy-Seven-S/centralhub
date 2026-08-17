@@ -51,6 +51,24 @@ export class InvalidFileSignatureError extends Error {
   }
 }
 
+// El envío de un email (2FA/bienvenida) falló del lado de Resend (dominio no
+// verificado, cuota excedida, etc.) — resend.emails.send() no lanza, solo
+// retorna {error}, así que el caller debe checarlo explícitamente y
+// convertirlo en esto para que no quede en silencio. resendError guarda el
+// mensaje real de Resend para logs; NUNCA exponerlo tal cual al usuario
+// final (puede revelar detalle interno de la integración).
+export class EmailSendError extends Error {
+  readonly code = 'EMAIL_SEND_FAILED' as const;
+
+  constructor(
+    message: string,
+    public readonly resendError: string,
+  ) {
+    super(message);
+    this.name = 'EmailSendError';
+  }
+}
+
 export type IneUploadErrorCode = 'INE_REQUIRED' | 'INVALID_FILE_TYPE' | 'FILE_TOO_LARGE';
 
 export class IneUploadError extends Error {
