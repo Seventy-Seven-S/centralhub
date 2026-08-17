@@ -1,4 +1,6 @@
 import { Resend } from 'resend';
+import { logger } from '../utils/logger';
+import { EmailSendError } from '../utils/errors';
 
 // Fail-fast en producción: sin RESEND_API_KEY no hay 2FA de staff ni emails
 // de bienvenida — mejor que el server no arranque a que arranque "sano" y
@@ -22,7 +24,7 @@ function getResend(): Resend {
 }
 
 export async function sendVerificationCode(email: string, firstName: string, code: string) {
-  await getResend().emails.send({
+  const { error } = await getResend().emails.send({
     from:    process.env.EMAIL_FROM ?? 'onboarding@resend.dev',
     to:      email,
     subject: `Tu código de verificación: ${code}`,
@@ -77,6 +79,11 @@ export async function sendVerificationCode(email: string, firstName: string, cod
 </body>
 </html>`,
   });
+
+  if (error) {
+    logger.error(`Fallo al enviar código de verificación (2FA) a ${email}: ${error.message} (${error.name})`);
+    throw new EmailSendError('No se pudo enviar el código de verificación.', error.message);
+  }
 }
 
 export async function sendWelcomeEmail(
@@ -91,7 +98,7 @@ export async function sendWelcomeEmail(
 ): Promise<void> {
   const monthlyFormatted = monthlyPayment.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-  await getResend().emails.send({
+  const { error } = await getResend().emails.send({
     from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
     to: email,
     subject: `Bienvenido a Central Inmobiliaria — Contrato ${contractNumber}`,
@@ -279,4 +286,12 @@ export async function sendWelcomeEmail(
 </body>
 </html>`,
   });
+
+  // No se puede "bloquear" aquí — el contrato ya se creó. Pero un fallo
+  // silencioso deja a un cliente sin sus credenciales sin que nadie se
+  // entere; logueamos visiblemente para que un admin lo detecte y reenvíe
+  // por otro medio.
+  if (error) {
+    logger.error(`Fallo al enviar email de bienvenida a ${email} (contrato ${contractNumber}): ${error.message} (${error.name})`);
+  }
 }
