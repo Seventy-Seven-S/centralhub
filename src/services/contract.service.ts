@@ -331,8 +331,13 @@ export class ContractService {
     // Se hace DESPUÉS de la transacción principal, igual que cuotas/payments.
     // Solo se crea si el contrato trae vendedor (agentId) Y un % de comisión
     // tecleado (> 0). El monto se calcula sobre el precio del contrato.
-    // Todo va envuelto en try/catch que solo loggea: una comisión fallida NO
-    // debe abortar la creación del contrato.
+    //
+    // Si falla, NO se aborta el contrato (la venta es lo primario, la
+    // comisión es derivada) — pero el fallo ya no puede quedar en silencio:
+    // con la FK real de Contract.agentId (pieza 2 de esta cadena), la causa
+    // más probable de fallo por dato corrupto ya está cerrada, así que un
+    // fallo aquí casi siempre indica algo transitorio (o un bug real) que
+    // merece atención humana, no solo una línea de log que nadie lee.
     try {
       // finalAgentId, no data.agentId crudo — así Contract.agentId y
       // Commission.agentId nunca divergen (el mismo asesor heredado/elegido
@@ -347,11 +352,32 @@ export class ContractService {
         await prisma.commission.create({ data: commissionData });
       }
     } catch (err) {
+      const errMessage = err instanceof Error ? err.message : String(err);
       logger.error(
-        `Error creando comisión manual para contrato ${contract.id}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
+        `Error creando comisión manual para contrato ${contract.id} ` +
+        `(agente ${finalAgentId}): ${errMessage}`,
       );
+      // Alerta visible in-app — el log solo no basta si nadie lo lee.
+      // Reusa la misma infraestructura que ya usa el resto del código
+      // (createForAudiences, igual que liberarApartados.job.ts) — sin
+      // schema ni UI nueva.
+      try {
+        await notificationService.createForAudiences(
+          {
+            type: 'CONTRACT',
+            message: `⚠️ No se pudo crear la comisión del contrato ${contract.contractNumber} — revisar manualmente (asesor: ${finalAgentId}).`,
+            relatedEntity: 'contract',
+            relatedEntityId: contract.id,
+          },
+          ['ADMIN', 'MANAGER'],
+        );
+      } catch (notifErr) {
+        logger.error(
+          `Error notificando fallo de comisión del contrato ${contract.id}: ${
+            notifErr instanceof Error ? notifErr.message : String(notifErr)
+          }`,
+        );
+      }
     }
 
     // Notificación in-app (fire-and-forget): nunca debe romper el contrato.
