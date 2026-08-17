@@ -147,6 +147,17 @@ export class ContractService {
       throw new Error(`Los siguientes lotes no están disponibles: ${unavailableLots.map(l => l.lotNumber).join(', ')}`);
     }
 
+    // Herencia del asesor del apartado ("yo aparto, yo cobro"): se captura
+    // AQUÍ, de `lots` ya leído — antes de que la transacción de abajo borre
+    // `reservedByAgentId` al marcar los lotes SOLD. Si los lotes del
+    // contrato traen asesores distintos entre sí, no se adivina (se deja
+    // sin heredar); un solo asesor distinto de null → se hereda. `data.agentId`
+    // presente (aunque sea `null` explícito) siempre gana sobre la herencia —
+    // es la elección consciente de quien formaliza.
+    const reservedAgentIds = [...new Set(lots.map(l => l.reservedByAgentId).filter((id): id is string => !!id))];
+    const inheritedAgentId = reservedAgentIds.length === 1 ? reservedAgentIds[0] : null;
+    const finalAgentId = data.agentId !== undefined ? data.agentId : inheritedAgentId;
+
     // Calcular precio total primero (necesario para validar el split)
     const totalPrice = (data as any).totalPrice && (data as any).totalPrice > 0
       ? (data as any).totalPrice
@@ -205,8 +216,9 @@ export class ContractService {
           moraMonthsCount: 0,
           startDate: data.startDate,
           notes: data.notes,
-          // Vendedor asignado (rol AGENT o MANAGER), opcional.
-          agentId: data.agentId ?? null,
+          // Vendedor asignado (rol AGENT o MANAGER), opcional — hereda del
+          // apartado salvo override explícito (ver finalAgentId arriba).
+          agentId: finalAgentId,
         },
       });
 
@@ -322,9 +334,12 @@ export class ContractService {
     // Todo va envuelto en try/catch que solo loggea: una comisión fallida NO
     // debe abortar la creación del contrato.
     try {
+      // finalAgentId, no data.agentId crudo — así Contract.agentId y
+      // Commission.agentId nunca divergen (el mismo asesor heredado/elegido
+      // en ambos, nunca uno con el crudo y otro con el ya resuelto).
       const commissionData = buildCommissionData({
         contractId: contract.id,
-        agentId: data.agentId,
+        agentId: finalAgentId,
         percentage: data.commissionPercentage,
         baseAmount: totalPrice,
       });

@@ -18,7 +18,10 @@ export interface CreateContractDto {
   notes?: string;
   totalPrice?: number;
   // Vendedor asignado (rol AGENT o MANAGER) — opcional.
-  agentId?: string;
+  // string = asesor explícito; null = "sin asesor" explícito (gana sobre
+  // la herencia); undefined (key ausente) = sin decisión, aplica herencia
+  // del apartado — ver finalAgentId en contract.service.ts.
+  agentId?: string | null;
   // % de comisión tecleado manualmente por venta (sobre el precio del contrato).
   commissionPercentage?: number;
 }

@@ -183,6 +183,17 @@ export default function NuevoContratoPage() {
     setPrecioEditado(loteSeleccionado?.currentPrice ?? 0);
   }, [loteSeleccionado]);
 
+  // Herencia visible del asesor del apartado ("yo aparto, yo cobro"): al
+  // elegir/cambiar de lote, precarga el select con quien lo apartó. Si el
+  // usuario ya había tocado el select para OTRO lote, esto lo sobreescribe
+  // a propósito — cambiar de lote es un apartado distinto, con su propio
+  // "quién lo apartó"; el humano ve el nuevo precargado y decide de nuevo
+  // (confirma o cambia). El backend también hereda como red de seguridad
+  // aunque este efecto fallara — ver finalAgentId en contract.service.ts.
+  useEffect(() => {
+    setAgentId(loteSeleccionado?.reservedByAgentId ?? '');
+  }, [loteSeleccionado]);
+
   const totalDeposit    = loteSeleccionado?.reservationDeposit ?? 0;
   const totalUpfront    = totalDeposit + downPayment;
   const saldoFinanciado = Math.max(0, precioEditado - totalUpfront);
@@ -246,7 +257,11 @@ export default function NuevoContratoPage() {
         // installmentAmount lo calcula el backend (RF1.3) — mensualidad
         // arriba solo se usa para el preview visual del wizard, ya no se envía.
         startDate:     new Date(fechaInicio + 'T12:00:00'),
-        agentId:       agentId || undefined,
+        // null explícito (no undefined): una vez que hay lote seleccionado
+        // el select ya viene precargado/decidido — "sin asesor" consciente
+        // debe distinguirse de "nunca se mandó nada" para que el backend no
+        // reimponga la herencia sobre una elección explícita de vaciarlo.
+        agentId:       agentId || null,
         commissionPercentage: agentId && commissionPct > 0 ? commissionPct : undefined,
       });
 
