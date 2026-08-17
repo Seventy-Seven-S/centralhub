@@ -122,13 +122,23 @@ export class LotController {
       const { id } = req.params;
       const file = (req as any).file as Express.Multer.File | undefined;
 
+      // "Yo aparto, yo cobro": si quien aparta es AGENT, el apartado es
+      // suyo, forzado desde su token — ignora cualquier agentId del body
+      // (no puede atribuirse a otro ni dejarlo sin asesor). El dropdown de
+      // asesor solo tiene sentido para ADMIN/MANAGER, que apartan en
+      // nombre de un asesor ausente — para ellos se respeta el body tal
+      // cual (comportamiento actual, sin cambios).
+      const agentId = req.user?.role === 'AGENT'
+        ? req.user.userId
+        : (req.body.agentId || undefined);
+
       // multipart entrega todos los campos como string
       const data: ReserveLotDto = {
         deposit:     Number(req.body.deposit) || 0,
         clientName:  req.body.clientName,
         clientPhone: req.body.clientPhone,
         clientEmail: req.body.clientEmail || undefined,
-        agentId:     req.body.agentId || undefined,
+        agentId,
       };
 
       const ineFile: IneFileInput | undefined = file
