@@ -118,13 +118,13 @@ export default function LoginPage() {
       console.log('Login response:', JSON.stringify(data));
 
       if (data.status === 'success' && data.data?.accessToken) {
-        const { accessToken, user } = data.data;
+        const { accessToken, refreshToken, user } = data.data;
         loginStore(accessToken, {
           id:    user.id,
           email: user.email,
           name:  `${user.firstName} ${user.lastName}`,
           role:  user.role,
-        });
+        }, refreshToken);
         document.cookie = `auth_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}`;
         document.cookie = `user_role=${user.role}; path=/; max-age=${60 * 60 * 24 * 7}`;
         router.push(user.role === 'CLIENT' ? '/mis-contratos' : '/dashboard');
@@ -145,14 +145,14 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/verify-2fa', { email, code });
-      const { accessToken, user } = data.data;
+      const { accessToken, refreshToken, user } = data.data;
 
       loginStore(accessToken, {
         id:    user.id,
         email: user.email,
         name:  `${user.firstName} ${user.lastName}`,
         role:  user.role,
-      });
+      }, refreshToken);
 
       document.cookie = `auth_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}`;
       document.cookie = `user_role=${user.role}; path=/; max-age=${60 * 60 * 24 * 7}`;
