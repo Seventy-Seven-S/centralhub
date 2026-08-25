@@ -15,7 +15,7 @@ router.post(
   authIpRateLimiter,
   authRateLimiter,
   [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().withMessage('Valid email is required'),
     body('password')
       .isLength({ min: 8 })
       .withMessage('Password must be at least 8 characters long'),
@@ -30,7 +30,7 @@ router.post(
   authIpRateLimiter,
   authRateLimiter,
   [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
   ],
   login
@@ -41,7 +41,7 @@ router.post(
   authIpRateLimiter,
   authRateLimiter,
   [
-    body('email').isEmail().normalizeEmail(),
+    body('email').trim().isEmail(),
     body('code').isLength({ min: 6, max: 6 }).isNumeric(),
   ],
   verify2fa

@@ -5,6 +5,7 @@ import { prisma } from '../config/database';
 import { generateClientAccessToken, generateClientRefreshToken } from '../config/jwt';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
+import { normalizeEmail } from '../utils/normalizeEmail';
 
 /**
  * Registro de cliente con acceso al portal
@@ -16,7 +17,6 @@ export const registerClient = asyncHandler(async (req: Request, res: Response) =
     firstName,
     lastName,
     phone,
-    email,
     password,
     // Opcional: datos adicionales
     address,
@@ -31,6 +31,7 @@ export const registerClient = asyncHandler(async (req: Request, res: Response) =
     projectId,
     projectCode,
   } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   // Verificar si el email ya está en uso
   const existingClientUser = await prisma.clientUser.findUnique({
@@ -143,7 +144,8 @@ export const registerClient = asyncHandler(async (req: Request, res: Response) =
  * Login de cliente
  */
 export const loginClient = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   // Buscar ClientUser con su Client
   const clientUser = await prisma.clientUser.findUnique({
