@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
-import { formatMoney, buildReciboFolio, getTelefonoPorProyecto, buildDescripcion } from './reciboHelpers';
+import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
 
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
 
@@ -60,7 +60,6 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
   const lote          = contrato.lots?.[0]?.lot;
   const loteLabel     = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
   const descripcion   = buildDescripcion(pago.concepto, cuota.numeroCuota);
-  const telefono      = getTelefonoPorProyecto(contrato.project.name);
 
   return (
     <Document title={reciboNum} author="Central Inmobiliaria">
@@ -145,7 +144,7 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
         {/* FOOTER */}
         <View style={s.footer}>
           <Text style={s.footerText}>
-            C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.{'   '}|{'   '}Tel: {telefono}
+            C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.{'   '}|{'   '}Tel: {TELEFONOS_RECIBO}
           </Text>
           <Text style={s.footerBrand}>Central Inmobiliaria</Text>
         </View>

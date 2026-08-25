@@ -16,19 +16,9 @@ export function buildReciboFolio(codigo: string, numeroCuota: number, plazoTotal
   return `REC-${codigo}-${numeroCuota}de${plazoTotal}`;
 }
 
-const TELEFONO_ALTERNO = '868 363 0211';
-const TELEFONO_DEFAULT = '868 156 1069';
-const PROYECTOS_TELEFONO_ALTERNO = new Set(['puerta del sol', 'santander']);
-
-function normalizeNombreProyecto(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-export function getTelefonoPorProyecto(projectName: string): string {
-  return PROYECTOS_TELEFONO_ALTERNO.has(normalizeNombreProyecto(projectName))
-    ? TELEFONO_ALTERNO
-    : TELEFONO_DEFAULT;
-}
+// El Arq pidió ambos teléfonos en todos los recibos, sin condición por
+// proyecto ni etiquetas — ya no depende del proyecto.
+export const TELEFONOS_RECIBO = '868 156 1069 / 868 363 0211';
 
 // Agrega el número de cuota a la descripción si no aparece ya como
 // número suelto (evita duplicarlo si el concepto ya lo trae, ej. "#19").

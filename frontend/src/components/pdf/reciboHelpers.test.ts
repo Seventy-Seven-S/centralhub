@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMoney, buildReciboFolio, getTelefonoPorProyecto, buildDescripcion } from './reciboHelpers';
+import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
 
 describe('formatMoney — formateador manual, sin toLocaleString/Intl (ICU incompleto en el entorno de render)', () => {
   it('agrega coma de miles y dos decimales', () => {
@@ -41,25 +41,9 @@ describe('buildReciboFolio — REC-{código}-{cuota}de{plazoTotal}, derivado, si
   });
 });
 
-describe('getTelefonoPorProyecto — Puerta del Sol y Santander tienen teléfono distinto al resto', () => {
-  it('Puerta del Sol → 868 363 0211', () => {
-    expect(getTelefonoPorProyecto('Puerta del Sol')).toBe('868 363 0211');
-  });
-
-  it('Santander → 868 363 0211', () => {
-    expect(getTelefonoPorProyecto('Santander')).toBe('868 363 0211');
-  });
-
-  it('cualquier otro proyecto → 868 156 1069', () => {
-    expect(getTelefonoPorProyecto('Valle del Roble')).toBe('868 156 1069');
-    expect(getTelefonoPorProyecto('JSA 1')).toBe('868 156 1069');
-    expect(getTelefonoPorProyecto('Monarca II')).toBe('868 156 1069');
-  });
-
-  it('es robusto a mayúsculas y espacios extra — no falla el match por acento/caso', () => {
-    expect(getTelefonoPorProyecto('SANTANDER')).toBe('868 363 0211');
-    expect(getTelefonoPorProyecto('  puerta del sol  ')).toBe('868 363 0211');
-    expect(getTelefonoPorProyecto('PUERTA DEL SOL')).toBe('868 363 0211');
+describe('TELEFONOS_RECIBO — ambos números fijos en todos los recibos, sin condición por proyecto', () => {
+  it('incluye los dos números, sin etiquetas por número', () => {
+    expect(TELEFONOS_RECIBO).toBe('868 156 1069 / 868 363 0211');
   });
 });
 
