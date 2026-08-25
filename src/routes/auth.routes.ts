@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { authRateLimiter, authIpRateLimiter } from '../middlewares/rateLimiter';
 import { authenticate, authorize } from '../middlewares/auth';
-import { register, login, verify2fa } from '../controllers/auth.controller';
+import { register, login, verify2fa, refresh, logout } from '../controllers/auth.controller';
 
 const router = Router();
 
@@ -45,6 +45,21 @@ router.post(
     body('code').isLength({ min: 6, max: 6 }).isNumeric(),
   ],
   verify2fa
+);
+
+// Sin authRateLimiter/authIpRateLimiter a propósito: es tráfico legítimo y
+// frecuente (una renovación silenciosa por sesión activa), no un intento de
+// credenciales — cae solo bajo el rate-limiter global de la app.
+router.post(
+  '/refresh',
+  [body('refreshToken').notEmpty().withMessage('refreshToken is required')],
+  refresh
+);
+
+router.post(
+  '/logout',
+  [body('refreshToken').notEmpty().withMessage('refreshToken is required')],
+  logout
 );
 
 export default router;

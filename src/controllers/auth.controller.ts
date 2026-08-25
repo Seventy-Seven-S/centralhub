@@ -1,10 +1,16 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { prisma } from '../config/database';
-import { generateAccessToken, generateRefreshToken } from '../config/jwt';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, refreshTokenTtlMs } from '../config/jwt';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { sendVerificationCode } from '../services/email.service';
 import { EmailSendError } from '../utils/errors';
+
+function persistRefreshToken(userId: string, token: string) {
+  return prisma.refreshToken.create({
+    data: { token, userId, expiresAt: new Date(Date.now() + refreshTokenTtlMs) },
+  });
+}
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const { email, password, firstName, lastName, role } = req.body;
@@ -38,13 +44,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     role: user.role,
   });
 
-  await prisma.refreshToken.create({
-    data: {
-      token: refreshToken,
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  });
+  await persistRefreshToken(user.id, refreshToken);
 
   res.status(201).json({
     status: 'success',
@@ -77,6 +77,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     const payload = { userId: user.id, email: user.email, role: user.role };
     const accessToken  = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
+    await persistRefreshToken(user.id, refreshToken);
     return res.status(200).json({
       status: 'success',
       data: { accessToken, refreshToken, user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName } }
@@ -128,9 +129,7 @@ export const verify2fa = asyncHandler(async (req: Request, res: Response) => {
   const accessToken  = generateAccessToken({ userId: user.id, email: user.email, role: user.role });
   const refreshToken = generateRefreshToken({ userId: user.id, email: user.email, role: user.role });
 
-  await prisma.refreshToken.create({
-    data: { token: refreshToken, userId: user.id, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-  });
+  await persistRefreshToken(user.id, refreshToken);
 
   res.status(200).json({
     status: 'success',
@@ -140,4 +139,49 @@ export const verify2fa = asyncHandler(async (req: Request, res: Response) => {
       refreshToken,
     },
   });
+});
+
+// POST /auth/refresh — renueva la sesión de forma transparente. Rota SIEMPRE:
+// la fila vieja se borra y se crea una nueva, así un refresh token robado
+// deja de servir en cuanto el usuario legítimo haga su siguiente refresh
+// (ventana de minutos, no las 24h completas de vida del token).
+export const refresh = asyncHandler(async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) throw new ApiError(400, 'refreshToken is required');
+
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
+  if (!stored || stored.expiresAt < new Date()) {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  await prisma.refreshToken.delete({ where: { token: refreshToken } });
+
+  const newPayload = { userId: payload.userId, email: payload.email, role: payload.role };
+  const accessToken = generateAccessToken(newPayload);
+  const newRefreshToken = generateRefreshToken(newPayload);
+  await persistRefreshToken(payload.userId, newRefreshToken);
+
+  res.status(200).json({
+    status: 'success',
+    data: { accessToken, refreshToken: newRefreshToken },
+  });
+});
+
+// POST /auth/logout — invalida el refresh token en BD. Idempotente: si ya no
+// existe (doble logout, o ya rotado), igual responde 200 — la intención del
+// caller es "asegúrate de que esté muerto", y ya lo está.
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) throw new ApiError(400, 'refreshToken is required');
+
+  await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+
+  res.status(200).json({ status: 'success' });
 });

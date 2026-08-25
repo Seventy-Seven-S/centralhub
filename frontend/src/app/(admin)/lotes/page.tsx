@@ -46,7 +46,7 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [editBase,    setEditBase]    = useState(String(lote.basePrice || ''));
   const [editCurrent, setEditCurrent] = useState(String(lote.currentPrice || ''));
   const updateLote = useUpdateLote();
-  const { isAdmin, isManager } = useRole();
+  const { isAdmin, isManager, isAgent } = useRole();
   const canEdit = isAdmin || isManager;
   const [clientName,  setClientName]  = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -370,23 +370,29 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                Vendedor
-              </label>
-              <select
-                value={agentId}
-                onChange={e => setAgentId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">— Sin asignar —</option>
-                {vendedores.map(v => (
-                  <option key={v.id} value={v.id}>
-                    {v.firstName} {v.lastName} · {v.role === 'MANAGER' ? 'Gerente' : 'Agente'}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Solo ADMIN/MANAGER eligen asesor — apartan en nombre de un
+                asesor ausente. Un AGENT no elige: el backend fuerza su
+                propio token como reservedByAgentId, sin importar lo que
+                mostrara este control, así que no tiene caso mostrárselo. */}
+            {!isAgent && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Vendedor
+                </label>
+                <select
+                  value={agentId}
+                  onChange={e => setAgentId(e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {vendedores.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.firstName} {v.lastName} · {v.role === 'MANAGER' ? 'Gerente' : 'Agente'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>

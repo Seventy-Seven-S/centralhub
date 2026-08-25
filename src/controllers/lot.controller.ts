@@ -5,6 +5,30 @@ import { CreateLotDto, UpdateLotDto, ReserveLotDto, LotFilters } from '../types/
 import { IneUploadError } from '../utils/errors';
 import { IneFileInput } from '../services/ineDocument';
 
+// Scoping de PII (IDOR): un AGENT solo ve los datos de contacto del cliente
+// (nombre/teléfono/email) y quién apartó, de SUS PROPIOS apartados. De
+// apartados ajenos ve el status (para no ofrecer un lote no disponible),
+// pero nada de contacto ni de qué asesor lo apartó. El dato se elimina del
+// objeto de respuesta — nunca viaja por la red — no se oculta solo en la
+// vista. ADMIN/MANAGER: sin cambios, ven todo.
+export function scopeLotPII<T extends {
+  reservedByAgentId: string | null;
+  reservedByName?: string | null;
+  reservedByPhone?: string | null;
+  reservedByEmail?: string | null;
+}>(lot: T, role: string | undefined, userId: string | undefined): T {
+  if (role === 'ADMIN' || role === 'MANAGER') return lot;
+  if (role === 'AGENT' && !!userId && lot.reservedByAgentId === userId) return lot;
+
+  return {
+    ...lot,
+    reservedByName: null,
+    reservedByPhone: null,
+    reservedByEmail: null,
+    reservedByAgentId: null,
+  };
+}
+
 export class LotController {
   // POST /api/v1/lots
   async create(req: Request, res: Response) {
@@ -45,15 +69,20 @@ export class LotController {
       const reservedIds = lots.filter((l) => l.status === 'RESERVED').map((l) => l.id);
       const ineMap = await lotService.getIneDocumentsByLotIds(reservedIds);
       const role = req.user?.role;
+      const userId = req.user?.userId;
       const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
 
       const data = lots.map((lot) => {
         const doc = ineMap.get(lot.id);
-        return {
-          ...lot,
-          hasIne: !!doc,
-          ineDocument: isAdminOrManager && doc ? doc : null,
-        };
+        return scopeLotPII(
+          {
+            ...lot,
+            hasIne: !!doc,
+            ineDocument: isAdminOrManager && doc ? doc : null,
+          },
+          role,
+          userId,
+        );
       });
 
       res.status(200).json({
@@ -78,15 +107,20 @@ export class LotController {
       const ineMap = await lotService.getIneDocumentsByLotIds([id]);
       const doc = ineMap.get(id);
       const role = req.user?.role;
+      const userId = req.user?.userId;
       const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
 
       res.status(200).json({
         success: true,
-        data: {
-          ...lot,
-          hasIne: !!doc,
-          ineDocument: isAdminOrManager && doc ? doc : null,
-        },
+        data: scopeLotPII(
+          {
+            ...lot,
+            hasIne: !!doc,
+            ineDocument: isAdminOrManager && doc ? doc : null,
+          },
+          role,
+          userId,
+        ),
       });
     } catch (error: any) {
       res.status(404).json({
@@ -122,13 +156,23 @@ export class LotController {
       const { id } = req.params;
       const file = (req as any).file as Express.Multer.File | undefined;
 
+      // "Yo aparto, yo cobro": si quien aparta es AGENT, el apartado es
+      // suyo, forzado desde su token — ignora cualquier agentId del body
+      // (no puede atribuirse a otro ni dejarlo sin asesor). El dropdown de
+      // asesor solo tiene sentido para ADMIN/MANAGER, que apartan en
+      // nombre de un asesor ausente — para ellos se respeta el body tal
+      // cual (comportamiento actual, sin cambios).
+      const agentId = req.user?.role === 'AGENT'
+        ? req.user.userId
+        : (req.body.agentId || undefined);
+
       // multipart entrega todos los campos como string
       const data: ReserveLotDto = {
         deposit:     Number(req.body.deposit) || 0,
         clientName:  req.body.clientName,
         clientPhone: req.body.clientPhone,
         clientEmail: req.body.clientEmail || undefined,
-        agentId:     req.body.agentId || undefined,
+        agentId,
       };
 
       const ineFile: IneFileInput | undefined = file

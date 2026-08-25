@@ -20,8 +20,13 @@ const router = Router();
 router.use(authenticate);
 
 const adminOrManager = authorize('ADMIN', 'MANAGER');
+// Apartar (no liberar/crear/editar): AGENT puede ejecutar su propio
+// apartado — reservedByAgentId se fuerza desde su token en el controller
+// (pieza 3), así que abrir esto no reabre el hueco de atribución.
+const adminManagerOrAgent = authorize('ADMIN', 'MANAGER', 'AGENT');
 
-// Lectura — todos los roles autenticados pueden ver lotes
+// Lectura — todos los roles autenticados pueden ver lotes (PII de contacto
+// filtrada por rol+ownership en el controller — ver scopeLotPII).
 router.get('/',    lotController.getAll);
 router.get('/:id', lotController.getById);
 
@@ -29,8 +34,9 @@ router.get('/:id', lotController.getById);
 router.post('/',   adminOrManager, lotController.create);
 router.put('/:id', adminOrManager, lotController.update);
 
-// Apartados — solo ADMIN y MANAGER (acepta multipart con campo ineFile opcional)
-router.post('/:id/reserve',   adminOrManager, handleIneFile, lotController.reserve);
+// Apartados — reserve abierto a AGENT; liberar sigue solo ADMIN/MANAGER
+// (acepta multipart con campo ineFile opcional)
+router.post('/:id/reserve',   adminManagerOrAgent, handleIneFile, lotController.reserve);
 router.delete('/:id/reserve', adminOrManager, lotController.releaseReservation);
 
 export default router;

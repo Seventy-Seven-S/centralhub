@@ -17,6 +17,7 @@ export interface Lote {
   reservedByName:     string | null;
   reservedByPhone:    string | null;
   reservedByEmail:    string | null;
+  reservedByAgentId:  string | null;
   features:           string | null;
   createdAt:          string;
   project?: { id: string; code: string; name: string };
