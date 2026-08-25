@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
+import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
 
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
 
@@ -41,10 +42,6 @@ const s = StyleSheet.create({
   footerBrand:    { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.navy, textAlign: 'right' },
 });
 
-function fmt(n: number) {
-  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 }
@@ -58,10 +55,11 @@ export interface ReciboProps {
 
 export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: ReciboProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
-  const reciboNum     = `REC-${codigo}-${String(cuota.numeroCuota).padStart(3, '0')}`;
+  const reciboNum     = buildReciboFolio(codigo, cuota.numeroCuota, contrato.installmentCount);
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
   const lote          = contrato.lots?.[0]?.lot;
   const loteLabel     = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
+  const descripcion   = buildDescripcion(pago.concepto, cuota.numeroCuota);
 
   return (
     <Document title={reciboNum} author="Central Inmobiliaria">
@@ -107,9 +105,9 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
             <Text style={[s.tableHeaderCell, s.colMonto]}>Monto</Text>
           </View>
           <View style={s.tableRow}>
-            <Text style={[{ fontSize: 9 }, s.colDesc]}>{pago.concepto}</Text>
+            <Text style={[{ fontSize: 9 }, s.colDesc]}>{descripcion}</Text>
             <Text style={[{ fontSize: 9, color: C.gray }, s.colFecha]}>{fmtDate(pago.fechaPago)}</Text>
-            <Text style={[{ fontSize: 9, fontFamily: 'Helvetica-Bold' }, s.colMonto]}>{fmt(pago.montoPagado)}</Text>
+            <Text style={[{ fontSize: 9, fontFamily: 'Helvetica-Bold' }, s.colMonto]}>{formatMoney(pago.montoPagado)}</Text>
           </View>
         </View>
 
@@ -117,15 +115,15 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
         <View style={s.totalsBox}>
           <View style={s.totalRow}>
             <Text style={s.totalLabel}>Subtotal</Text>
-            <Text style={s.totalValue}>{fmt(pago.montoPagado)}</Text>
+            <Text style={s.totalValue}>{formatMoney(pago.montoPagado)}</Text>
           </View>
           <View style={s.totalFinal}>
             <Text style={s.totalFinalLabel}>Total recibido</Text>
-            <Text style={s.totalFinalValue}>{fmt(pago.montoPagado)}</Text>
+            <Text style={s.totalFinalValue}>{formatMoney(pago.montoPagado)}</Text>
           </View>
           <View style={s.balanceRow}>
             <Text style={s.balanceLabel}>Saldo restante después del pago</Text>
-            <Text style={s.balanceValue}>{fmt(balanceDespues)}</Text>
+            <Text style={s.balanceValue}>{formatMoney(balanceDespues)}</Text>
           </View>
         </View>
 
@@ -146,7 +144,7 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
         {/* FOOTER */}
         <View style={s.footer}>
           <Text style={s.footerText}>
-            Av. Las Arboledas No. 84, Esq. con Maple, Fracc. Las Arboledas. 87448{'   '}|{'   '}Tel: 868 156 1069
+            C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.{'   '}|{'   '}Tel: {TELEFONOS_RECIBO}
           </Text>
           <Text style={s.footerBrand}>Central Inmobiliaria</Text>
         </View>
