@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
+import { normalizeEmail } from '../utils/normalizeEmail';
 
 const INTERNAL_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'AGENT'];
 
@@ -34,13 +35,14 @@ export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
 });
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password, firstName, lastName, role } = req.body;
+  const { password, firstName, lastName, role } = req.body;
 
-  if (!email || !password || !firstName || !lastName || !role)
+  if (!req.body.email || !password || !firstName || !lastName || !role)
     throw new ApiError(400, 'All fields are required');
   if (!INTERNAL_ROLES.includes(role))
     throw new ApiError(400, 'Invalid role');
 
+  const email = normalizeEmail(req.body.email);
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new ApiError(400, 'Email already registered');
 

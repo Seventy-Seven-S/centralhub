@@ -5,6 +5,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, refreshT
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { sendVerificationCode } from '../services/email.service';
 import { EmailSendError } from '../utils/errors';
+import { normalizeEmail } from '../utils/normalizeEmail';
 
 function persistRefreshToken(userId: string, token: string) {
   return prisma.refreshToken.create({
@@ -13,7 +14,8 @@ function persistRefreshToken(userId: string, token: string) {
 }
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password, firstName, lastName, role } = req.body;
+  const { password, firstName, lastName, role } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -63,7 +65,8 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new ApiError(401, 'Invalid credentials');
@@ -108,8 +111,9 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const verify2fa = asyncHandler(async (req: Request, res: Response) => {
-  const { email, code } = req.body;
-  if (!email || !code) throw new ApiError(400, 'Email and code are required');
+  const { code } = req.body;
+  if (!req.body.email || !code) throw new ApiError(400, 'Email and code are required');
+  const email = normalizeEmail(req.body.email);
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.twoFactorCode || !user.twoFactorExpiry)
