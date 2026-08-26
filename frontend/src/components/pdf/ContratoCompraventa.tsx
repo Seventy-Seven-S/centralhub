@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, CoOwner, Cuota } from '@/hooks/useContratos';
+import { formatMoney, TELEFONOS_RECIBO } from './reciboHelpers';
 
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
 
@@ -84,10 +85,6 @@ const s = StyleSheet.create({
   watermark:       { position: 'absolute', top: 250, left: 60, fontSize: 72, fontFamily: 'Helvetica-Bold', color: '#E5E7EB', opacity: 0.35, transform: 'rotate(-45deg)' },
 });
 
-function fmt(n: number) {
-  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 }
@@ -126,7 +123,7 @@ function CuotaRows({ rows }: { rows: Cuota[] }) {
           <Text style={[{ fontSize: 8, color: C.gray }, s.colNum]}>{c.numeroCuota}</Text>
           <Text style={[{ fontSize: 8 }, s.colVencimiento]}>{fmtDateShort(c.fechaVencimiento)}</Text>
           <View style={s.colMonto}>
-            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>{fmt(c.montoEsperado)}</Text>
+            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>{formatMoney(c.montoEsperado)}</Text>
           </View>
           <View style={s.colStatus}>
             <StatusBadge status={c.status} />
@@ -188,8 +185,8 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
         <Text style={s.sectionTitle}>DATOS DEL VENDEDOR</Text>
         <View style={[s.vendorBox, { marginBottom: 14 }]}>
           <Text style={s.vendorName}>Central Inmobiliaria, S.A. de C.V.</Text>
-          <Text style={s.vendorDetail}>Av. Las Arboledas No. 84, Esq. con Maple, Fracc. Las Arboledas. 87448</Text>
-          <Text style={s.vendorDetail}>Tel: 868 156 1069</Text>
+          <Text style={s.vendorDetail}>C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.</Text>
+          <Text style={s.vendorDetail}>Tel: {TELEFONOS_RECIBO}</Text>
         </View>
 
         {/* COMPRADOR */}
@@ -274,15 +271,15 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
         <View style={s.infoRow}>
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>PRECIO TOTAL</Text>
-            <Text style={s.infoValue}>{fmt(contrato.totalPrice)}</Text>
+            <Text style={s.infoValue}>{formatMoney(contrato.totalPrice)}</Text>
           </View>
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>ENGANCHE</Text>
-            <Text style={s.infoValue}>{fmt(contrato.downPayment ?? 0)}</Text>
+            <Text style={s.infoValue}>{formatMoney(contrato.downPayment ?? 0)}</Text>
           </View>
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>SALDO FINANCIADO</Text>
-            <Text style={s.infoValue}>{fmt(financiado)}</Text>
+            <Text style={s.infoValue}>{formatMoney(financiado)}</Text>
           </View>
         </View>
 
@@ -295,7 +292,7 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
           </View>
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>MENSUALIDAD</Text>
-            <Text style={s.infoValue}>{fmt(contrato.installmentAmount ?? 0)}</Text>
+            <Text style={s.infoValue}>{formatMoney(contrato.installmentAmount ?? 0)}</Text>
           </View>
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>FECHA INICIO</Text>
@@ -356,7 +353,7 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
 
         <View style={s.footer}>
           <View style={s.footerText}>
-            <Text>Av. Las Arboledas No. 84, Esq. con Maple, Fracc. Las Arboledas. 87448{'   '}|{'   '}Tel: 868 156 1069</Text>
+            <Text>C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.{'   '}|{'   '}Tel: {TELEFONOS_RECIBO}</Text>
             <Text style={{ fontSize: 7, color: C.gray, marginTop: 2 }}>
               Verifica en: centralinmob.com/verificar/{contrato.contractNumber}
             </Text>
