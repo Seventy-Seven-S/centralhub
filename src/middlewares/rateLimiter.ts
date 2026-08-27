@@ -6,7 +6,10 @@ const AUTH_WINDOW_MS = 15 * 60 * 1000;
 
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+  // 100 era muy ajustado para una oficina con varias personas compartiendo
+  // IP — uso normal de la app (dashboard, notificaciones, contratos) desde
+  // una sola IP agota esto sin que nadie esté haciendo nada indebido.
+  max: 1000,
   message: {
     status: 'error',
     statusCode: 429,
@@ -40,7 +43,7 @@ export const authRateLimiter = rateLimit({
 // que la capa 1 para no bloquear una oficina compartiendo IP en uso normal.
 export const authIpRateLimiter = rateLimit({
   windowMs: AUTH_WINDOW_MS,
-  max: process.env.NODE_ENV === 'production' ? 30 : 300,
+  max: process.env.NODE_ENV === 'production' ? 150 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   store: new PrismaRateLimitStore(AUTH_WINDOW_MS),
