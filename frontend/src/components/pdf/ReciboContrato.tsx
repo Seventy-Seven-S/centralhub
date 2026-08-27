@@ -31,16 +31,17 @@ const s = StyleSheet.create({
   header:           { backgroundColor: C.forestMid, paddingTop: 26, paddingBottom: 24, paddingHorizontal: 32, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   reciboTitle:      { fontSize: 24, fontFamily: 'Helvetica-Bold', color: C.white, letterSpacing: 0.3 },
   companyTagline:   { fontSize: 8.5, color: C.greenPale, marginTop: 4 },
-  headerRight:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   folioBadge:       { backgroundColor: C.goldPaleBg, borderWidth: 1, borderColor: C.gold, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 12 },
   folioLabel:       { fontSize: 7, color: C.gold, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica-Bold', textAlign: 'right' },
   folioValue:       { fontSize: 12, color: C.goldLight, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3, marginTop: 2, textAlign: 'right' },
+
   // Placeholder de QR de validación — solo el espacio maquetado, el
-  // código real se agrega después. Mismo tamaño reservado para cuando
-  // se sustituya por la imagen del QR.
-  qrBox:            { width: 56, height: 56, borderWidth: 1, borderStyle: 'dashed', borderColor: C.greenPale, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  qrBoxLabel:       { fontSize: 6, color: C.greenPale, letterSpacing: 0.5, textTransform: 'uppercase' },
-  qrCaption:        { fontSize: 6, color: C.greenPale, letterSpacing: 0.5, textTransform: 'uppercase', textAlign: 'center', marginTop: 3 },
+  // código real se agrega después. Centrado entre las cláusulas y el
+  // footer, con margen amplio para que respire.
+  qrSection:        { alignItems: 'center', marginHorizontal: 24, marginTop: 6, marginBottom: 26 },
+  qrBox:            { width: 64, height: 64, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: C.sectionAlt },
+  qrBoxLabel:       { fontSize: 7, color: C.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
+  qrCaption:        { fontSize: 7, color: C.textSecondary, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginTop: 8, fontFamily: 'Helvetica-Bold' },
 
   // INFO CLIENTE / PROYECTO / FECHA
   infoRow:          { flexDirection: 'row', gap: 10, padding: 24, paddingBottom: 20 },
@@ -114,17 +115,9 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
               <Text style={s.reciboTitle}>RECIBO DE PAGO</Text>
               <Text style={s.companyTagline}>Central Inmobiliaria</Text>
             </View>
-            <View style={s.headerRight}>
-              <View>
-                <View style={s.qrBox}>
-                  <Text style={s.qrBoxLabel}>QR</Text>
-                </View>
-                <Text style={s.qrCaption}>Validación</Text>
-              </View>
-              <View style={s.folioBadge}>
-                <Text style={s.folioLabel}>Folio</Text>
-                <Text style={s.folioValue}>{reciboNum}</Text>
-              </View>
+            <View style={s.folioBadge}>
+              <Text style={s.folioLabel}>Folio</Text>
+              <Text style={s.folioValue}>{reciboNum}</Text>
             </View>
           </View>
 
@@ -190,6 +183,14 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
             <Text style={[s.legalClause, { marginBottom: 0 }]}>
               3. TRANSCURRIDO EL PLAZO DE PRÓRROGA SIN QUE EL COMPRADOR HAYA REGULARIZADO SU SITUACIÓN DE PAGO, EL CONTRATO CELEBRADO CON LA EMPRESA ADMINISTRADORA SE CONSIDERARÁ RESUELTO DE PLENO DERECHO, SIN NECESIDAD DE DECLARACIÓN JUDICIAL PREVIA, Y TODOS LOS MONTOS ENTREGADOS POR EL COMPRADOR HASTA ESA FECHA SE CONSIDERARÁN EN FAVOR DE LA EMPRESA ADMINISTRADORA, SIN QUE EXISTA OBLIGACIÓN DE REINTEGRO ALGUNO. EN CONSECUENCIA, EL INMUEBLE OBJETO DEL CONTRATO CELEBRADO CON LA EMPRESA ADMINISTRADORA REVERTIRÁ A LA PLENA PROPIEDAD Y DISPOSICIÓN DE LA EMPRESA ADMINISTRADORA.
             </Text>
+          </View>
+
+          {/* VALIDACIÓN (QR) */}
+          <View style={s.qrSection}>
+            <View style={s.qrBox}>
+              <Text style={s.qrBoxLabel}>QR</Text>
+            </View>
+            <Text style={s.qrCaption}>Escanea para validar</Text>
           </View>
 
           {/* FOOTER */}
