@@ -3,12 +3,12 @@ import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
 import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
 
 // Misma identidad visual del correo de bienvenida (email.service.ts —
-// sendWelcomeEmail): fondo beige cálido, header verde bosque, acento
-// dorado. react-pdf no soporta linear-gradient ni box-shadow en style —
-// el gradiente del header se aproxima con el tono sólido intermedio, y
-// la elevación de las tarjetas se aproxima con un borde sutil.
+// sendWelcomeEmail): header verde bosque, acento dorado. Fondo de página
+// blanco (no el beige cálido del correo) para no gastar tinta/tóner en
+// impresoras b/n. react-pdf no soporta linear-gradient ni box-shadow en
+// style — el gradiente del header se aproxima con el tono sólido
+// intermedio, y la elevación de las tarjetas se aproxima con un borde sutil.
 const C = {
-  beige:        '#F0EDE8',
   forest:       '#0D2818',
   forestMid:    '#1A3A2A',
   green:        '#2D6A4F',
@@ -21,11 +21,19 @@ const C = {
   textSecondary:'#6B7C74',
   sectionAlt:   '#F7F9F7',
   border:       '#E5EDE5',
+  // Fondo de página ahora blanco (menos tinta al imprimir en b/n) — la
+  // tarjeta ya no contrasta contra un beige, así que su borde exterior
+  // usa un tono más marcado que C.border para seguir delimitándose.
+  cardBorder:   '#CBDBCE',
 };
 
 const s = StyleSheet.create({
-  page:             { padding: 22, fontSize: 9, fontFamily: 'Helvetica', color: C.ink, backgroundColor: C.beige },
-  card:             { backgroundColor: C.white, borderRadius: 14, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  page:             { padding: 22, fontSize: 9, fontFamily: 'Helvetica', color: C.ink, backgroundColor: C.white },
+  // flex: 1 — la tarjeta ocupa todo el alto disponible de la página
+  // (en vez de flotar arriba con espacio muerto abajo cuando el
+  // contenido es corto); el footer se ancla al fondo vía s.spacer.
+  card:             { flex: 1, backgroundColor: C.white, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden' },
+  spacer:           { flex: 1 },
 
   // HEADER
   header:           { backgroundColor: C.forestMid, paddingTop: 18, paddingBottom: 16, paddingHorizontal: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -113,7 +121,7 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues, qrDataUr
 
   return (
     <Document title={reciboNum} author="Central Inmobiliaria">
-      <Page size="A4" style={s.page}>
+      <Page size="LETTER" style={s.page}>
         <View style={s.card}>
 
           {/* HEADER */}
@@ -191,6 +199,8 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues, qrDataUr
               3. TRANSCURRIDO EL PLAZO DE PRÓRROGA SIN QUE EL COMPRADOR HAYA REGULARIZADO SU SITUACIÓN DE PAGO, EL CONTRATO CELEBRADO CON LA EMPRESA ADMINISTRADORA SE CONSIDERARÁ RESUELTO DE PLENO DERECHO, SIN NECESIDAD DE DECLARACIÓN JUDICIAL PREVIA, Y TODOS LOS MONTOS ENTREGADOS POR EL COMPRADOR HASTA ESA FECHA SE CONSIDERARÁN EN FAVOR DE LA EMPRESA ADMINISTRADORA, SIN QUE EXISTA OBLIGACIÓN DE REINTEGRO ALGUNO. EN CONSECUENCIA, EL INMUEBLE OBJETO DEL CONTRATO CELEBRADO CON LA EMPRESA ADMINISTRADORA REVERTIRÁ A LA PLENA PROPIEDAD Y DISPOSICIÓN DE LA EMPRESA ADMINISTRADORA.
             </Text>
           </View>
+
+          <View style={s.spacer} />
 
           {/* VALIDACIÓN (QR) */}
           <View style={s.qrSection}>
