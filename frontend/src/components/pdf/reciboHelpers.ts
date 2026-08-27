@@ -1,3 +1,5 @@
+import QRCode from 'qrcode';
+
 // Formateador MANUAL de montos — a propósito no usa toLocaleString/Intl:
 // el entorno donde se renderiza el PDF (@react-pdf/renderer) corre con
 // ICU incompleto, así que Intl silenciosamente ignora el locale/las
@@ -27,4 +29,20 @@ export function buildDescripcion(concepto: string, numeroCuota: number): string 
   const yaTieneNumero = new RegExp(`\\b${numeroCuota}\\b`).test(trimmed);
   if (yaTieneNumero) return trimmed;
   return trimmed ? `${trimmed} — Cuota #${numeroCuota}` : `Cuota #${numeroCuota}`;
+}
+
+// URL pública de validación del recibo — lo que codifica el QR. Detrás de
+// una env var para que local/staging/producción apunten cada uno a su
+// propio dominio; por ahora el default es la URL real de Railway.
+export function buildValidacionUrl(reciboId: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://frontend-production-96a0.up.railway.app';
+  return `${base}/validar/${reciboId}`;
+}
+
+// Genera el QR real como data-uri PNG. La librería `qrcode` tiene build
+// para navegador (canvas) y para Node (pngjs, sin canvas) — funciona en
+// ambos sin configuración extra, por eso es segura de usar tanto en los
+// modales (browser) como en scripts/tests (Node).
+export async function buildQrDataUri(url: string): Promise<string> {
+  return QRCode.toDataURL(url, { margin: 1, width: 256 });
 }

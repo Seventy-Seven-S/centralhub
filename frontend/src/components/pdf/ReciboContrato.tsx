@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
 import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
 
@@ -40,6 +40,7 @@ const s = StyleSheet.create({
   // footer.
   qrSection:        { alignItems: 'center', marginHorizontal: 24, marginTop: 2, marginBottom: 10 },
   qrBox:            { width: 56, height: 56, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: C.sectionAlt },
+  qrImage:          { width: 56, height: 56, borderRadius: 8 },
   qrBoxLabel:       { fontSize: 6.5, color: C.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
   qrCaption:        { fontSize: 6.5, color: C.textSecondary, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginTop: 5, fontFamily: 'Helvetica-Bold' },
 
@@ -94,9 +95,15 @@ export interface ReciboProps {
   cuota:          Cuota;
   pago:           { montoPagado: number; fechaPago: string; concepto: string };
   balanceDespues: number;
+  // Data-uri PNG del QR de validación (ver reciboHelpers.ts:buildQrDataUri),
+  // ya generado por el caller antes de renderizar. Opcional: si el pago se
+  // guardó pero el ReciboLog falló (no debe tumbar el pago — ver
+  // reciboLog.service.ts), no hay id que codificar y se muestra el
+  // placeholder en su lugar en vez de romper el recibo.
+  qrDataUri?: string;
 }
 
-export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: ReciboProps) {
+export function ReciboContrato({ contrato, cuota, pago, balanceDespues, qrDataUri }: ReciboProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const reciboNum     = buildReciboFolio(codigo, cuota.numeroCuota, contrato.installmentCount);
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
@@ -187,9 +194,13 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues }: Recibo
 
           {/* VALIDACIÓN (QR) */}
           <View style={s.qrSection}>
-            <View style={s.qrBox}>
-              <Text style={s.qrBoxLabel}>QR</Text>
-            </View>
+            {qrDataUri ? (
+              <Image src={qrDataUri} style={s.qrImage} />
+            ) : (
+              <View style={s.qrBox}>
+                <Text style={s.qrBoxLabel}>QR</Text>
+              </View>
+            )}
             <Text style={s.qrCaption}>Escanea para validar</Text>
           </View>
 

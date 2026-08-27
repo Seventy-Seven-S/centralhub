@@ -6,6 +6,8 @@ import { nextPaymentNumber } from './lib/paymentNumber';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import { round2 } from '../utils/money';
+import { crearReciboLog } from './reciboLog.service';
+import { buildReciboFolio } from '../utils/reciboFolio';
 
 const prisma = new PrismaClient();
 
@@ -17,7 +19,7 @@ export class PaymentService {
    * Payment + cascada sobre cuotas + balance + mora, en UNA transacción.
    * Lo usan POST /payments y PATCH /cuotas/:id/pay.
    */
-  async registrarPagoMensualidad(data: RegistrarPagoDto): Promise<{ payment: any; cuotasAfectadas: number[] }> {
+  async registrarPagoMensualidad(data: RegistrarPagoDto): Promise<{ payment: any; cuotasAfectadas: number[]; reciboId: string | null }> {
     if (!data.idempotencyKey?.trim()) {
       throw new Error('idempotencyKey es requerida — protege contra doble-submit (doble clic, retry de red)');
     }
@@ -29,12 +31,16 @@ export class PaymentService {
     // contrato/cuotas/folio, para no gastar nada en un duplicado obvio.
     const existingByKey = await prisma.payment.findUnique({ where: { idempotencyKey: data.idempotencyKey } });
     if (existingByKey) {
-      return { payment: await this.getPaymentById(existingByKey.id), cuotasAfectadas: [] };
+      return {
+        payment: await this.getPaymentById(existingByKey.id),
+        cuotasAfectadas: [],
+        reciboId: await this.buscarReciboIdPorPago(existingByKey.id),
+      };
     }
 
     const contract = await prisma.contract.findUnique({
       where: { id: data.contractId },
-      include: { client: true, project: true },
+      include: { client: true, project: true, lots: { include: { lot: true } } },
     });
     if (!contract) throw new Error('Contrato no encontrado');
     if (contract.status === ContractStatus.CANCELED) throw new Error('El contrato está cancelado');
@@ -148,7 +154,11 @@ export class PaymentService {
       if (err?.code === PRISMA_UNIQUE_CONSTRAINT_VIOLATION) {
         const winner = await prisma.payment.findUnique({ where: { idempotencyKey: data.idempotencyKey } });
         if (winner) {
-          return { payment: await this.getPaymentById(winner.id), cuotasAfectadas: [] };
+          return {
+            payment: await this.getPaymentById(winner.id),
+            cuotasAfectadas: [],
+            reciboId: await this.buscarReciboIdPorPago(winner.id),
+          };
         }
       }
       throw err;
@@ -177,8 +187,38 @@ export class PaymentService {
       logger.error(`Error creando notificación de pago ${created.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
+    // ReciboLog — DESPUÉS del commit del pago, nunca dentro de la misma
+    // transacción: el pago es lo sagrado, el recibo es secundario. Un fallo
+    // aquí (bug, BD caída) nunca debe tumbar un pago ya guardado —
+    // crearReciboLog está diseñado para no lanzar nunca (ver
+    // reciboLog.service.ts), devuelve null si algo sale mal.
+    const lote = contract.lots?.[0]?.lot;
+    const reciboId = await crearReciboLog({
+      paymentId:      created.id,
+      folio:          buildReciboFolio(contract.codigoLegado ?? contract.contractNumber, primera?.numeroCuota ?? 0, contract.installmentCount ?? 0),
+      clienteNombre:  `${contract.client.firstName} ${contract.client.lastName}`,
+      codigoLegado:   contract.codigoLegado,
+      proyecto:       contract.project.name,
+      loteLabel:      lote ? `M${lote.manzana} L-${lote.lotNumber}` : null,
+      numeroCuota:    primera?.numeroCuota ?? 0,
+      mes:            primera?.mes ?? '',
+      plazoTotal:     contract.installmentCount ?? 0,
+      montoPagado:    montoAplicado,
+      fechaPago,
+      concepto:       concept,
+      balanceDespues: created.balanceAfter ?? 0,
+    });
+
     const payment = await this.getPaymentById(created.id);
-    return { payment, cuotasAfectadas };
+    return { payment, cuotasAfectadas, reciboId };
+  }
+
+  // Recibo ya emitido para este pago (replay de idempotencyKey) — lectura
+  // simple, sin recrear nada. Si no existe (ej. crearReciboLog falló la
+  // primera vez), devuelve null; el caller sigue sin QR, no sin pago.
+  private async buscarReciboIdPorPago(paymentId: string): Promise<string | null> {
+    const recibo = await prisma.reciboLog.findUnique({ where: { paymentId } });
+    return recibo?.id ?? null;
   }
 
   // Listar pagos con filtros

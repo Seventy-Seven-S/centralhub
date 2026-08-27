@@ -5,6 +5,7 @@ import { X, FileDown, Loader2, CheckCircle2 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { usePayCuota, Cuota, ContratoDetalle } from '@/hooks/useContratos';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
+import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
 
 interface Props {
@@ -28,7 +29,7 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
   // se paga) — se reutiliza en reintentos, no se regenera en cada click.
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
-  async function generateAndDownload(montoPagado: number) {
+  async function generateAndDownload(montoPagado: number, qrDataUri?: string) {
     const balanceDespues = Math.max(0, (contrato.balance ?? 0) - montoPagado);
     const blob = await pdf(
       <ReciboContrato
@@ -36,6 +37,7 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
         cuota={cuota}
         pago={{ montoPagado, fechaPago: fecha, concepto: concepto.trim() || `Mensualidad #${cuota.numeroCuota}` }}
         balanceDespues={balanceDespues}
+        qrDataUri={qrDataUri}
       />
     ).toBlob();
 
@@ -58,10 +60,12 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
     payCuota(
       { cuotaId: cuota.id, montoPagado: n, fechaPago: fecha, idempotencyKey: idempotencyKeyRef.current },
       {
-        onSuccess: async () => {
+        onSuccess: async (response: any) => {
           setStep('generating');
           try {
-            await generateAndDownload(n);
+            const reciboId: string | null = response?.data?.data?.reciboId ?? null;
+            const qrDataUri = reciboId ? await buildQrDataUri(buildValidacionUrl(reciboId)) : undefined;
+            await generateAndDownload(n, qrDataUri);
           } catch (e) {
             console.error('PDF generation error:', e);
           }
