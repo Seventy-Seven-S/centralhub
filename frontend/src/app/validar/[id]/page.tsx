@@ -10,7 +10,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+
+// Monto siempre con centavos (formatCurrency de @/lib/utils omite los
+// decimales cuando son .00) — un recibo de validación debe reflejar el
+// monto exacto, no el redondeado que se usa en listados de la app.
+function formatMontoRecibo(n: number): string {
+  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 interface ReciboValidado {
   valid: true;
@@ -93,7 +99,7 @@ export default function ValidarReciboPage() {
                 <Row label="Cuota" value={`#${recibo.cuota} — ${recibo.mes}`} />
                 <Row label="Fecha de pago" value={fmtDate(recibo.fecha)} alt />
                 <Row label="Concepto" value={recibo.concepto} />
-                <Row label="Monto" value={formatCurrency(recibo.monto)} alt strong />
+                <Row label="Monto" value={formatMontoRecibo(recibo.monto)} alt strong />
               </div>
 
               <p style={{ margin: '16px 0 0', fontSize: 11, color: C.textSecondary, textAlign: 'center' }}>
