@@ -6,6 +6,7 @@ import { pdf } from '@react-pdf/renderer';
 import { usePayCuota, Cuota, ContratoDetalle } from '@/hooks/useContratos';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
+import { useMoneyInput } from '@/hooks/useMoneyInput';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
 type Step = 'form' | 'saving' | 'generating' | 'done';
 
 export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
-  const [monto,    setMonto]    = useState(cuota.montoEsperado > 0 ? cuota.montoEsperado.toString() : '');
+  const { value: monto, inputProps: montoInputProps } = useMoneyInput(cuota.montoEsperado > 0 ? cuota.montoEsperado : 0);
   const [fecha,    setFecha]    = useState(todayLocalISO());
   const [concepto, setConcepto] = useState(`Mensualidad #${cuota.numeroCuota} — ${cuota.mes}`);
   const [error,    setError]    = useState('');
@@ -52,7 +53,7 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
   }
 
   async function handleConfirm() {
-    const n = parseFloat(monto);
+    const n = monto;
     if (!n || n <= 0) { setError('Ingresa un monto válido'); return; }
     setError('');
     setStep('saving');
@@ -113,14 +114,11 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
               Monto pagado <span className="text-gray-400 font-normal">(MXN)</span>
             </label>
             <input
-              type="number"
-              value={monto}
-              onChange={e => { setMonto(e.target.value); setError(''); }}
+              {...montoInputProps}
+              onChange={e => { montoInputProps.onChange(e); setError(''); }}
               disabled={busy}
               className="w-full px-3 py-2.5 text-sm text-gray-900 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition disabled:opacity-50 disabled:bg-gray-50"
-              placeholder="0.00"
-              step="0.01"
-              min="0"
+              placeholder="$0.00"
             />
           </div>
 

@@ -8,6 +8,7 @@ import { useContratos, useCuotasByContrato, ContratoDetalle } from '@/hooks/useC
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
+import { useMoneyInput } from '@/hooks/useMoneyInput';
 import api from '@/lib/api';
 import { formatCurrency, formatLotsLabel, todayLocalISO } from '@/lib/utils';
 
@@ -28,7 +29,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery]       = useState('');
   const [contrato, setContrato] = useState<ContratoDetalle | null>(null);
   const [step, setStep]         = useState<Step>('pick');
-  const [monto, setMonto]       = useState('');
+  const { value: monto, setValue: setMonto, inputProps: montoInputProps } = useMoneyInput(0);
   const [fecha, setFecha]       = useState(todayLocalISO());
   const [metodo, setMetodo]     = useState('TRANSFER');
   const [concepto, setConcepto] = useState('');
@@ -56,7 +57,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
 
   function elegir(c: ContratoDetalle) {
     setContrato(c);
-    setMonto(c.installmentAmount ? String(c.installmentAmount) : '');
+    setMonto(c.installmentAmount ?? 0);
     setConcepto('');
     idempotencyKeyRef.current = crypto.randomUUID();
     setStep('form');
@@ -88,7 +89,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
 
   async function confirmar() {
     if (!contrato) return;
-    const n = parseFloat(monto);
+    const n = monto;
     if (!n || n <= 0) { setError('Ingresa un monto válido'); return; }
     setError('');
     setStep('saving');
@@ -208,8 +209,9 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
 
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Monto (MXN)</label>
-                <input type="number" value={monto} step="0.01" min="0" disabled={busy}
-                       onChange={e => { setMonto(e.target.value); setError(''); }}
+                <input {...montoInputProps} disabled={busy}
+                       onChange={e => { montoInputProps.onChange(e); setError(''); }}
+                       placeholder="$0.00"
                        className="w-full px-3 py-2.5 text-sm rounded-xl outline-none"
                        style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
               </div>
