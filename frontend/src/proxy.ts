@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const ADMIN_ROUTES  = ['/dashboard', '/proyectos', '/clientes', '/contratos', '/cuotas', '/lotes'];
 const PORTAL_ROUTES = ['/mi-cuenta', '/mis-contratos', '/mis-pagos'];
-const PUBLIC_ROUTES = ['/login', '/portal'];
+// /validar: página pública de validación de recibos (el QR del recibo
+// apunta aquí) — cualquiera, con sesión o sin ella, debe poder verla.
+const PUBLIC_ROUTES = ['/login', '/portal', '/validar'];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

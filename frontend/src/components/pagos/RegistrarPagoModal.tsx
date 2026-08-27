@@ -7,6 +7,7 @@ import { pdf } from '@react-pdf/renderer';
 import { useContratos, useCuotasByContrato, ContratoDetalle } from '@/hooks/useContratos';
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
+import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import api from '@/lib/api';
 import { formatCurrency, formatLotsLabel, todayLocalISO } from '@/lib/utils';
 
@@ -61,7 +62,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
     setStep('form');
   }
 
-  async function generarRecibo(montoPagado: number, cuotasAfectadas: number[]) {
+  async function generarRecibo(montoPagado: number, cuotasAfectadas: number[], qrDataUri?: string) {
     if (!contrato) return;
     const cuotaRecibo = cuotas.find(c => c.numeroCuota === cuotasAfectadas[0]) ?? proximaCuota;
     if (!cuotaRecibo) return;
@@ -72,6 +73,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
         cuota={cuotaRecibo}
         pago={{ montoPagado, fechaPago: fecha, concepto: concepto.trim() || `Mensualidad #${cuotaRecibo.numeroCuota}` }}
         balanceDespues={balanceDespues}
+        qrDataUri={qrDataUri}
       />
     ).toBlob();
     const url = URL.createObjectURL(blob);
@@ -100,8 +102,12 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
         idempotencyKey: idempotencyKeyRef.current,
       });
       const cuotasAfectadas: number[] = data?.data?.cuotasAfectadas ?? [];
+      const reciboId: string | null = data?.data?.reciboId ?? null;
       setStep('generating');
-      try { await generarRecibo(n, cuotasAfectadas); } catch (e) { console.error('PDF error:', e); }
+      try {
+        const qrDataUri = reciboId ? await buildQrDataUri(buildValidacionUrl(reciboId)) : undefined;
+        await generarRecibo(n, cuotasAfectadas, qrDataUri);
+      } catch (e) { console.error('PDF error:', e); }
       qc.invalidateQueries({ queryKey: ['contratos'] });
       qc.invalidateQueries({ queryKey: ['cuotas'] });
       qc.invalidateQueries({ queryKey: ['pagos'] });

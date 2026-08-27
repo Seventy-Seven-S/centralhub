@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
+import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion, buildValidacionUrl, buildQrDataUri } from './reciboHelpers';
 
 describe('formatMoney — formateador manual, sin toLocaleString/Intl (ICU incompleto en el entorno de render)', () => {
   it('agrega coma de miles y dos decimales', () => {
@@ -66,5 +66,18 @@ describe('buildDescripcion — agrega el número de cuota si no está ya en el c
 
   it('no confunde un número que solo contiene el de la cuota como substring (19 dentro de 190)', () => {
     expect(buildDescripcion('Pago de $190 pesos', 19)).toBe('Pago de $190 pesos — Cuota #19');
+  });
+});
+
+describe('buildValidacionUrl — URL pública que codifica el QR', () => {
+  it('arma la URL de validación con el id del recibo', () => {
+    expect(buildValidacionUrl('abc-123')).toBe('https://frontend-production-96a0.up.railway.app/validar/abc-123');
+  });
+});
+
+describe('buildQrDataUri — genera el QR real como data-uri (funciona en navegador y en Node)', () => {
+  it('devuelve un data-uri de imagen PNG codificando la URL', async () => {
+    const uri = await buildQrDataUri('https://frontend-production-96a0.up.railway.app/validar/abc-123');
+    expect(uri).toMatch(/^data:image\/png;base64,/);
   });
 });

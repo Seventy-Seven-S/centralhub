@@ -57,7 +57,7 @@ export class CuotaService {
     // Delegar en el servicio unificado: crea el Payment (antes este flujo no lo
     // creaba y los pagos por-cuota no aparecían en el historial), aplica la
     // cascada, baja balance y recalcula mora. La notificación vive allá.
-    await paymentService.registrarPagoMensualidad({
+    const { reciboId } = await paymentService.registrarPagoMensualidad({
       contractId: cuota.contractId,
       amount: data.montoPagado,
       paymentDate: data.fechaPago ?? new Date(),
@@ -65,7 +65,8 @@ export class CuotaService {
       idempotencyKey: data.idempotencyKey as string,
     });
 
-    return prisma.cuota.findUnique({ where: { id } });
+    const cuotaActualizada = await prisma.cuota.findUnique({ where: { id } });
+    return { ...cuotaActualizada, reciboId };
   }
 }
 

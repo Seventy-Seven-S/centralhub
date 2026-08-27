@@ -6,9 +6,11 @@ const mocks = vi.hoisted(() => {
     cuota: { findMany: vi.fn(), update: vi.fn(), count: vi.fn() },
     payment: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     project: { findUnique: vi.fn() },
+    reciboLog: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   };
-  return { prisma };
+  const crearReciboLog = vi.fn();
+  return { prisma, crearReciboLog };
 });
 
 vi.mock('@prisma/client', () => ({
@@ -19,6 +21,12 @@ vi.mock('@prisma/client', () => ({
   ContractStatus: { DRAFT: 'DRAFT', SIGNED: 'SIGNED', ACTIVE: 'ACTIVE', IN_MORA: 'IN_MORA', COMPLETED: 'COMPLETED', CANCELED: 'CANCELED', RESCISSION: 'RESCISSION' },
 }));
 vi.mock('../notification.service', () => ({ default: { createNotification: vi.fn() } }));
+// crearReciboLog se mockea aparte del prisma de arriba porque vive en
+// reciboLog.service.ts, que importa su propio prisma desde
+// config/database (a propósito — ver el comentario en ese archivo). No
+// queremos que este test unitario de payment.service dependa de esa
+// otra ruta de mocking.
+vi.mock('../reciboLog.service', () => ({ crearReciboLog: mocks.crearReciboLog }));
 
 import paymentService from '../payment.service';
 
@@ -89,6 +97,9 @@ beforeEach(() => {
     if (where.id) return Promise.resolve({ id: where.id, amount: 8000, contract: CONTRACT });
     return Promise.resolve(null);
   });
+
+  mocks.crearReciboLog.mockResolvedValue('recibo-new-1');
+  mocks.prisma.reciboLog.findUnique.mockResolvedValue(null);
 });
 
 describe('registrarPagoMensualidad — idempotencia', () => {
@@ -186,6 +197,38 @@ describe('registrarPagoMensualidad — balance', () => {
 
     await expect(paymentService.registrarPagoMensualidad(baseInput({ amount: 8000 })))
       .rejects.toThrow(/balance|negativ/i);
+  });
+});
+
+describe('registrarPagoMensualidad — ReciboLog (QR de validación)', () => {
+  it('camino feliz: crea el pago Y el ReciboLog, devuelve reciboId en el resultado', async () => {
+    const result = await paymentService.registrarPagoMensualidad(baseInput({ amount: 8000 }));
+
+    expect(mocks.crearReciboLog).toHaveBeenCalledOnce();
+    expect(result.reciboId).toBe('recibo-new-1');
+  });
+
+  it('si crearReciboLog devuelve null (falló, no lanzó), el pago igual se completa con reciboId: null', async () => {
+    mocks.crearReciboLog.mockResolvedValue(null);
+
+    const result = await paymentService.registrarPagoMensualidad(baseInput({ amount: 8000 }));
+
+    expect(result.payment).toBeDefined();
+    expect(result.reciboId).toBeNull();
+  });
+
+  it('replay idempotente: devuelve el reciboId ya existente para ese pago, sin llamar crearReciboLog de nuevo', async () => {
+    mocks.prisma.payment.findUnique.mockImplementation(({ where }: any) => {
+      if (where.idempotencyKey === 'key-abc-123') return Promise.resolve({ id: 'payment-existing', amount: 8000, contract: CONTRACT });
+      if (where.id === 'payment-existing') return Promise.resolve({ id: 'payment-existing', amount: 8000, contract: CONTRACT });
+      return Promise.resolve(null);
+    });
+    mocks.prisma.reciboLog.findUnique.mockResolvedValue({ id: 'recibo-ya-existia' });
+
+    const result = await paymentService.registrarPagoMensualidad(baseInput());
+
+    expect(result.reciboId).toBe('recibo-ya-existia');
+    expect(mocks.crearReciboLog).not.toHaveBeenCalled();
   });
 });
 

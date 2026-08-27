@@ -48,3 +48,19 @@ describe('payCuota — segunda entrada al mismo flujo (debe quedar protegida por
     expect(arg.idempotencyKey).toBeUndefined();
   });
 });
+
+describe('payCuota — reciboId (QR de validación) se propaga en el resultado', () => {
+  it('el reciboId que devuelve registrarPagoMensualidad llega hasta el resultado de payCuota', async () => {
+    mocks.paymentService.registrarPagoMensualidad.mockResolvedValue({
+      payment: { id: 'payment-1' }, cuotasAfectadas: [1], reciboId: 'recibo-abc',
+    });
+
+    const result = await cuotaService.payCuota('cuota-1', {
+      montoPagado: 8000,
+      fechaPago: new Date('2026-08-16'),
+      idempotencyKey: 'key-1',
+    });
+
+    expect((result as any).reciboId).toBe('recibo-abc');
+  });
+});

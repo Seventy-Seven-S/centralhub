@@ -432,6 +432,42 @@ model Payment {
   @@map("payments")
 }
 
+// ============================================================================
+// RECIBO LOG — validación pública de recibos (anti-falsificación).
+// Snapshot INMUTABLE al momento de emisión: a propósito no tiene relaciones
+// vivas a Contract/Client. Si el contrato se edita después, el recibo
+// validado sigue mostrando lo que era cierto cuando se emitió — es lo que lo
+// hace prueba de lo que pasó, no un espejo de lo que dice la BD hoy. También
+// evita que el endpoint público (sin auth) tenga que hacer joins/exponer más
+// datos de los necesarios.
+//
+// El `id` (uuid) de esta fila ES el identificador de validación — la URL del
+// QR usa este id, NUNCA el folio (el folio no es único: reimprimir el mismo
+// pago da el mismo folio).
+// ============================================================================
+model ReciboLog {
+  id             String   @id @default(uuid())
+  folio          String
+  paymentId      String   @unique
+
+  clienteNombre  String
+  codigoLegado   String?
+  proyecto       String
+  loteLabel      String?
+  numeroCuota    Int
+  mes            String
+  plazoTotal     Int
+  montoPagado    Float
+  fechaPago      DateTime
+  concepto       String
+  balanceDespues Float
+
+  issuedAt       DateTime @default(now())
+  issuedByIp     String?
+
+  @@map("recibo_logs")
+}
+
 model PaymentSchedule {
   id                String        @id @default(uuid())
   contractId        String
