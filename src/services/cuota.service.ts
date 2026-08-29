@@ -61,7 +61,10 @@ export class CuotaService {
       contractId: cuota.contractId,
       amount: data.montoPagado,
       paymentDate: data.fechaPago ?? new Date(),
-      paymentMethod: PaymentMethod.TRANSFER,
+      // PagarCuotaModal no tiene selector de método — hoy todos los pagos por
+      // esta vía son en efectivo. Si en el futuro empiezan a recibir
+      // transferencias, agregar un selector en el modal en vez de asumir.
+      paymentMethod: PaymentMethod.CASH,
       idempotencyKey: data.idempotencyKey as string,
     });
 

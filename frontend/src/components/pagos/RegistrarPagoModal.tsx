@@ -31,7 +31,9 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
   const [step, setStep]         = useState<Step>('pick');
   const { value: monto, setValue: setMonto, inputProps: montoInputProps } = useMoneyInput(0);
   const [fecha, setFecha]       = useState(todayLocalISO());
-  const [metodo, setMetodo]     = useState('TRANSFER');
+  // Efectivo por default — es el método más común, reduce errores de
+  // selección (antes quedaba en Transferencia por ser el primero de la lista).
+  const [metodo, setMetodo]     = useState('CASH');
   const [concepto, setConcepto] = useState('');
   const [error, setError]       = useState('');
 
