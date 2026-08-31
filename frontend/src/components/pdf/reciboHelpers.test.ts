@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion, buildValidacionUrl, buildQrDataUri } from './reciboHelpers';
+import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion, buildValidacionUrl, buildQrDataUri, getLoteInfo } from './reciboHelpers';
 
 describe('formatMoney — formateador manual, sin toLocaleString/Intl (ICU incompleto en el entorno de render)', () => {
   it('agrega coma de miles y dos decimales', () => {
@@ -79,5 +79,41 @@ describe('buildQrDataUri — genera el QR real como data-uri (funciona en navega
   it('devuelve un data-uri de imagen PNG codificando la URL', async () => {
     const uri = await buildQrDataUri('https://frontend-production-96a0.up.railway.app/validar/abc-123');
     expect(uri).toMatch(/^data:image\/png;base64,/);
+  });
+});
+
+describe('getLoteInfo — TODOS los lotes del contrato (bug: recibo/contrato solo mostraban lots[0])', () => {
+  it('un solo lote — no rompe el caso simple', () => {
+    const lots = [{ lot: { manzana: 1, lotNumber: '3', areaM2: 200 } }];
+    expect(getLoteInfo(lots)).toEqual({ loteLabel: 'M1 L-3', areaLabel: '200 m²' });
+  });
+
+  it('dos lotes en manzanas distintas — se listan ambos, no solo el primero', () => {
+    const lots = [
+      { lot: { manzana: 1, lotNumber: '3', areaM2: 200 } },
+      { lot: { manzana: 7, lotNumber: '3', areaM2: 180 } },
+    ];
+    expect(getLoteInfo(lots)).toEqual({ loteLabel: 'M1 L-3 · M7 L-3', areaLabel: '380 m²' });
+  });
+
+  it('dos lotes en la misma manzana — se agrupan (mismo formato que formatLotsLabel)', () => {
+    const lots = [
+      { lot: { manzana: 9, lotNumber: '9', areaM2: 200 } },
+      { lot: { manzana: 9, lotNumber: '10', areaM2: 210 } },
+    ];
+    expect(getLoteInfo(lots)).toEqual({ loteLabel: 'M9 L-9, L-10', areaLabel: '410 m²' });
+  });
+
+  it('sin lotes / undefined — no revienta', () => {
+    expect(getLoteInfo(undefined)).toEqual({ loteLabel: '—', areaLabel: '—' });
+    expect(getLoteInfo([])).toEqual({ loteLabel: '—', areaLabel: '—' });
+  });
+
+  it('redondea el área total a 2 decimales', () => {
+    const lots = [
+      { lot: { manzana: 1, lotNumber: '1', areaM2: 100.111 } },
+      { lot: { manzana: 1, lotNumber: '2', areaM2: 50.222 } },
+    ];
+    expect(getLoteInfo(lots).areaLabel).toBe('150.33 m²');
   });
 });
