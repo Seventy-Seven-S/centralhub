@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { formatLotsLabel } from '@/lib/utils';
 
 // Formateador MANUAL de montos — a propósito no usa toLocaleString/Intl:
 // el entorno donde se renderiza el PDF (@react-pdf/renderer) corre con
@@ -45,4 +46,16 @@ export function buildValidacionUrl(reciboId: string): string {
 // modales (browser) como en scripts/tests (Node).
 export async function buildQrDataUri(url: string): Promise<string> {
   return QRCode.toDataURL(url, { margin: 1, width: 256 });
+}
+
+// Etiqueta y área de TODOS los lotes del contrato — no solo lots[0] (bug:
+// contratos con 2+ lotes solo mostraban uno en el recibo/contrato PDF).
+// Mismo formato que ya usa EstadoDeCuenta.tsx para ser consistente.
+export function getLoteInfo(
+  lots?: Array<{ lot: { manzana: number; lotNumber: string; areaM2: number } }>,
+): { loteLabel: string; areaLabel: string } {
+  const loteLabel = formatLotsLabel(lots);
+  const totalArea = (lots ?? []).reduce((sum, l) => sum + (l.lot.areaM2 || 0), 0);
+  const areaLabel = totalArea > 0 ? `${Math.round(totalArea * 100) / 100} m²` : '—';
+  return { loteLabel, areaLabel };
 }

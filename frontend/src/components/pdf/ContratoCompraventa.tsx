@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, CoOwner, Cuota } from '@/hooks/useContratos';
-import { formatMoney, TELEFONOS_RECIBO } from './reciboHelpers';
+import { formatMoney, TELEFONOS_RECIBO, getLoteInfo } from './reciboHelpers';
 
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
 
@@ -145,8 +145,7 @@ const PAGE_ROWS = 29;
 export function ContratoCompraventa({ contrato, cuotas, showWatermark }: ContratoProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
-  const lote          = contrato.lots?.[0]?.lot;
-  const loteLabel     = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
+  const { loteLabel, areaLabel } = getLoteInfo(contrato.lots);
   const financiado    = contrato.totalPrice - (contrato.downPayment ?? 0);
   const ultimaCuota   = cuotas[cuotas.length - 1];
   const coOwners      = contrato.coOwners ?? [];
@@ -265,7 +264,7 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
           </View>
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>SUPERFICIE</Text>
-            <Text style={s.infoValue}>{lote ? `${lote.areaM2} m²` : '—'}</Text>
+            <Text style={s.infoValue}>{areaLabel}</Text>
           </View>
         </View>
         <View style={s.infoRow}>

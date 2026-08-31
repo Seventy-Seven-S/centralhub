@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
-import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion } from './reciboHelpers';
+import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion, getLoteInfo } from './reciboHelpers';
 
 // Misma identidad visual del correo de bienvenida (email.service.ts —
 // sendWelcomeEmail): header verde bosque, acento dorado. Fondo de página
@@ -115,8 +115,7 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues, qrDataUr
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const reciboNum     = buildReciboFolio(codigo, cuota.numeroCuota, contrato.installmentCount);
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
-  const lote          = contrato.lots?.[0]?.lot;
-  const loteLabel     = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
+  const { loteLabel } = getLoteInfo(contrato.lots);
   const descripcion   = buildDescripcion(pago.concepto, cuota.numeroCuota);
 
   return (
