@@ -238,6 +238,31 @@ describe('registrarPagoMensualidad — contrato sin calendario de cuotas', () =>
   });
 });
 
+describe('registrarPagoMensualidad — contrato liquidado', () => {
+  it('el pago que cierra la última cuota y deja balance 0 marca el contrato COMPLETED (no ACTIVE ni IN_MORA)', async () => {
+    mocks.prisma.contract.findUnique.mockResolvedValue({ ...CONTRACT, balance: 8000 });
+    mocks.prisma.cuota.findMany.mockResolvedValue([cuota({ id: 'cuota-1', numeroCuota: 1 })]);
+    const statusUpdates: any[] = [];
+    mocks.prisma.$transaction.mockImplementation(async (cb: any) => {
+      const tx = {
+        contract: {
+          findUnique: vi.fn().mockResolvedValue({ balance: 8000 }),
+          update: vi.fn().mockImplementation((arg: any) => { statusUpdates.push(arg.data); return Promise.resolve({}); }),
+        },
+        payment: { create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'payment-1', ...data })) },
+        cuota: { createMany: vi.fn(), update: vi.fn().mockResolvedValue({}), count: vi.fn().mockResolvedValue(0) },
+      };
+      return cb(tx);
+    });
+
+    await paymentService.registrarPagoMensualidad(baseInput({ amount: 8000 }));
+
+    const final = statusUpdates.find(d => d.status !== undefined);
+    expect(final.status).toBe('COMPLETED');
+    expect(final.moraMonthsCount).toBe(0);
+  });
+});
+
 describe('registrarPagoMensualidad — sobrepago extremo', () => {
   it('monto excede el total pendiente del contrato → rechaza con error claro, NUNCA abre transacción', async () => {
     await expect(paymentService.registrarPagoMensualidad(baseInput({ amount: 50000 })))

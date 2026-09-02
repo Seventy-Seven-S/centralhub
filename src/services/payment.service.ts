@@ -192,9 +192,17 @@ export class PaymentService {
         const vencidas = await tx.cuota.count({
           where: { contractId: data.contractId, status: CuotaStatus.PENDIENTE, fechaVencimiento: { lt: hoy } },
         });
+        // Liquidado: balance en 0 y ninguna cuota quedó pendiente tras la cascada.
+        const quedanPendientes = cuotas.some(c =>
+          (updates.find(u => u.id === c.id)?.status ?? c.status) !== 'PAGADA',
+        );
+        const liquidado = newBalance <= 0.01 && !quedanPendientes;
         await tx.contract.update({
           where: { id: data.contractId },
-          data: { moraMonthsCount: vencidas, status: vencidas > 0 ? ContractStatus.IN_MORA : ContractStatus.ACTIVE },
+          data: {
+            moraMonthsCount: liquidado ? 0 : vencidas,
+            status: liquidado ? ContractStatus.COMPLETED : vencidas > 0 ? ContractStatus.IN_MORA : ContractStatus.ACTIVE,
+          },
         });
         return p;
       });
