@@ -1,11 +1,13 @@
 // src/services/contract.service.ts
-import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, CuotaStatus, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
-import { TotalUpfrontExceedsPriceError, UnsupportedInterestRateError, InstallmentScheduleMismatchError } from '../utils/errors';
+import { TotalUpfrontExceedsPriceError } from '../utils/errors';
+import { computeInstallmentSchedule } from './lib/installmentSchedule';
 import { migrateIneToClient } from './ineDocument';
 import { buildCommissionData } from './commission.service';
 import { nextContractCode } from './lib/contractCode';
+import { buildCuotaRows } from './lib/cuotaSchedule';
 import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS, COOWNER_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
@@ -67,44 +69,10 @@ export function computeDepositSplit(
   return { totalDeposit, enganche, totalUpfront, depositSources };
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// computeInstallmentSchedule (pure function — sin Prisma, sin side effects)
-// Semántica: financiamiento sin interés (interestRate debe ser 0). La cuota
-// base = round2(financiado/plazo); la última cuota absorbe el residuo de
-// redondeo, así la suma siempre cuadra exacto contra el financiado.
-// ────────────────────────────────────────────────────────────────────────────
-
-export interface InstallmentScheduleResult {
-  installmentAmount: number; // monto base (cuotas 1..n-1)
-  cuotaAmounts: number[];    // longitud === termMonths; la última absorbe el residuo
-}
-
-export function computeInstallmentSchedule(
-  financingAmount: number,
-  termMonths: number,
-  interestRate: number,
-): InstallmentScheduleResult {
-  if (interestRate !== 0) {
-    throw new UnsupportedInterestRateError(interestRate);
-  }
-  if (!termMonths || termMonths <= 0) {
-    throw new Error('termMonths debe ser mayor a 0 (contado está fuera de alcance de este cálculo)');
-  }
-
-  const financed = round2(financingAmount);
-  const base = round2(financed / termMonths);
-
-  const cuotaAmounts = new Array(termMonths).fill(base);
-  const last = round2(financed - base * (termMonths - 1));
-  cuotaAmounts[termMonths - 1] = last;
-
-  const sum = cuotaAmounts.reduce((a, b) => a + b, 0);
-  if (Math.abs(round2(sum) - financed) > 0.01) {
-    throw new InstallmentScheduleMismatchError(round2(sum), financed);
-  }
-
-  return { installmentAmount: base, cuotaAmounts };
-}
+// computeInstallmentSchedule vive en lib/installmentSchedule (lo comparte
+// payment.service); se re-exporta aquí para no romper a quien ya lo importa.
+export { computeInstallmentSchedule } from './lib/installmentSchedule';
+export type { InstallmentScheduleResult } from './lib/installmentSchedule';
 
 export class ContractService {
   // Crear un contrato nuevo
@@ -259,21 +227,9 @@ export class ContractService {
     // Generar cuotas automáticamente a partir del schedule calculado por el
     // backend (solo contratos financiados: contado queda sin schedule/cuotas)
     if (schedule && contract.startDate) {
-      const cuotas = [];
-      for (let i = 1; i <= schedule.cuotaAmounts.length; i++) {
-        const fechaVencimiento = new Date(contract.startDate);
-        fechaVencimiento.setMonth(fechaVencimiento.getMonth() + i);
-        cuotas.push({
-          contractId: contract.id,
-          numeroCuota: i,
-          mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
-          fechaVencimiento,
-          montoEsperado: schedule.cuotaAmounts[i - 1],
-          status: CuotaStatus.PENDIENTE,
-        });
-      }
-
-      await prisma.cuota.createMany({ data: cuotas });
+      await prisma.cuota.createMany({
+        data: buildCuotaRows({ contractId: contract.id, startDate: contract.startDate, cuotaAmounts: schedule.cuotaAmounts }),
+      });
     }
 
     // Registrar pagos bajo la semántica 'pago separado':
