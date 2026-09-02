@@ -6,6 +6,20 @@ const c = (id: string, esperado: number, pagado = 0, status: 'PENDIENTE' | 'PAGA
   ({ id, montoEsperado: esperado, montoPagado: pagado, status });
 
 describe('aplicarPagoACuotas', () => {
+  it('un solo pago que liquida 72 cuotas con centavos deja la ÚLTIMA como PAGADA (sin víctimas de punto flotante)', () => {
+    // Caso real V329: 71 cuotas de 2222.22 + última de 2222.38 = 160000 exacto.
+    const cuotas = [...Array(71)].map((_, i) => c(`c${i + 1}`, 2222.22)).concat(c('c72', 2222.38));
+    const { updates, leftover } = aplicarPagoACuotas(160000, F, cuotas);
+    expect(updates).toHaveLength(72);
+    expect(updates[71]).toEqual({ id: 'c72', montoPagado: 2222.38, fechaPago: F, status: 'PAGADA' });
+    expect(leftover).toBe(0);
+  });
+
+  it('acumulado parcial + resto con centavos (0.1 + 0.2 sobre 0.3) cierra la cuota como PAGADA', () => {
+    const { updates } = aplicarPagoACuotas(0.2, F, [c('a', 0.3, 0.1)]);
+    expect(updates).toEqual([{ id: 'a', montoPagado: 0.3, fechaPago: F, status: 'PAGADA' }]);
+  });
+
   it('monto exacto paga una cuota, leftover 0', () => {
     const { updates, leftover } = aplicarPagoACuotas(8000, F, [c('a', 8000), c('b', 8000)]);
     expect(updates).toEqual([{ id: 'a', montoPagado: 8000, fechaPago: F, status: 'PAGADA' }]);
