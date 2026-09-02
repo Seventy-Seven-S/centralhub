@@ -7,6 +7,7 @@ import { useClientes, useClientes as useClientesHook } from '@/hooks/useClientes
 import { useContratosByCliente } from '@/hooks/useClientes';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { normalizeForSearch } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
@@ -75,13 +76,13 @@ export default function ClientesPage() {
 
   // Filtrado + ordenamiento client-side
   const filtered = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase();
+    const q = normalizeForSearch(debouncedSearch.trim());
     const list = q
       ? clientes.filter(c =>
-          `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q) ||
+          normalizeForSearch(`${c.firstName} ${c.lastName}`).includes(q) ||
+          (c.email && normalizeForSearch(c.email).includes(q)) ||
           c.phone?.includes(q) ||
-          c.globalCode?.toLowerCase().includes(q)
+          (c.globalCode && normalizeForSearch(c.globalCode).includes(q))
         )
       : [...clientes];
 

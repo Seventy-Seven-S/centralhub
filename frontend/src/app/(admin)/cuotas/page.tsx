@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, AlertCircle } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, normalizeForSearch } from '@/lib/utils';
 import { useCuotas, type Cuota } from '@/hooks/useCuotas';
 import { useProjectSelection } from '@/contexts/ProjectContext';
 
@@ -86,10 +86,10 @@ export default function CuotasPage() {
     }
 
     if (search.trim()) {
-      const q = search.trim().toLowerCase();
+      const q = normalizeForSearch(search.trim());
       list = list.filter(c =>
-        `${c.contract.client.firstName} ${c.contract.client.lastName}`.toLowerCase().includes(q) ||
-        (c.contract.codigoLegado ?? '').toLowerCase().includes(q)
+        normalizeForSearch(`${c.contract.client.firstName} ${c.contract.client.lastName}`).includes(q) ||
+        normalizeForSearch(c.contract.codigoLegado ?? '').includes(q)
       );
     }
 

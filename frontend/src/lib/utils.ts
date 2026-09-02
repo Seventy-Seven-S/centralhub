@@ -43,6 +43,17 @@ export function formatRelativeTime(date: string | Date): string {
 }
 
 /**
+ * Normaliza texto para búsqueda insensible a acentos — las secretarias
+ * buscan "jose" y esperan encontrar "José". Conserva la ñ (no es un acento).
+ */
+export function normalizeForSearch(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/**
  * Etiqueta con TODOS los lotes de un contrato, agrupados por manzana.
  *   [M9-L9, M9-L10]        → "M9 L-9, L-10"
  *   [M9-L9, M10-L3]        → "M9 L-9 · M10 L-3"
