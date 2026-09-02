@@ -10,7 +10,7 @@ import { ReciboContrato } from '@/components/pdf/ReciboContrato';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import { useMoneyInput } from '@/hooks/useMoneyInput';
 import api from '@/lib/api';
-import { formatCurrency, formatLotsLabel, todayLocalISO } from '@/lib/utils';
+import { formatCurrency, formatLotsLabel, todayLocalISO, normalizeForSearch } from '@/lib/utils';
 
 type Step = 'pick' | 'form' | 'saving' | 'generating' | 'done';
 
@@ -47,13 +47,13 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
   const proximaCuota = cuotas.find(c => c.status === 'PENDIENTE');
 
   const resultados = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeForSearch(query.trim());
     const activos = contratos.filter(c => c.status !== 'CANCELED');
     if (!q) return activos.slice(0, 8);
     return activos.filter(c =>
-      `${c.client.firstName} ${c.client.lastName}`.toLowerCase().includes(q) ||
-      (c.codigoLegado ?? '').toLowerCase().includes(q) ||
-      c.contractNumber.toLowerCase().includes(q)
+      normalizeForSearch(`${c.client.firstName} ${c.client.lastName}`).includes(q) ||
+      normalizeForSearch(c.codigoLegado ?? '').includes(q) ||
+      normalizeForSearch(c.contractNumber).includes(q)
     ).slice(0, 8);
   }, [contratos, query]);
 

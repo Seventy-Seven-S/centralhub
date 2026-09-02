@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, Pencil, ToggleLeft, ToggleRight, AlertCircle, X } from 'lucide-react';
 import api from '@/lib/api';
+import { normalizeForSearch } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface UsuarioInterno {
@@ -221,9 +222,9 @@ export default function UsuariosPage() {
   });
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = normalizeForSearch(search);
     return usuarios.filter(u =>
-      `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(q)
+      normalizeForSearch(`${u.firstName} ${u.lastName} ${u.email}`).includes(q)
     );
   }, [usuarios, search]);
 

@@ -9,7 +9,7 @@ import {
 import { useContratos, ContratoDetalle } from '@/hooks/useContratos';
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import KPICard           from '@/components/dashboard/KPICard';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, normalizeForSearch } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
 
@@ -112,13 +112,13 @@ export default function ContratosPage() {
 
   // Filtrado + ordenamiento
   const filtered = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase();
+    const q = normalizeForSearch(debouncedSearch.trim());
 
     let list = contratos.filter(c => {
       const matchSearch = !q ||
-        `${c.client.firstName} ${c.client.lastName}`.toLowerCase().includes(q) ||
-        (c.codigoLegado ?? '').toLowerCase().includes(q) ||
-        c.contractNumber.toLowerCase().includes(q);
+        normalizeForSearch(`${c.client.firstName} ${c.client.lastName}`).includes(q) ||
+        normalizeForSearch(c.codigoLegado ?? '').includes(q) ||
+        normalizeForSearch(c.contractNumber).includes(q);
 
       const matchStatus =
         statusFilter === 'todos' ||
