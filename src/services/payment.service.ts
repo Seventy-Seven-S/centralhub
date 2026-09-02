@@ -24,6 +24,7 @@ export class PaymentService {
   private generarCalendarioFaltante(contract: {
     id: string; paymentPlanType: PaymentPlanType; financingAmount: number;
     installmentCount: number | null; interestRate: number | null; startDate: Date | null;
+    balance: number | null;
   }): CuotaRow[] {
     const generable =
       contract.paymentPlanType === PaymentPlanType.INSTALLMENTS &&
@@ -37,7 +38,21 @@ export class PaymentService {
       );
     }
     const schedule = computeInstallmentSchedule(contract.financingAmount, contract.installmentCount!, contract.interestRate ?? 0);
-    return buildCuotaRows({ contractId: contract.id, startDate: contract.startDate!, cuotaAmounts: schedule.cuotaAmounts });
+    const rows = buildCuotaRows({ contractId: contract.id, startDate: contract.startDate!, cuotaAmounts: schedule.cuotaAmounts });
+
+    // Lo ya abonado al financiamiento (según el balance del contrato) se
+    // pre-aplica en cascada, para que el calendario nazca cuadrado con el
+    // balance y el pago nuevo continúe desde la cuota que realmente sigue.
+    const historico = round2(contract.financingAmount - (contract.balance ?? contract.financingAmount));
+    if (historico > 0) {
+      const { updates } = aplicarPagoACuotas(historico, contract.startDate!, rows);
+      for (const u of updates) {
+        const row = rows.find(r => r.id === u.id)!;
+        row.montoPagado = round2(u.montoPagado);
+        row.status = u.status;
+      }
+    }
+    return rows;
   }
 
   /**

@@ -11,7 +11,7 @@ export interface CuotaRow {
   fechaVencimiento: Date;
   montoEsperado: number;
   montoPagado: number;
-  status: 'PENDIENTE';
+  status: 'PENDIENTE' | 'PAGADA';
 }
 
 export interface BuildCuotaRowsInput {

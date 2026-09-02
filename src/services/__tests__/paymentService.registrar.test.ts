@@ -188,6 +188,38 @@ describe('registrarPagoMensualidad — contrato sin calendario de cuotas', () =>
     expect(updateArgs[0].data.status).toBe('PAGADA');
   });
 
+  it('0 cuotas con pagos históricos (balance < financiamiento) → el calendario nace con lo ya pagado aplicado y el pago nuevo sigue desde ahí', async () => {
+    // Historial: 250000 - 241600 = 8400 ya pagados → cuotas 1 y 2 (4166.67 c/u) PAGADAS, 66.66 abonados a la 3.
+    mocks.prisma.contract.findUnique.mockResolvedValue({ ...CONTRACT_SIN_CALENDARIO, balance: 241600 });
+    mocks.prisma.cuota.findMany.mockResolvedValue([]);
+    let createManyArg: any;
+    const updateArgs: any[] = [];
+    mocks.prisma.$transaction.mockImplementation(async (cb: any) => {
+      const tx = {
+        contract: { findUnique: vi.fn().mockResolvedValue({ balance: 241600 }), update: vi.fn().mockResolvedValue({}) },
+        payment: { create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'payment-1', ...data })) },
+        cuota: {
+          createMany: vi.fn().mockImplementation((arg: any) => { createManyArg = arg; return Promise.resolve({ count: arg.data.length }); }),
+          update: vi.fn().mockImplementation((arg: any) => { updateArgs.push(arg); return Promise.resolve({}); }),
+          count: vi.fn().mockResolvedValue(0),
+        },
+      };
+      return cb(tx);
+    });
+
+    const result = await paymentService.registrarPagoMensualidad(baseInput({ amount: 4166.67 }));
+
+    const rows = createManyArg.data;
+    expect(rows[0].status).toBe('PAGADA');
+    expect(rows[1].status).toBe('PAGADA');
+    expect(rows[2].status).toBe('PENDIENTE');
+    expect(rows[2].montoPagado).toBeCloseTo(66.66, 2);
+    expect(rows[3].montoPagado).toBe(0);
+    // El pago nuevo cierra la 3 y abona el resto a la 4.
+    expect(result.cuotasAfectadas).toEqual([3, 4]);
+    expect(updateArgs.map(u => u.where.id)).toEqual([rows[2].id, rows[3].id]);
+  });
+
   it('0 cuotas y el contrato NO tiene datos para generar calendario → error claro que lo dice, sin abrir transacción', async () => {
     mocks.prisma.contract.findUnique.mockResolvedValue({ ...CONTRACT_SIN_CALENDARIO, installmentCount: 0, financingAmount: 0 });
     mocks.prisma.cuota.findMany.mockResolvedValue([]);
