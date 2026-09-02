@@ -36,18 +36,21 @@ export function aplicarPagoACuotas(monto: number, fechaPago: Date, cuotas: Cuota
   const startIdx = cuotas.findIndex(c => c.status !== 'PAGADA');
   if (startIdx === -1) return { updates, leftover: round2(monto) };
 
-  let pool = monto;
+  // Todo en centavos redondeados: sin esto, restar 71 cuotas de 2222.22 deja
+  // el pool en 2222.379999… y la última cuota (2222.38) quedaba PENDIENTE
+  // con montoPagado === montoEsperado.
+  let pool = round2(monto);
   for (let i = startIdx; i < cuotas.length && pool > 0; i++) {
     const c = cuotas[i];
-    const needed = c.montoEsperado - c.montoPagado;
+    const needed = round2(c.montoEsperado - c.montoPagado);
     if (needed <= 0) continue;
     if (pool >= needed) {
       updates.push({ id: c.id, montoPagado: c.montoEsperado, fechaPago, status: 'PAGADA' });
-      pool -= needed;
+      pool = round2(pool - needed);
     } else {
-      updates.push({ id: c.id, montoPagado: c.montoPagado + pool, fechaPago, status: 'PENDIENTE' });
+      updates.push({ id: c.id, montoPagado: round2(c.montoPagado + pool), fechaPago, status: 'PENDIENTE' });
       pool = 0;
     }
   }
-  return { updates, leftover: round2(pool) };
+  return { updates, leftover: pool };
 }
