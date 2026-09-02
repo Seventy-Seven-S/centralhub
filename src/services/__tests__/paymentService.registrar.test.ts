@@ -19,6 +19,7 @@ vi.mock('@prisma/client', () => ({
   PaymentType: { DOWN_PAYMENT: 'DOWN_PAYMENT', INSTALLMENT: 'INSTALLMENT', EXTRA_PAYMENT: 'EXTRA_PAYMENT', ADJUSTMENT: 'ADJUSTMENT', RESCISSION_REFUND: 'RESCISSION_REFUND', RESERVATION_DEPOSIT: 'RESERVATION_DEPOSIT' },
   CuotaStatus: { PENDIENTE: 'PENDIENTE', PAGADA: 'PAGADA', MORA: 'MORA' },
   ContractStatus: { DRAFT: 'DRAFT', SIGNED: 'SIGNED', ACTIVE: 'ACTIVE', IN_MORA: 'IN_MORA', COMPLETED: 'COMPLETED', CANCELED: 'CANCELED', RESCISSION: 'RESCISSION' },
+  PaymentPlanType: { CASH: 'CASH', INSTALLMENTS: 'INSTALLMENTS' },
 }));
 vi.mock('../notification.service', () => ({ default: { createNotification: vi.fn() } }));
 // crearReciboLog se mockea aparte del prisma de arriba porque vive en
@@ -141,6 +142,67 @@ describe('registrarPagoMensualidad — idempotencia', () => {
 
     const result = await paymentService.registrarPagoMensualidad(baseInput());
     expect(result.payment.id).toBe('payment-race-winner');
+  });
+});
+
+describe('registrarPagoMensualidad — contrato sin calendario de cuotas', () => {
+  const CONTRACT_SIN_CALENDARIO = {
+    ...CONTRACT,
+    paymentPlanType: 'INSTALLMENTS',
+    financingAmount: 250000,
+    installmentCount: 60,
+    interestRate: 0,
+    startDate: new Date('2026-06-29T00:00:00'),
+    balance: 250000,
+  };
+
+  it('0 cuotas pero el contrato tiene plazo/financiamiento/fecha → genera el calendario en la misma transacción y aplica el pago a la cuota #1', async () => {
+    mocks.prisma.contract.findUnique.mockResolvedValue(CONTRACT_SIN_CALENDARIO);
+    mocks.prisma.cuota.findMany.mockResolvedValue([]);
+    let createManyArg: any;
+    let updateArgs: any[] = [];
+    mocks.prisma.$transaction.mockImplementation(async (cb: any) => {
+      const tx = {
+        contract: {
+          findUnique: vi.fn().mockResolvedValue({ balance: 250000 }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+        payment: { create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'payment-1', ...data })) },
+        cuota: {
+          createMany: vi.fn().mockImplementation((arg: any) => { createManyArg = arg; return Promise.resolve({ count: arg.data.length }); }),
+          update: vi.fn().mockImplementation((arg: any) => { updateArgs.push(arg); return Promise.resolve({}); }),
+          count: vi.fn().mockResolvedValue(0),
+        },
+      };
+      return cb(tx);
+    });
+
+    const result = await paymentService.registrarPagoMensualidad(baseInput({ amount: 4166.67 }));
+
+    expect(createManyArg.data).toHaveLength(60);
+    expect(createManyArg.data[0].montoEsperado).toBe(4166.67);
+    expect(createManyArg.data[0].numeroCuota).toBe(1);
+    expect(result.cuotasAfectadas).toEqual([1]);
+    expect(updateArgs).toHaveLength(1);
+    expect(updateArgs[0].where.id).toBe(createManyArg.data[0].id);
+    expect(updateArgs[0].data.status).toBe('PAGADA');
+  });
+
+  it('0 cuotas y el contrato NO tiene datos para generar calendario → error claro que lo dice, sin abrir transacción', async () => {
+    mocks.prisma.contract.findUnique.mockResolvedValue({ ...CONTRACT_SIN_CALENDARIO, installmentCount: 0, financingAmount: 0 });
+    mocks.prisma.cuota.findMany.mockResolvedValue([]);
+
+    await expect(paymentService.registrarPagoMensualidad(baseInput()))
+      .rejects.toThrow(/calendario de cuotas/i);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('todas las cuotas PAGADAS (contrato liquidado) → sigue rechazando con "no tiene cuotas pendientes"', async () => {
+    mocks.prisma.cuota.findMany.mockResolvedValue([cuota({ status: 'PAGADA', montoPagado: 8000 })]);
+
+    await expect(paymentService.registrarPagoMensualidad(baseInput()))
+      .rejects.toThrow(/no tiene cuotas pendientes/i);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 });
 
