@@ -22,15 +22,21 @@ export interface BuildCuotaRowsInput {
 }
 
 /**
- * Una fila por cuota. El vencimiento de la cuota i es startDate + i meses,
- * usando setMonth (rollover nativo de JS): un 29-ene + 1 mes cae en marzo en
- * año no bisiesto en vez de producir un 29-feb inválido.
+ * startDate + n meses calendario, recortando el día al último del mes destino
+ * (31-ene + 1 → 28-feb, + 3 → 30-abr). NO usar setMonth: con día 29-31
+ * desborda al mes siguiente y el calendario salta y repite meses (caso V205).
  */
+export function addMonthsClamped(base: Date, months: number): Date {
+  const y = base.getFullYear(), m = base.getMonth() + months, d = base.getDate();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  return new Date(y, m, Math.min(d, lastDay), base.getHours(), base.getMinutes(), base.getSeconds());
+}
+
+/** Una fila por cuota. El vencimiento de la cuota i es startDate + i meses calendario. */
 export function buildCuotaRows({ contractId, startDate, cuotaAmounts, idFactory = randomUUID }: BuildCuotaRowsInput): CuotaRow[] {
   return cuotaAmounts.map((montoEsperado, idx) => {
     const numeroCuota = idx + 1;
-    const fechaVencimiento = new Date(startDate);
-    fechaVencimiento.setMonth(fechaVencimiento.getMonth() + numeroCuota);
+    const fechaVencimiento = addMonthsClamped(startDate, numeroCuota);
     return {
       id: idFactory(),
       contractId,
