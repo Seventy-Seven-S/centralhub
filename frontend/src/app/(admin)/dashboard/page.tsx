@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   FileText, AlertTriangle, DollarSign,
-  MapPin, Clock, TrendingUp,
+  Clock, TrendingUp,
 } from 'lucide-react';
 import { useDashboardSummary, useMoraDetail } from '@/hooks/useDashboard';
 import { useRole }        from '@/hooks/useRole';
@@ -16,6 +16,7 @@ import KPICard            from '@/components/dashboard/KPICard';
 import DistribucionPlazo  from '@/components/dashboard/DistribucionPlazo';
 import LotesDisponibles   from '@/components/dashboard/LotesDisponibles';
 import { formatCurrency } from '@/lib/utils';
+import { buildDashboardKpis } from '@/lib/dashboardKpis';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'ingresos' | 'lotes' | 'cuotas' | 'mora' | 'plazos';
@@ -381,17 +382,16 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <KPICard icon={FileText}      title="Total Contratos"   value={data.contratos.total}                subtitle={`${data.contratos.enMora} en mora`} />
-        <KPICard icon={AlertTriangle} title="Contratos en Mora" value={data.contratos.enMora}               subtitle={`${data.cuotas.vencidasSinPagar} cuotas vencidas`} alert={data.contratos.enMora > 0} />
-        <KPICard icon={DollarSign}    title="Ingresos Totales"  value={formatCurrency(data.ingresos.total)} subtitle={`${data.ingresos.totalPagos} pagos registrados`} accent="#22C55E" />
-        <KPICard icon={MapPin}        title="Lotes Disponibles" value={data.lotes.disponibles}              subtitle={`de ${data.lotes.total} lotes totales`} accent="#4A7CB5" />
-        <KPICard
-          icon={TrendingUp}
-          title="Utilidad Neta"
-          value={formatCurrency(data.ingresos.total - (data.gastos?.total ?? 0))}
-          subtitle={`Gastos: ${formatCurrency(data.gastos?.total ?? 0)}`}
-          accent={(data.ingresos.total - (data.gastos?.total ?? 0)) >= 0 ? "#22C55E" : "#EF4444"}
-        />
+        {buildDashboardKpis(data).map((kpi, i) => (
+          <KPICard
+            key={kpi.title}
+            icon={[DollarSign, TrendingUp, TrendingUp][i]}
+            title={kpi.title}
+            value={formatCurrency(kpi.amount)}
+            subtitle={kpi.subtitle}
+            accent={kpi.accent}
+          />
+        ))}
       </div>
 
       {/* Tab selector */}
