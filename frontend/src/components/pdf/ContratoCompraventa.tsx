@@ -1,3 +1,4 @@
+import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, CoOwner, Cuota } from '@/hooks/useContratos';
 import { formatMoney, TELEFONOS_RECIBO, getLoteInfo } from './reciboHelpers';
@@ -86,11 +87,11 @@ const s = StyleSheet.create({
 });
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  return formatDateUTC(iso, 'long');
 }
 
 function fmtDateShort(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateUTC(iso, 'short');
 }
 
 function StatusBadge({ status }: { status: string }) {

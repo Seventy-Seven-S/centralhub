@@ -22,6 +22,15 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date));
 }
 
+/**
+ * Fecha para documentos (recibos, contratos, estados de cuenta). Las fechas
+ * de pago se guardan a medianoche UTC; formatearlas en hora de México las
+ * regresaba al día anterior. Se formatea en UTC para conservar el día.
+ */
+export function formatDateUTC(iso: string | Date, month: 'long' | 'short' = 'long'): string {
+  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month, year: 'numeric', timeZone: 'UTC' });
+}
+
 // Tiempo relativo simple en español: "hace 5 min", "hace 2 h", "hace 3 d".
 export function formatRelativeTime(date: string | Date): string {
   const then = new Date(date).getTime();

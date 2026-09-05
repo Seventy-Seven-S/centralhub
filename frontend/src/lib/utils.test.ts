@@ -26,3 +26,11 @@ describe('normalizeForSearch — búsqueda sin distinguir acentos (las secretari
     expect(normalizeForSearch('')).toBe('');
   });
 });
+
+describe('formatDateUTC', () => {
+  it('una fecha guardada a medianoche UTC se muestra con ese mismo día, no con el anterior (recibos en México)', async () => {
+    const { formatDateUTC } = await import('./utils');
+    expect(formatDateUTC('2026-09-04T00:00:00.000Z')).toBe('04 de septiembre de 2026');
+    expect(formatDateUTC('2026-09-04T00:00:00.000Z', 'short')).toBe('04 sep 2026');
+  });
+});

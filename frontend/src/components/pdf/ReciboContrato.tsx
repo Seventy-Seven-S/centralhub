@@ -1,3 +1,4 @@
+import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
 import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion, getLoteInfo } from './reciboHelpers';
@@ -95,7 +96,7 @@ const s = StyleSheet.create({
 });
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  return formatDateUTC(iso, 'long');
 }
 
 export interface ReciboProps {
