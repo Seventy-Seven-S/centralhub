@@ -1,5 +1,5 @@
 // src/services/contract.service.ts
-import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, PaymentType, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, PaymentType, PaymentMethod, PaymentStatus, CuotaStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
@@ -67,6 +67,14 @@ export function computeDepositSplit(
   }
 
   return { totalDeposit, enganche, totalUpfront, depositSources };
+}
+
+export interface RescindContractInput {
+  reason: string;
+  date: Date | string;
+  refundAmount?: number;
+  userId?: string;
+  fileKey?: string;   // KEY en el storage privado del documento de cancelación
 }
 
 // computeInstallmentSchedule vive en lib/installmentSchedule (lo comparte
@@ -580,6 +588,85 @@ export class ContractService {
       where: { id },
       data: { status: ContractStatus.ACTIVE },
     });
+  }
+
+  /**
+   * Rescisión / cancelación de un contrato, todo o nada:
+   * contrato → RESCISSION (motivo, fecha, quién, documento de evidencia),
+   * lotes desvinculados y liberados (salvo que otro contrato vigente los
+   * tenga), cuotas PENDIENTES eliminadas (las pagadas son historial), pagos
+   * intactos, devolución opcional como RESCISSION_REFUND negativo.
+   */
+  async rescindContract(id: string, input: RescindContractInput) {
+    const reason = input.reason?.trim();
+    if (!reason) throw new Error('El motivo de la rescisión es obligatorio');
+    const refund = Number(input.refundAmount ?? 0);
+    if (!Number.isFinite(refund) || refund < 0) throw new Error('La devolución debe ser un monto válido (0 o mayor)');
+
+    const contract = await prisma.contract.findUnique({ where: { id } });
+    if (!contract) throw new Error('Contrato no encontrado');
+    if (contract.status === ContractStatus.RESCISSION || contract.status === ContractStatus.CANCELED) {
+      throw new Error('El contrato ya está rescindido o cancelado');
+    }
+
+    const rescindedAt = input.date instanceof Date ? input.date : new Date(input.date);
+    const nota = `[RESCISIÓN ${rescindedAt.toISOString().slice(0, 10)}] ${reason}${refund > 0 ? ` — devolución $${refund}` : ''}`;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const vinculos = await tx.contractLot.findMany({
+        where: { contractId: id },
+        include: { lot: { include: { contracts: { where: { contract: { status: { notIn: [ContractStatus.CANCELED, ContractStatus.RESCISSION] } } }, select: { contractId: true } } } } },
+      });
+      await tx.contractLot.deleteMany({ where: { contractId: id } });
+      for (const v of vinculos) {
+        const otrosVigentes = v.lot.contracts.some(c => c.contractId !== id);
+        if (!otrosVigentes) {
+          await tx.lot.update({ where: { id: v.lotId }, data: { status: LotStatus.AVAILABLE } });
+        }
+      }
+
+      await tx.cuota.deleteMany({ where: { contractId: id, status: CuotaStatus.PENDIENTE } });
+
+      if (refund > 0) {
+        await tx.payment.create({
+          data: {
+            paymentNumber: `${contract.contractNumber}-DEV-${Date.now()}`,
+            contractId: id,
+            clientId: contract.clientId,
+            paymentType: PaymentType.RESCISSION_REFUND,
+            paymentMethod: PaymentMethod.TRANSFER,
+            amount: -refund,
+            paymentDate: rescindedAt,
+            concept: 'Devolución por rescisión de contrato',
+            status: PaymentStatus.CONFIRMED,
+            createdBy: input.userId ?? null,
+          },
+        });
+      }
+
+      return tx.contract.update({
+        where: { id },
+        data: {
+          status: ContractStatus.RESCISSION,
+          balance: 0,
+          moraMonthsCount: 0,
+          rescindedAt,
+          rescindedById: input.userId ?? null,
+          rescissionReason: reason,
+          rescissionFileUrl: input.fileKey ?? null,
+          notes: contract.notes ? `${contract.notes}\n${nota}` : nota,
+        },
+      });
+    });
+
+    await notificationService.createNotification({
+      type: 'CONTRACT',
+      message: `Contrato ${contract.codigoLegado ?? contract.contractNumber} rescindido: ${reason}`,
+      relatedEntity: 'contract',
+      relatedEntityId: id,
+    });
+
+    return updated;
   }
 
   // Agregar co-titular a un contrato

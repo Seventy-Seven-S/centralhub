@@ -310,6 +310,12 @@ model Contract {
   
   notes               String?
   contractFileUrl     String?
+  // Rescisión / cancelación: quién, cuándo, por qué y el documento firmado
+  // de evidencia (KEY del storage privado, igual que contractFileUrl).
+  rescindedAt         DateTime?
+  rescindedById       String?
+  rescissionReason    String?
+  rescissionFileUrl   String?
   
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt

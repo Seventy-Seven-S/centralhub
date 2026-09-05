@@ -13,6 +13,8 @@ import {
   Cuota,
 } from '@/hooks/useContratos';
 import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
+import { RescindirContratoModal } from '@/components/contratos/RescindirContratoModal';
+import { puedeRescindir } from '@/lib/rescision';
 import api from '@/lib/api';
 import { formatCurrency, formatDate, formatLotsLabel } from '@/lib/utils';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -27,6 +29,7 @@ const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string
   SIGNED:    { label: 'Firmado',    bg: 'var(--accent-pale)',  color: 'var(--accent)' },
   COMPLETED: { label: 'Completado', bg: 'var(--accent-pale)',  color: 'var(--accent)' },
   CANCELED:  { label: 'Cancelado',  bg: 'var(--danger-pale)',  color: 'var(--danger)' },
+  RESCISSION: { label: 'Rescindido', bg: 'var(--danger-pale)', color: 'var(--danger)' },
 };
 
 const CUOTA_STATUS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -94,6 +97,21 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const [uploading, setUploading]   = useState(false);
   const [activating, setActivating] = useState(false);
   const [openingSigned, setOpeningSigned] = useState(false);
+  const [rescindiendo, setRescindiendo] = useState(false);
+  const [openingRescision, setOpeningRescision] = useState(false);
+
+  async function handleVerRescision() {
+    setOpeningRescision(true);
+    try {
+      const res = await api.get(`/contracts/${id}/rescission-file`, { responseType: 'blob' });
+      window.open(URL.createObjectURL(res.data), '_blank');
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo abrir el documento de rescisión.');
+    } finally {
+      setOpeningRescision(false);
+    }
+  }
 
   // El PDF firmado se sirve con RBAC desde el storage privado (no URL pública)
   async function handleVerFirmado() {
@@ -184,6 +202,19 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         />
       )}
 
+      {rescindiendo && contrato && (
+        <RescindirContratoModal
+          contratoId={id}
+          etiqueta={contrato.codigoLegado ?? contrato.contractNumber}
+          onClose={() => setRescindiendo(false)}
+          onDone={async () => {
+            setRescindiendo(false);
+            await queryClient.invalidateQueries({ queryKey: ['contratos', id] });
+            await queryClient.invalidateQueries({ queryKey: ['cuotas', id] });
+          }}
+        />
+      )}
+
       <div className="space-y-5">
 
         {/* SECCIÓN 1 — Header */}
@@ -234,8 +265,33 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             onChange={handleUploadSigned}
           />
 
-          {/* Botón activar contrato manualmente — visible mientras no esté ACTIVE */}
-          {contrato.status !== 'ACTIVE' && (
+          {/* Rescindir / cancelar — solo contratos vigentes */}
+          {puedeRescindir(contrato.status) && (
+            <button
+              onClick={() => setRescindiendo(true)}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}
+            >
+              <XCircle size={16} />
+              Rescindir contrato
+            </button>
+          )}
+
+          {/* Documento de cancelación firmado (evidencia) */}
+          {contrato.status === 'RESCISSION' && (contrato as any).rescissionFileUrl && (
+            <button
+              onClick={handleVerRescision}
+              disabled={openingRescision}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
+              style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}
+            >
+              <ExternalLink size={16} />
+              {openingRescision ? 'Abriendo…' : 'Ver documento de rescisión'}
+            </button>
+          )}
+
+          {/* Botón activar contrato manualmente — visible mientras no esté ACTIVE ni rescindido */}
+          {contrato.status !== 'ACTIVE' && puedeRescindir(contrato.status) && (
             <button
               onClick={handleActivate}
               disabled={activating}

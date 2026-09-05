@@ -9,6 +9,8 @@ import { getFileStorage } from '../services/storage';
 import { validateFileSignature } from '../utils/fileSignature';
 
 const SIGNED_CONTRACT_ALLOWED_MIMETYPES = ['application/pdf'];
+// El documento de cancelación suele ser un escaneo o foto: se aceptan imágenes.
+const RESCISSION_DOC_ALLOWED_MIMETYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
 const prisma = new PrismaClient();
 
@@ -186,6 +188,70 @@ export class ContractController {
         return;
       }
       res.status(500).json({ success: false, message: error.message || 'Error al subir el contrato' });
+    }
+  }
+
+  // POST /api/v1/contracts/:id/rescind — multipart: reason, date, refundAmount
+  // y opcionalmente `file` (documento de cancelación firmado, PDF/JPG/PNG).
+  async rescind(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason, date, refundAmount } = req.body ?? {};
+      const file = (req as any).file;
+
+      let fileKey: string | undefined;
+      if (file) {
+        const detected = await validateFileSignature(file.buffer, RESCISSION_DOC_ALLOWED_MIMETYPES);
+        const ext = detected.mime === 'application/pdf' ? 'pdf' : detected.mime === 'image/png' ? 'png' : 'jpg';
+        fileKey = `contracts/${id}/rescision.${ext}`;
+        await getFileStorage().saveFile(fileKey, file.buffer, detected.mime);
+      }
+
+      const contract = await contractService.rescindContract(id, {
+        reason,
+        date: date || new Date(),
+        refundAmount: refundAmount ? Number(refundAmount) : 0,
+        userId: req.user?.userId,
+        fileKey,
+      });
+
+      res.json({ success: true, data: contract, message: 'Contrato rescindido' });
+    } catch (error: any) {
+      if (error instanceof InvalidFileSignatureError) {
+        res.status(400).json({ success: false, code: error.code, message: error.message });
+        return;
+      }
+      const status = /no encontrado/i.test(error.message) ? 404 : /obligatorio|ya está|monto válido/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, message: error.message || 'Error al rescindir el contrato' });
+    }
+  }
+
+  // GET /api/v1/contracts/:id/rescission-file — documento de cancelación
+  // desde el storage privado (solo ADMIN/MANAGER, enforced en la ruta)
+  async getRescissionFile(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const contract = await prisma.contract.findUnique({
+        where: { id },
+        select: { rescissionFileUrl: true, contractNumber: true },
+      });
+      if (!contract?.rescissionFileUrl) {
+        res.status(404).json({ success: false, message: 'Este contrato no tiene documento de rescisión' });
+        return;
+      }
+      const buffer = await getFileStorage().getFile(contract.rescissionFileUrl);
+      const ext = contract.rescissionFileUrl.split('.').pop();
+      const mime = ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : 'image/jpeg';
+
+      logger.info(
+        `[acceso-doc-sensible] user=${req.user?.userId ?? 'desconocido'} role=${req.user?.role ?? '?'} ` +
+        `contrato=${id} archivo=rescision ip=${req.ip}`,
+      );
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Disposition', `inline; filename="${contract.contractNumber}-rescision.${ext}"`);
+      res.send(buffer);
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || 'Error al obtener el documento de rescisión' });
     }
   }
 

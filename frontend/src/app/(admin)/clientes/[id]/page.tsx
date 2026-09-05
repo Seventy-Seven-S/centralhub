@@ -163,6 +163,7 @@ const STATUS_LABELS: Record<string, { label: string; bg: string; color: string }
   SIGNED:    { label: 'Firmado',     bg: 'var(--accent-pale)',  color: 'var(--accent)' },
   COMPLETED: { label: 'Completado',  bg: 'var(--accent-pale)',  color: 'var(--accent)' },
   CANCELED:  { label: 'Cancelado',   bg: 'var(--danger-pale)',  color: 'var(--danger)' },
+  RESCISSION: { label: 'Rescindido', bg: 'var(--danger-pale)',  color: 'var(--danger)' },
 };
 
 function StatusBadge({ status }: { status: string }) {
