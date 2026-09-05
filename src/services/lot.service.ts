@@ -81,6 +81,20 @@ export class LotService {
             name: true,
           },
         },
+        // Resumen del contrato vigente (para la ventana de detalle del lote):
+        // quién lo tiene, con qué código y a qué precio se vendió.
+        contracts: {
+          where: { contract: { status: { notIn: ['CANCELED', 'RESCISSION'] } } },
+          select: {
+            priceAtSale: true,
+            contract: {
+              select: {
+                id: true, contractNumber: true, codigoLegado: true, status: true, balance: true,
+                client: { select: { id: true, firstName: true, lastName: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: [
         { manzana: 'asc' },

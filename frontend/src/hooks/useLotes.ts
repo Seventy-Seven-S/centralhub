@@ -23,6 +23,14 @@ export interface Lote {
   project?: { id: string; code: string; name: string };
   hasIne?: boolean;
   ineDocument?: { id: string; fileName: string; mimeType: string | null } | null;
+  // Contrato vigente que tiene el lote (vacío si está libre o es del propietario)
+  contracts?: Array<{
+    priceAtSale: number;
+    contract: {
+      id: string; contractNumber: string; codigoLegado: string | null; status: string; balance: number | null;
+      client: { id: string; firstName: string; lastName: string };
+    };
+  }>;
 }
 
 async function fetchLotes(projectId: string): Promise<Lote[]> {

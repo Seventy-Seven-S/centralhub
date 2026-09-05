@@ -8,6 +8,8 @@ import { useProjectSelection } from '@/contexts/ProjectContext';
 import { useVendedores } from '@/hooks/useVendedores';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
+import { resumenLote } from '@/lib/resumenLote';
+import Link from 'next/link';
 import api from '@/lib/api';
 
 const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -202,6 +204,45 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                   <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{lote.orientation}</span>
                 </div>
               )}
+              {(() => {
+                const r = resumenLote(lote);
+                if (r.tipo === 'vendido') return (
+                  <div className="rounded-xl px-3 py-2.5 space-y-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="flex justify-between gap-3">
+                      <span style={{ color: 'var(--text-secondary)' }}>Cliente</span>
+                      <Link href={`/contratos/${r.contratoId}`} className="font-medium text-right hover:underline" style={{ color: 'var(--accent)' }}>
+                        {r.cliente} ↗
+                      </Link>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>Contrato</span>
+                      <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{r.codigo}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>Precio de venta</span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(r.precioVenta)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>Estado del contrato</span>
+                      <span className="font-medium" style={{ color: r.estadoContrato === 'IN_MORA' ? 'var(--danger)' : 'var(--text-primary)' }}>
+                        {r.estadoContrato === 'IN_MORA' ? 'En mora' : r.estadoContrato === 'ACTIVE' ? 'Activo' : r.estadoContrato === 'COMPLETED' ? 'Liquidado' : r.estadoContrato}
+                        {r.balance != null && r.balance > 0 ? ` · saldo ${formatCurrency(r.balance)}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                );
+                if (r.tipo === 'propietario') return (
+                  <div className="rounded-xl px-3 py-2.5 text-xs" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                    Propietario: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{r.propietario}</span> — no está a la venta.
+                  </div>
+                );
+                if (r.tipo === 'sin-contrato') return (
+                  <div className="rounded-xl px-3 py-2.5 text-xs" style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}>
+                    Marcado como vendido pero sin contrato vigente en el sistema.
+                  </div>
+                );
+                return null;
+              })()}
               {lote.status === 'RESERVED' && (
                 <>
                   <div className="flex justify-between">
