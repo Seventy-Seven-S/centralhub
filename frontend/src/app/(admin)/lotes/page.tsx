@@ -555,7 +555,9 @@ function GridSkeleton() {
 function LoteBox({ lote, onClick }: { lote: Lote; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
   const cfg = STATUS_CONFIG[lote.status];
-  const clickable = lote.status === 'AVAILABLE' || lote.status === 'RESERVED';
+  // Todos los lotes abren su ventana de detalle (vendidos: cliente y contrato;
+  // del propietario: aviso de que no están a la venta).
+  const clickable = true;
 
   return (
     <div className="relative">
