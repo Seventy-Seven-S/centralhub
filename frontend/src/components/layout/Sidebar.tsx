@@ -261,7 +261,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
       {showPago && <RegistrarPagoModal onClose={() => setShowPago(false)} />}
-      <div className="hidden lg:flex flex-col h-screen sticky top-0 flex-shrink-0" style={{ width: 260 }}>
+      <div className="hidden lg:flex flex-col h-screen sticky top-0 flex-shrink-0 z-30" style={{ width: 260 }}>
         {sidebar}
       </div>
       {open && (
