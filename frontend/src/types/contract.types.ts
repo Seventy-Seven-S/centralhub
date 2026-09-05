@@ -4,7 +4,10 @@ export interface Contract {
   codigoLegado: string | null;
   clientId: string;
   projectId: string;
-  status: 'DRAFT' | 'SIGNED' | 'ACTIVE' | 'IN_MORA' | 'COMPLETED' | 'CANCELED';
+  status: 'DRAFT' | 'SIGNED' | 'ACTIVE' | 'IN_MORA' | 'COMPLETED' | 'CANCELED' | 'RESCISSION';
+  rescindedAt?: string | null;
+  rescissionReason?: string | null;
+  rescissionFileUrl?: string | null;
   totalPrice: number;
   downPayment: number;
   financingAmount: number;

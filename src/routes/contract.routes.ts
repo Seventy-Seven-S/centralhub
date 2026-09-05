@@ -38,6 +38,10 @@ router.post('/:id/coowners', adminOrManager, contractController.addCoOwner);
 
 // Upload contrato firmado
 router.post('/:id/upload-signed', adminOrManager, handleSignedContractFile, contractController.uploadSigned);
+
+// Rescisión / cancelación (multipart; `file` opcional = documento de cancelación)
+router.post('/:id/rescind',        adminOrManager, handleSignedContractFile, contractController.rescind);
+router.get('/:id/rescission-file', adminOrManager, contractController.getRescissionFile);
 router.get('/:id/signed-file', adminOrManager, contractController.getSignedFile);
 
 // Cuotas del contrato
