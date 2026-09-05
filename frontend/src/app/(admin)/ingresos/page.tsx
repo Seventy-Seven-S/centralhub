@@ -25,7 +25,6 @@ interface Ingreso {
 }
 
 const TIPO: Record<string, string> = { DOWN_PAYMENT: 'Enganche', INSTALLMENT: 'Mensualidad', EXTRA_PAYMENT: 'Abono', ADJUSTMENT: 'Ajuste', RESCISSION_REFUND: 'Devolución', RESERVATION_DEPOSIT: 'Apartado' };
-const METODO: Record<string, string> = { TRANSFER: 'Transferencia', CASH: 'Efectivo', CARD: 'Tarjeta', CHECK: 'Cheque', DEPOSIT: 'Depósito' };
 const PAGE_SIZE = 50;
 
 export default function IngresosPage() {
@@ -82,8 +81,8 @@ export default function IngresosPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
-                    {['Fecha', 'Folio', 'Código', 'Cliente', 'Lote', 'Concepto', 'Tipo', 'Método', 'Corte', 'Monto'].map((h, i) => (
-                      <th key={h} className={`px-4 py-3 font-semibold whitespace-nowrap ${i === 9 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-secondary)' }}>{h}</th>
+                    {['Fecha', 'Folio', 'Código', 'Cliente', 'Lote', 'Concepto', 'Tipo', 'Corte', 'Monto'].map((h, i) => (
+                      <th key={h} className={`px-4 py-3 font-semibold whitespace-nowrap ${i === 8 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-secondary)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -97,7 +96,6 @@ export default function IngresosPage() {
                       <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{i.contract.lots.map(l => `M${l.lot.manzana}-${l.lot.lotNumber}`).join(' ')}</td>
                       <td className="px-4 py-2.5 max-w-[220px] truncate" style={{ color: 'var(--text-secondary)' }}>{i.concept}</td>
                       <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{TIPO[i.paymentType] ?? i.paymentType}</td>
-                      <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{METODO[i.paymentMethod] ?? i.paymentMethod}</td>
                       <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: i.corte ? 'var(--text-secondary)' : 'var(--gold)' }}>{i.corte ? `#${i.corte.numero}` : 'Pendiente'}</td>
                       <td className="px-4 py-2.5 text-right font-semibold whitespace-nowrap" style={{ color: i.amount < 0 ? 'var(--danger)' : 'var(--accent)' }}>{formatCurrency(i.amount)}</td>
                     </tr>
