@@ -21,6 +21,7 @@ export class PaymentController {
       const filters: PaymentFilters = {
         contractId: req.query.contractId as string,
         clientId: req.query.clientId as string,
+        projectId: req.query.projectId as string,
         status: req.query.status as any,
         paymentMethod: req.query.paymentMethod as any,
         minAmount: req.query.minAmount ? Number(req.query.minAmount) : undefined,

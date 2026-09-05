@@ -30,6 +30,8 @@ const NAV_GROUPS: Array<{ title: string; items: Array<{ label: string; href: str
   {
     title: 'Finanzas',
     items: [
+      { label: 'Ingresos',   href: '/ingresos',   icon: DollarSign },
+      { label: 'Cortes',     href: '/cortes',     icon: FileText },
       { label: 'Gastos',     href: '/gastos',     icon: Receipt },
       { label: 'Comisiones', href: '/comisiones', icon: DollarSign },
     ],
