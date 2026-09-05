@@ -288,6 +288,7 @@ export class PaymentService {
 
     if (filters.contractId) where.contractId = filters.contractId;
     if (filters.clientId) where.clientId = filters.clientId;
+    if (filters.projectId) where.contract = { projectId: filters.projectId };
     if (filters.status) where.status = filters.status;
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
 
@@ -310,6 +311,7 @@ export class PaymentService {
           select: {
             id: true,
             contractNumber: true,
+            codigoLegado: true,
             balance: true,
             client: {
               select: {
@@ -318,8 +320,10 @@ export class PaymentService {
                 lastName: true,
               },
             },
+            lots: { select: { lot: { select: { manzana: true, lotNumber: true } } } },
           },
         },
+        corte: { select: { id: true, numero: true, fecha: true } },
       },
       orderBy: { paymentDate: 'desc' },
     });

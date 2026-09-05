@@ -49,6 +49,7 @@ model User {
   paymentsCreated    Payment[]
   expensesCreated    Expense[]         @relation("ExpenseCreatedBy")
   categoriesCreated  ExpenseCategory[] @relation("CategoryCreatedBy")
+  cortesCreados      Corte[]           @relation("CorteCreatedBy")
   lotsReserved       Lot[]             @relation("LotReservedByAgent")
   contractsAsAgent   Contract[]        @relation("ContractAgent")
 
@@ -146,6 +147,7 @@ model Project {
   contracts         Contract[]
   clientProjects    ClientProject[]
   expenses          Expense[]
+  cortes            Corte[]
   compromisosTerreno CompromisoTerreno[]
 
   @@map("projects")
@@ -431,11 +433,46 @@ model Payment {
   createdBy         String?
   updatedAt         DateTime      @updatedAt
   
+  // Corte en el que este pago se reportó/entregó al dueño (null = pendiente de corte)
+  corteId           String?       @map("corte_id")
+  corte             Corte?        @relation(fields: [corteId], references: [id])
+
   contract          Contract      @relation(fields: [contractId], references: [id])
   client            Client        @relation(fields: [clientId], references: [id])
   createdByUser     User?         @relation(fields: [createdBy], references: [id])
 
+  @@index([corteId])
   @@map("payments")
+}
+
+// ============================================================================
+// CORTES — entrega periódica de ingresos al dueño del terreno
+// ============================================================================
+// Un corte agrupa los pagos confirmados que se reportan/entregan en una fecha.
+// Los pagos ligados nunca se vuelven a proponer en otro corte; los egresos
+// del reparto (dueño, Central, etc.) se registran como Expense ligados al corte.
+model Corte {
+  id              String    @id @default(uuid())
+  projectId       String
+  numero          Int                       // consecutivo por proyecto
+  fecha           DateTime                  // fecha del corte / entrega
+  periodoInicio   DateTime?                 // primer pago incluido
+  periodoFin      DateTime?                 // último pago incluido
+  totalIngresos   Float
+  totalEgresos    Float
+  entregadoDueno  Float
+  dueno           String                    // nombre del dueño que firma de recibido
+  notas           String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+
+  project         Project   @relation(fields: [projectId], references: [id])
+  createdBy       User      @relation("CorteCreatedBy", fields: [createdById], references: [id])
+  payments        Payment[]
+  expenses        Expense[]
+
+  @@unique([projectId, numero])
+  @@map("cortes")
 }
 
 // ============================================================================
@@ -726,6 +763,8 @@ model Expense {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   createdById String
+  corteId     String?         @map("corte_id")
+  corte       Corte?          @relation(fields: [corteId], references: [id])
   project     Project         @relation(fields: [projectId], references: [id])
   category    ExpenseCategory @relation(fields: [categoryId], references: [id])
   createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
