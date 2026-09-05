@@ -1,3 +1,4 @@
+import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
 import { formatLotsLabel } from '@/lib/utils';
@@ -63,11 +64,11 @@ function fmt(n: number) {
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  return formatDateUTC(iso, 'long');
 }
 
 function fmtDateShort(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateUTC(iso, 'short');
 }
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
