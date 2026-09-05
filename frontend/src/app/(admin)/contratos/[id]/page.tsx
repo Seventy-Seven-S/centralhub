@@ -17,9 +17,12 @@ import { RescindirContratoModal } from '@/components/contratos/RescindirContrato
 import { puedeRescindir } from '@/lib/rescision';
 import api from '@/lib/api';
 import { formatCurrency, formatDate, formatLotsLabel } from '@/lib/utils';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { ContratoCompraventa } from '@/components/pdf/ContratoCompraventa';
 import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
+import { ReciboContrato } from '@/components/pdf/ReciboContrato';
+import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
+import { reciboPropsDesdeLog, reciboPropsDesdePago } from '@/lib/reimpresion';
 
 // ── Status maps ───────────────────────────────────────────────────────────────
 const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -99,6 +102,43 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const [openingSigned, setOpeningSigned] = useState(false);
   const [rescindiendo, setRescindiendo] = useState(false);
   const [openingRescision, setOpeningRescision] = useState(false);
+
+  const [reimprimiendo, setReimprimiendo] = useState<string | null>(null);
+
+  // Reimpresión: mismo folio y QR que el recibo original (snapshot del
+  // ReciboLog). Si el pago no tiene recibo emitido (migrado), se arma desde
+  // el pago, sin QR de validación.
+  async function handleReimprimir(pago: { id: string; amount: number; paymentDate: string; concept: string; balanceAfter: number | null }) {
+    if (!contrato) return;
+    setReimprimiendo(pago.id);
+    try {
+      let props; let qrDataUri: string | undefined;
+      try {
+        const { data } = await api.get(`/payments/${pago.id}/recibo`);
+        props = reciboPropsDesdeLog(data.data);
+        qrDataUri = await buildQrDataUri(buildValidacionUrl(data.data.id));
+      } catch (err: any) {
+        if (err?.response?.status !== 404) throw err;
+        props = reciboPropsDesdePago(pago, cuotas);
+      }
+      const cuotaBase = cuotas.find(c => c.numeroCuota === props.cuota.numeroCuota);
+      const blob = await pdf(
+        <ReciboContrato
+          contrato={contrato}
+          cuota={{ ...(cuotaBase ?? { id: '', contractId: id, montoEsperado: 0, montoPagado: null, fechaVencimiento: '', fechaPago: null, status: 'PAGADA' as const }), ...props.cuota }}
+          pago={props.pago}
+          balanceDespues={props.balanceDespues}
+          qrDataUri={qrDataUri}
+        />
+      ).toBlob();
+      window.open(URL.createObjectURL(blob), '_blank');
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo generar el recibo.');
+    } finally {
+      setReimprimiendo(null);
+    }
+  }
 
   async function handleVerRescision() {
     setOpeningRescision(true);
@@ -612,10 +652,24 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-4">
-                    <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(pago.amount)}</p>
-                    {pago.balanceAfter != null && (
-                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Saldo: {formatCurrency(pago.balanceAfter)}</p>
+                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                    <div className="text-right">
+                      <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{formatCurrency(pago.amount)}</p>
+                      {pago.balanceAfter != null && (
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Saldo: {formatCurrency(pago.balanceAfter)}</p>
+                      )}
+                    </div>
+                    {pago.paymentType === 'INSTALLMENT' && (
+                      <button
+                        onClick={() => handleReimprimir(pago)}
+                        disabled={reimprimiendo === pago.id}
+                        title="Reimprimir recibo"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60"
+                        style={{ border: '1px solid var(--accent)', color: 'var(--accent)', backgroundColor: 'var(--surface)' }}
+                      >
+                        <FileDown size={14} />
+                        {reimprimiendo === pago.id ? 'Generando…' : 'Recibo'}
+                      </button>
                     )}
                   </div>
                 </div>

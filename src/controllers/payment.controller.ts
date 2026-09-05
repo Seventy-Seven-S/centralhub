@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import paymentService from '../services/payment.service';
 import { UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
+import { obtenerReciboPorPago } from '../services/reciboLog.service';
 
 export class PaymentController {
   // POST /api/v1/payments — registra una mensualidad (servicio unificado)
@@ -44,6 +45,21 @@ export class PaymentController {
   }
 
   // GET /api/v1/payments/:id
+  // GET /api/v1/payments/:id/recibo — snapshot del recibo emitido, para
+  // reimprimirlo con el mismo folio y QR. 404 si ese pago nunca tuvo recibo.
+  async getRecibo(req: Request, res: Response) {
+    try {
+      const recibo = await obtenerReciboPorPago(req.params.id);
+      if (!recibo) {
+        res.status(404).json({ success: false, message: 'Este pago no tiene recibo emitido' });
+        return;
+      }
+      res.status(200).json({ success: true, data: recibo });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || 'Error al obtener el recibo' });
+    }
+  }
+
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params;

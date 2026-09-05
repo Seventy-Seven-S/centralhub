@@ -11,6 +11,7 @@ const adminOrManager = authorize('ADMIN', 'MANAGER');
 
 router.post('/',   adminOrManager, paymentController.create);
 router.get('/',    adminOrManager, paymentController.getAll);
+router.get('/:id/recibo', adminOrManager, paymentController.getRecibo);
 router.get('/:id', adminOrManager, paymentController.getById);
 router.put('/:id', adminOrManager, paymentController.update);
 
