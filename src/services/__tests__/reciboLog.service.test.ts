@@ -70,3 +70,19 @@ describe('verificarRecibo — lectura pública por id', () => {
     await expect(verificarRecibo('no-existe')).resolves.toBeNull();
   });
 });
+
+describe('obtenerReciboPorPago (reimpresión)', () => {
+  it('devuelve el snapshot inmutable del recibo emitido para ese pago', async () => {
+    const { obtenerReciboPorPago } = await import('../reciboLog.service');
+    mocks.prisma.reciboLog.findUnique.mockResolvedValue({ id: 'rec-1', ...SNAPSHOT });
+    const r = await obtenerReciboPorPago('pay-1');
+    expect(mocks.prisma.reciboLog.findUnique).toHaveBeenCalledWith({ where: { paymentId: 'pay-1' } });
+    expect(r).toMatchObject({ id: 'rec-1', folio: 'REC-V148-19de60', paymentId: 'pay-1' });
+  });
+
+  it('pago sin recibo emitido → null (el caller decide el fallback)', async () => {
+    const { obtenerReciboPorPago } = await import('../reciboLog.service');
+    mocks.prisma.reciboLog.findUnique.mockResolvedValue(null);
+    expect(await obtenerReciboPorPago('pay-x')).toBeNull();
+  });
+});

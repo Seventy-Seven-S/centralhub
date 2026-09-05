@@ -38,3 +38,9 @@ export async function crearReciboLog(data: ReciboLogSnapshot): Promise<string | 
 export async function verificarRecibo(id: string) {
   return prisma.reciboLog.findUnique({ where: { id } });
 }
+
+// Reimpresión: el snapshot emitido para un pago (null si nunca se generó
+// recibo, p. ej. pagos migrados o cuando el log falló al emitir).
+export async function obtenerReciboPorPago(paymentId: string) {
+  return prisma.reciboLog.findUnique({ where: { paymentId } });
+}
