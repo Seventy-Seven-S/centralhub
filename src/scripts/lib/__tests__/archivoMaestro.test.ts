@@ -257,3 +257,44 @@ describe('el apóstrofo que se cuela al capturar', () => {
     expect(filas[0].lotes).toEqual(['23']);
   });
 });
+
+// ── Filas cuyo precio es el ACUMULADO y no el del lote ───────────────────────
+describe('agruparPorCodigo — detecta el precio acumulado', () => {
+  const hoja = (filas: any[][]) => leerHoja2([
+    ['MONARCA'],
+    ['FECHA', 'NOMBRE DE CLIENTE', 'MANZANA', 'LOTE', 'CODIGO DE CLIENTE', 'MENSUALIDAD', 'M2', 'PRECIO'],
+    ...filas,
+  ] as any, 'MONARCA', 'MON1');
+
+  it('caso F108: mismos m² y misma mensualidad, pero un precio es el doble', () => {
+    // La segunda fila trae el acumulado de las dos, no el precio de su lote.
+    // Sumarlas daría $874,470 y le subiría $291,490 a una clienta que no debe.
+    const g = agruparPorCodigo(hoja([
+      [45831, 'Reyna Saenz', 7, '2', 'F108', 4524.83, 233.19, 291490],
+      [45831, 'Reyna Saenz', 7, '3', 'F108', 4524.83, 233.19, 582980],
+    ]));
+    expect(g.get('MON1|F108')!.precioSospechoso).toBe(true);
+  });
+
+  it('caso H112: dos lotes iguales al mismo precio NO es sospechoso', () => {
+    const g = agruparPorCodigo(hoja([
+      [1, 'Jose Torres', 4, '8', 'H112', 3541.66, 200, 270000],
+      [1, 'Jose Torres', 4, '23', 'H112', 3541.66, 200, 270000],
+    ]));
+    expect(g.get('MON1|H112')!.precioSospechoso).toBe(false);
+    expect(g.get('MON1|H112')!.precioTotal).toBe(540000);
+  });
+
+  it('lotes de distinto tamaño con distinto precio tampoco es sospechoso', () => {
+    const g = agruparPorCodigo(hoja([
+      [1, 'Ana', 1, '1', 'Z001', 1000, 200, 250000],
+      [1, 'Ana', 1, '2', 'Z001', 1000, 400, 500000],
+    ]));
+    expect(g.get('MON1|Z001')!.precioSospechoso).toBe(false);
+  });
+
+  it('un solo lote nunca es sospechoso', () => {
+    const g = agruparPorCodigo(hoja([[1, 'Ana', 1, '1', 'Z002', 1000, 200, 250000]]));
+    expect(g.get('MON1|Z002')!.precioSospechoso).toBe(false);
+  });
+});

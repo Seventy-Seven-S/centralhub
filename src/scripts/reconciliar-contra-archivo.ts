@@ -97,6 +97,7 @@ async function main() {
       cuotas: { select: { numeroCuota: true, montoEsperado: true, montoPagado: true, status: true, fechaVencimiento: true },
                 orderBy: { numeroCuota: 'asc' } },
       payments: { where: { status: 'CONFIRMED' }, select: { amount: true } },
+      lots: { select: { lot: { select: { manzana: true, lotNumber: true } } } },
     },
   });
 
@@ -109,6 +110,16 @@ async function main() {
     const a = porContrato.get(`${c.project.code}|${(c.codigoLegado ?? '').toUpperCase()}`);
     if (!a) { omitir('no está en el archivo'); continue; }
 
+    // El código por sí solo NO basta para emparejar: hay códigos reutilizados
+    // en dos ventas distintas. Caso real (V463): el archivo lo tiene como
+    // Marilin en M13-L29 y la app como Dulce María en M1-L11 — aplicarle la
+    // fila del archivo le bajó el precio de $450,000 a $280,000. Si ningún
+    // lote coincide, no son el mismo contrato aunque compartan código.
+    if (c.lots.length && a.lotesRef.size) {
+      const coincide = c.lots.some(x => a.lotesRef.has(`${x.lot.manzana}|${x.lot.lotNumber.trim()}`));
+      if (!coincide) { omitir('⚠️  código reutilizado: ningún lote coincide — revisar a mano'); continue; }
+    }
+
     const etiqueta = `${c.project.code.padEnd(5)} ${(c.codigoLegado ?? '').padEnd(6)} ` +
       `${`${c.client.firstName} ${c.client.lastName}`.slice(0, 24).padEnd(26)}`;
     const pagado = round2(c.payments.reduce((s, p) => s + p.amount, 0));
@@ -119,7 +130,11 @@ async function main() {
     };
     let hayAlgo = false;
 
-    // Precio y lo que cuelga de él.
+    // Precio y lo que cuelga de él. Si alguna fila del archivo trae el
+    // acumulado en vez del precio de su lote (ver precioSospechoso), el total
+    // no es de fiar: se omite el contrato entero en vez de arriesgar subirle
+    // el saldo a alguien que no lo debe.
+    if (a.precioSospechoso) { omitir('⚠️  precio acumulado en el archivo — revisar a mano'); continue; }
     const precioArch = a.precioTotal;
     let totalPrice = c.totalPrice;
     if (precioArch != null && precioArch > 0 && dif(c.totalPrice, precioArch)) {

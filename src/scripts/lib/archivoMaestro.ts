@@ -190,6 +190,17 @@ export interface ContratoArchivo {
   mensualidad: number | null;
   /** Lotes del contrato cuya fila venía sin mensualidad (la suma queda corta). */
   lotesSinMensualidad: number;
+  /**
+   * Alguna fila parece traer el ACUMULADO del contrato en vez del precio de su
+   * lote. Caso real (F108): dos lotes de 233.19 m² con la misma mensualidad,
+   * uno a $291,490 y el otro a $582,980 — el segundo es la suma. Sumarlos le
+   * habría subido $291,490 a una clienta que no lo debe. Cuando esto es true,
+   * el precioTotal NO es de fiar y el contrato debe revisarse a mano.
+   */
+  precioSospechoso: boolean;
+  /** "manzana|lote" de cada lote del contrato, para verificar que la app y el
+   *  archivo hablan del MISMO contrato y no de dos que comparten código. */
+  lotesRef: Set<string>;
   precioTotal: number | null;
   m2Total: number | null;
   deContado: boolean;
@@ -228,6 +239,8 @@ export function agruparPorCodigo(filas: FilaLote[]): Map<string, ContratoArchivo
       mensualidad: mens.length ? Math.round(mens.reduce((a, b) => a + b, 0) * 100) / 100 : null,
       lotesSinMensualidad: fs.length - mens.length,
       precioTotal: precios.length ? precios.reduce((a, b) => a + b, 0) : null,
+      precioSospechoso: precioAcumuladoSospechoso(fs),
+      lotesRef: new Set(fs.flatMap(f => f.manzana != null ? f.lotes.map(l => `${Number(f.manzana)}|${l}`) : [])),
       m2Total: m2s.length ? Math.round(m2s.reduce((a, b) => a + b, 0) * 1000) / 1000 : null,
       deContado: fs.every(f => f.deContado),
       clientes: [...new Set(fs.map(f => f.cliente).filter((s): s is string => !!s))],
@@ -271,6 +284,24 @@ export function anioDeSerialExcel(serial: any): number | null {
   const n = aNumero(serial);
   if (n === null || n < 1) return null;
   return new Date(Date.UTC(1899, 11, 30) + n * 86400000).getUTCFullYear();
+}
+
+/**
+ * ¿Alguna fila trae el acumulado en vez del precio de su lote?
+ *
+ * La señal: dos lotes con la MISMA superficie y la MISMA mensualidad no pueden
+ * costar distinto. Si el precio por m² de una fila se sale del de sus
+ * hermanas, esa fila lleva la suma, no su parte.
+ */
+function precioAcumuladoSospechoso(fs: FilaLote[]): boolean {
+  const conDatos = fs.filter(f => f.precio != null && f.precio > 0 && f.m2 != null && f.m2 > 0);
+  if (conDatos.length < 2) return false;
+
+  const ppm = conDatos.map(f => f.precio! / f.m2!);
+  const min = Math.min(...ppm), max = Math.max(...ppm);
+  // Más de 1.5x entre el precio por m² más barato y el más caro del MISMO
+  // contrato: los lotes de un mismo comprador no varían así.
+  return max > min * 1.5;
 }
 
 /** Redondeo al peso mayor inmediato: 4570.15 → 4571, 4570 → 4570. */
