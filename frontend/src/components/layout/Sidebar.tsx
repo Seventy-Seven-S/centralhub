@@ -15,34 +15,49 @@ import ProjectSelector from '@/components/layout/ProjectSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { RegistrarPagoModal } from '@/components/pagos/RegistrarPagoModal';
 
-const NAV_GROUPS: Array<{ title: string; items: Array<{ label: string; href: string; icon: typeof LayoutDashboard }> }> = [
+// `roles` ausente = visible para todos los roles internos.
+//
+// Las secretarias (MANAGER) atienden con un cliente enfrente, así que las
+// pantallas con totales del negocio quedan fuera de su menú — y también
+// cerradas en el backend, porque esconder el link no impide entrar por URL.
+// Gastos SÍ se queda: ellas lo capturan y corrigen a diario.
+type NavItem = { label: string; href: string; icon: typeof LayoutDashboard; roles?: string[] };
+
+const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: 'Operación',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER'] },
       { label: 'Proyectos', href: '/proyectos', icon: Building2 },
       { label: 'Lotes',     href: '/lotes',     icon: Map },
-      { label: 'Contratos', href: '/contratos', icon: FileText },
-      { label: 'Cuotas',    href: '/cuotas',    icon: Calendar },
-      { label: 'Clientes',  href: '/clientes',  icon: Users },
+      { label: 'Contratos', href: '/contratos', icon: FileText,  roles: ['ADMIN', 'MANAGER'] },
+      { label: 'Cuotas',    href: '/cuotas',    icon: Calendar,  roles: ['ADMIN', 'MANAGER'] },
+      { label: 'Clientes',  href: '/clientes',  icon: Users,     roles: ['ADMIN', 'MANAGER'] },
     ],
   },
   {
     title: 'Finanzas',
     items: [
-      { label: 'Ingresos',   href: '/ingresos',   icon: DollarSign },
-      { label: 'Cortes',     href: '/cortes',     icon: FileText },
-      { label: 'Gastos',     href: '/gastos',     icon: Receipt },
-      { label: 'Comisiones', href: '/comisiones', icon: DollarSign },
+      { label: 'Ingresos',   href: '/ingresos',   icon: DollarSign, roles: ['ADMIN'] },
+      { label: 'Cortes',     href: '/cortes',     icon: FileText,   roles: ['ADMIN'] },
+      { label: 'Gastos',     href: '/gastos',     icon: Receipt,     roles: ['ADMIN', 'MANAGER'] },
+      { label: 'Comisiones', href: '/comisiones', icon: DollarSign, roles: ['ADMIN', 'AGENT'] },
     ],
   },
   {
     title: 'Sistema',
     items: [
-      { label: 'Usuarios', href: '/usuarios', icon: UserCog },
+      { label: 'Usuarios', href: '/usuarios', icon: UserCog, roles: ['ADMIN'] },
     ],
   },
 ];
+
+/** Grupos con solo los items que el rol puede ver; los que quedan vacíos se van. */
+export function navParaRol(rol: string | null | undefined) {
+  return NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(i => !i.roles || (rol ? i.roles.includes(rol) : false)) }))
+    .filter(g => g.items.length > 0);
+}
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN:   'Administrador',
@@ -138,16 +153,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       {/* Navegación */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {NAV_GROUPS.map(group => {
-          // El AGENT sí ve Comisiones (solo las suyas — el backend lo fuerza)
-          const AGENT_HIDDEN = ['/dashboard', '/clientes', '/contratos', '/cuotas', '/gastos'];
-          const ADMIN_ONLY   = ['/usuarios'];
-          const visibles = group.items.filter(item => {
-            if (user?.role === 'AGENT' && AGENT_HIDDEN.includes(item.href)) return false;
-            if (user?.role !== 'ADMIN' && ADMIN_ONLY.includes(item.href)) return false;
-            return true;
-          });
-          if (visibles.length === 0) return null;
+        {navParaRol(user?.role).map(group => {
+          const visibles = group.items;
           return (
             <div key={group.title} className="mb-4">
               <p

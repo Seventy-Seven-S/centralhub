@@ -25,6 +25,16 @@ export class PaymentController {
   // GET /api/v1/payments
   async getAll(req: Request, res: Response) {
     try {
+      // El listado SIN contrato es el ingreso del negocio (la pantalla de
+      // Ingresos): solo ADMIN. Filtrado por contrato es operativo y lo
+      // necesita cualquiera que cobre, así que ahí no se restringe.
+      // Esconderlo solo en el menú no bastaba: la URL seguía respondiendo.
+      const contractId = (req.query.contractId as string | undefined)?.trim();
+      if (!contractId && req.user?.role !== 'ADMIN') {
+        res.status(403).json({ success: false, message: 'No tienes permiso para ver el listado global de ingresos' });
+        return;
+      }
+
       const filters: PaymentFilters = {
         contractId: req.query.contractId as string,
         clientId: req.query.clientId as string,
