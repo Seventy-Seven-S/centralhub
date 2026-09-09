@@ -7,6 +7,7 @@ import { DollarSign, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { formatCurrency, formatDateUTC, normalizeForSearch } from '@/lib/utils';
 import { useProjectSelection } from '@/contexts/ProjectContext';
+import { useRole } from '@/hooks/useRole';
 
 interface Ingreso {
   id: string;
@@ -29,13 +30,18 @@ const PAGE_SIZE = 50;
 
 export default function IngresosPage() {
   const router = useRouter();
+  const { isAdmin } = useRole();
   const { selectedProjectId } = useProjectSelection();
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
 
+  // El backend ya responde 403 al listado global si no eres ADMIN; esto evita
+  // que un MANAGER que llegue por URL vea una pantalla de error en vez de un
+  // mensaje claro, y de paso no dispara la petición.
   const { data: ingresos = [], isLoading, isError } = useQuery<Ingreso[]>({
+    enabled: isAdmin,
     queryKey: ['ingresos', selectedProjectId ?? 'all', desde, hasta],
     queryFn: async () => (await api.get('/payments', { params: { projectId: selectedProjectId ?? undefined, startDate: desde || undefined, endDate: hasta ? `${hasta}T23:59:59` : undefined, status: 'CONFIRMED' } })).data.data,
   });
@@ -52,6 +58,18 @@ export default function IngresosPage() {
   const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
   const pagina = filtrados.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const inputStyle = { border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-primary)' };
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <AlertCircle className="w-10 h-10" style={{ color: 'var(--gold)' }} />
+        <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Acceso restringido</p>
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          Los ingresos del negocio solo los consulta un administrador.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
