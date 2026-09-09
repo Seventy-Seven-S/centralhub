@@ -8,7 +8,14 @@ export class PaymentController {
   // POST /api/v1/payments — registra una mensualidad (servicio unificado)
   async create(req: Request, res: Response) {
     try {
-      const result = await paymentService.registrarPagoMensualidad(req.body);
+      // userId sale del TOKEN, nunca del body: si viniera del cliente,
+      // cualquiera podría atribuirle un cobro a otra persona — y sobre esa
+      // atribución se arma el corte diario y la entrega de efectivo.
+      const { userId: _ignorado, createdBy: _ignorado2, ...body } = req.body ?? {};
+      const result = await paymentService.registrarPagoMensualidad({
+        ...body,
+        userId: req.user?.userId,
+      });
       res.status(201).json({ success: true, message: 'Pago registrado', data: result });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message || 'Error al registrar pago' });

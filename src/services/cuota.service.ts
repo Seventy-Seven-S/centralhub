@@ -10,6 +10,9 @@ export interface PayCuotaDto {
   // Reenviada tal cual a registrarPagoMensualidad — misma protección de
   // idempotencia que POST /payments, sin duplicar la lógica.
   idempotencyKey?: string;
+  // Quién cobró. Este es el SEGUNDO camino de cobro (modal "Pagar cuota");
+  // sin esto sus pagos quedarían fuera del corte diario de la persona.
+  userId?: string;
 }
 
 export class CuotaService {
@@ -66,6 +69,7 @@ export class CuotaService {
       // transferencias, agregar un selector en el modal en vez de asumir.
       paymentMethod: PaymentMethod.CASH,
       idempotencyKey: data.idempotencyKey as string,
+      userId: data.userId,
     });
 
     const cuotaActualizada = await prisma.cuota.findUnique({ where: { id } });

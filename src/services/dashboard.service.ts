@@ -1,5 +1,6 @@
 // src/services/dashboard.service.ts
 import { PrismaClient, CuotaStatus, LotStatus } from '@prisma/client';
+import { construirDashboardOperativo } from './lib/dashboardOperativo';
 
 const prisma = new PrismaClient();
 
@@ -122,6 +123,61 @@ export class DashboardService {
         total: Number(gastosResult._sum.amount ?? 0),
       },
     };
+  }
+
+  /**
+   * Dashboard de MANAGER. Ver lib/dashboardOperativo.ts para el porqué de la
+   * forma: sin totales del negocio, solo su propia operación del día.
+   * `userId` acota los cobros a los que registró esa persona.
+   */
+  async getOperativo(userId: string | undefined, projectId?: string) {
+    const contractWhere: any = projectId ? { projectId } : {};
+
+    const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
+    const finHoy    = new Date(); finHoy.setHours(23, 59, 59, 999);
+    const enUnaSemana = new Date(); enUnaSemana.setDate(enUnaSemana.getDate() + 7);
+    const ahora = new Date();
+
+    const [cobros, vencidas, vencenEstaSemana, apartados, contratosActivos, lotesDisponibles] =
+      await Promise.all([
+        // Sin userId (no debería pasar tras el authenticate) no se atribuye
+        // nada: mejor cero que mostrarle a alguien los cobros de otra persona.
+        userId
+          ? prisma.payment.aggregate({
+              where: {
+                createdBy: userId,
+                status: 'CONFIRMED',
+                paymentDate: { gte: inicioHoy, lte: finHoy },
+                ...(projectId ? { contract: { projectId } } : {}),
+              },
+              _sum: { amount: true },
+              _count: true,
+            })
+          : Promise.resolve({ _sum: { amount: 0 }, _count: 0 } as any),
+        prisma.cuota.count({
+          where: { status: CuotaStatus.PENDIENTE, fechaVencimiento: { lt: ahora },
+                   ...(projectId ? { contract: { projectId } } : {}) },
+        }),
+        prisma.cuota.count({
+          where: { status: CuotaStatus.PENDIENTE, fechaVencimiento: { gte: ahora, lte: enUnaSemana },
+                   ...(projectId ? { contract: { projectId } } : {}) },
+        }),
+        prisma.lot.count({
+          where: { status: LotStatus.RESERVED, reservationExpiry: { gte: ahora, lte: enUnaSemana },
+                   ...(projectId ? { projectId } : {}) },
+        }),
+        prisma.contract.count({ where: { ...contractWhere, status: { in: ['ACTIVE', 'IN_MORA'] } } }),
+        prisma.lot.count({ where: { status: LotStatus.AVAILABLE, ...(projectId ? { projectId } : {}) } }),
+      ]);
+
+    return construirDashboardOperativo({
+      misCobrosHoy: { total: Number(cobros._sum.amount ?? 0), count: Number(cobros._count ?? 0) },
+      cuotasVencidas: vencidas,
+      cuotasVencenEstaSemana: vencenEstaSemana,
+      apartadosPorVencer: apartados,
+      contratosActivos,
+      lotesDisponibles,
+    });
   }
 
   async getMoraDetail(projectId?: string) {

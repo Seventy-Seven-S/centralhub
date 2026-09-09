@@ -42,6 +42,8 @@ export class CuotaController {
         montoPagado: Number(montoPagado),
         fechaPago: fechaPago ? new Date(fechaPago) : undefined,
         idempotencyKey,
+        // Del token, igual que POST /payments — nunca del body.
+        userId: req.user?.userId,
       });
 
       res.status(200).json({ success: true, message: 'Cuota registrada', data: cuota });

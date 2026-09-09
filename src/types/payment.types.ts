@@ -24,6 +24,10 @@ export interface RegistrarPagoDto {
   // Generada por el cliente (frontend), una por intento de pago. Protege
   // contra doble-submit — requerida, ver payment.service.ts.
   idempotencyKey: string;
+  // Quién registró el cobro. Lo inyecta el controlador desde el token; es la
+  // base de la atribución del corte diario (quién entrega el efectivo).
+  // Opcional porque los pagos migrados y los de scripts no tienen usuario.
+  userId?: string;
 }
 
 // DTO para actualizar pago
