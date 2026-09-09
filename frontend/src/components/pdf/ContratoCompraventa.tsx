@@ -1,7 +1,7 @@
 import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, CoOwner, Cuota } from '@/hooks/useContratos';
-import { formatMoney, TELEFONOS_RECIBO, getLoteInfo } from './reciboHelpers';
+import { formatMoney, TELEFONOS_RECIBO, DIRECCION_EMPRESA, PIE_EMPRESA, getLoteInfo } from './reciboHelpers';
 
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
 
@@ -185,7 +185,7 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
         <Text style={s.sectionTitle}>DATOS DEL VENDEDOR</Text>
         <View style={[s.vendorBox, { marginBottom: 14 }]}>
           <Text style={s.vendorName}>Central Inmobiliaria, S.A. de C.V.</Text>
-          <Text style={s.vendorDetail}>C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.</Text>
+          <Text style={s.vendorDetail}>{DIRECCION_EMPRESA}</Text>
           <Text style={s.vendorDetail}>Tel: {TELEFONOS_RECIBO}</Text>
         </View>
 
@@ -353,7 +353,7 @@ export function ContratoCompraventa({ contrato, cuotas, showWatermark }: Contrat
 
         <View style={s.footer}>
           <View style={s.footerText}>
-            <Text>C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.{'   '}|{'   '}Tel: {TELEFONOS_RECIBO}</Text>
+            <Text>{PIE_EMPRESA}</Text>
             <Text style={{ fontSize: 7, color: C.gray, marginTop: 2 }}>
               Verifica en: centralinmob.com/verificar/{contrato.contractNumber}
             </Text>

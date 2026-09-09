@@ -1,7 +1,7 @@
 import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
-import { formatMoney, buildReciboFolio, TELEFONOS_RECIBO, buildDescripcion, getLoteInfo } from './reciboHelpers';
+import { formatMoney, buildReciboFolio, PIE_EMPRESA, buildDescripcion, getLoteInfo } from './reciboHelpers';
 
 // Misma identidad visual del correo de bienvenida (email.service.ts —
 // sendWelcomeEmail): header verde bosque, acento dorado. Fondo de página
@@ -217,7 +217,7 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues, qrDataUr
           {/* FOOTER */}
           <View style={s.footer}>
             <Text style={s.footerText}>
-              C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.{'   '}|{'   '}Tel: {TELEFONOS_RECIBO}
+              {PIE_EMPRESA}
             </Text>
             <Text style={s.footerBrand}>Central Inmobiliaria</Text>
           </View>

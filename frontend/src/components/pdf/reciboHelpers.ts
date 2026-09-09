@@ -23,6 +23,16 @@ export function buildReciboFolio(codigo: string, numeroCuota: number, plazoTotal
 // proyecto ni etiquetas — ya no depende del proyecto.
 export const TELEFONOS_RECIBO = '868 156 1069 / 868 363 0211';
 
+// Domicilio fiscal. Vive AQUÍ y solo aquí: estaba copiado a mano en el
+// recibo, el contrato y el estado de cuenta, y cuando cambió la dirección
+// el estado de cuenta se quedó con la vieja (Av. Las Arboledas) durante
+// meses, mandándole a los clientes un domicilio que ya no existe.
+export const DIRECCION_EMPRESA = 'C. Dieciséis 530, San Francisco, 87350 Heroica Matamoros, Tamps.';
+export const NOMBRE_EMPRESA = 'Central Inmobiliaria';
+
+/** Pie de página de todos los PDF: domicilio + ambos teléfonos. */
+export const PIE_EMPRESA = `${DIRECCION_EMPRESA}   |   Tel: ${TELEFONOS_RECIBO}`;
+
 // Agrega el número de cuota a la descripción si no aparece ya como
 // número suelto (evita duplicarlo si el concepto ya lo trae, ej. "#19").
 export function buildDescripcion(concepto: string, numeroCuota: number): string {

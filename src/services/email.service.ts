@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { logger } from '../utils/logger';
 import { EmailSendError } from '../utils/errors';
+import { PIE_EMPRESA } from '../utils/empresa';
 
 // Fail-fast en producción: sin RESEND_API_KEY no hay 2FA de staff ni emails
 // de bienvenida — mejor que el server no arranque a que arranque "sano" y
@@ -270,7 +271,7 @@ export async function sendWelcomeEmail(
         <tr>
           <td>
             <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
-            <p style="margin:0;color:#A8C5B0;font-size:12px;">Av. Las Arboledas No. 84 · Tel: 868 156 1069</p>
+            <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
           </td>
           <td align="right" valign="middle">
             <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
@@ -466,7 +467,7 @@ export async function sendStaffWelcomeEmail(
         <tr>
           <td>
             <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
-            <p style="margin:0;color:#A8C5B0;font-size:12px;">Av. Las Arboledas No. 84 · Tel: 868 156 1069</p>
+            <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
           </td>
           <td align="right" valign="middle">
             <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>

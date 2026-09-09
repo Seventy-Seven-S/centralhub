@@ -2,6 +2,7 @@ import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
 import { formatLotsLabel } from '@/lib/utils';
+import { PIE_EMPRESA } from './reciboHelpers';
 
 // ── Paleta (idéntica a ReciboContrato) ───────────────────────────────────────
 const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
@@ -152,7 +153,7 @@ function Footer({ folio }: { folio?: string }) {
   return (
     <View style={s.footer}>
       <View style={s.footerText}>
-        <Text>Av. Las Arboledas No. 84, Esq. con Maple, Fracc. Las Arboledas. 87448{'   '}|{'   '}Tel: 868 156 1069</Text>
+        <Text>{PIE_EMPRESA}</Text>
         <Text style={{ fontSize: 7, color: C.gray, marginTop: 2 }}>
           Verifica en: centralinmob.com/verificar/{folio ?? '—'}
         </Text>
