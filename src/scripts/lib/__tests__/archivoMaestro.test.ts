@@ -242,3 +242,18 @@ describe('parseLotes — "Se vendió como un solo lote"', () => {
     expect(filas[0].vendidoJunto).toBe(true);
   });
 });
+
+
+describe('el apóstrofo que se cuela al capturar', () => {
+  it('lo limpia también en MANZANA, no solo en LOTE', () => {
+    // V379 está capturado como manzana "`15": sin limpiarlo, ese lote parecía
+    // vendido y ausente del archivo cuando sí estaba.
+    const filas = leerHoja2([
+      ['V.ROBLE'],
+      ['PROYECTO', 'MZA', 'LOTE', 'CODIGO', 'CLIENTE ACTUAL', 'MENSUALIDAD', 'SUPERFICIE M2', 'PRECIO POR LOTE'],
+      ['VR2', '`15', '23', 'V379', 'BENJAMIN VAZQUEZ HERNANDEZ', 4000, 208.92, 250000],
+    ] as any, 'V.ROBLE', 'VDR');
+    expect(filas[0].manzana).toBe('15');
+    expect(filas[0].lotes).toEqual(['23']);
+  });
+});

@@ -149,7 +149,9 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
       codigo,
       proyecto,
       hoja,
-      manzana: cMza >= 0 && r[cMza] != null ? String(r[cMza]).trim() : null,
+      // El apóstrofo se cuela al capturar en Excel y aparece tanto en la
+      // manzana ("`15") como en el lote: se limpia en los dos.
+      manzana: cMza >= 0 && r[cMza] != null ? String(r[cMza]).replace(/`/g, '').trim() : null,
       lote: cLote >= 0 && r[cLote] != null ? String(r[cLote]).replace(/`/g, '').trim() : null,
       lotes: cLote >= 0 ? parseLotes(r[cLote]) : [],
       vendidoJunto: /vendio.*un\s*solo\s*lote|vendi[oó].*juntos?/i.test(String(r[cCliente] ?? '')),
