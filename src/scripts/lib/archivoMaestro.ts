@@ -17,7 +17,7 @@ import * as XLSX from 'xlsx';
 // Consolidado entregado por las secretarias el 2026-09-09: los 12 proyectos
 // en un solo archivo, con la columna "1er PAGO". Es LA fuente de verdad —
 // decisión del usuario: no se reconcilia contra la BD, se asume.
-export const ARCHIVO_MAESTRO = 'data/consolidado-2026-09-09.xlsx';
+export const ARCHIVO_MAESTRO = 'backups/CONSOLIDADO-FUENTE-DE-VERDAD-2026-09-09.xlsx';
 
 /** Nombre de hoja → código de proyecto en la app. */
 export const HOJA_A_PROYECTO: Record<string, string> = {
