@@ -84,7 +84,7 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
   const mutation = useMutation({
     mutationFn: async (values: typeof form) => {
       if (isEdit) {
-        await api.put(`/users/${usuario!.id}`, { firstName: values.firstName, lastName: values.lastName, role: values.role });
+        await api.put(`/users/${usuario!.id}`, { firstName: values.firstName, lastName: values.lastName, role: values.role, email: values.email });
       } else {
         await api.post('/users', values);
       }
@@ -97,7 +97,8 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
     e.preventDefault();
     setError('');
     if (!form.firstName || !form.lastName || !form.role) return setError('Completa todos los campos');
-    if (!isEdit && (!form.email || !form.password)) return setError('Email y contraseña son requeridos');
+    if (!form.email) return setError('El email es requerido');
+    if (!isEdit && !form.password) return setError('La contraseña es requerida');
     mutation.mutate(form);
   }
 
@@ -139,29 +140,37 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+              style={inputStyle}
+            />
+            {isEdit && form.email !== usuario!.email && (
+              <p className="text-xs mt-1.5 leading-relaxed" style={{ color: 'var(--gold)' }}>
+                Al cambiar el correo se cerrarán las sesiones abiertas de este usuario y su código de
+                verificación llegará a la nueva dirección. Su contraseña no cambia.
+              </p>
+            )}
+          </div>
+
           {!isEdit && (
-            <>
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Contraseña</label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
-                  style={inputStyle}
-                />
-              </div>
-            </>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Contraseña temporal</label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+                style={inputStyle}
+              />
+              <p className="text-xs mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                Se enviará por correo al usuario junto con sus instrucciones de acceso.
+              </p>
+            </div>
           )}
 
           <div>

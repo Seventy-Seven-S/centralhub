@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { logger } from '../utils/logger';
 import { EmailSendError } from '../utils/errors';
+import { PIE_EMPRESA } from '../utils/empresa';
 
 // Fail-fast en producción: sin RESEND_API_KEY no hay 2FA de staff ni emails
 // de bienvenida — mejor que el server no arranque a que arranque "sano" y
@@ -270,7 +271,7 @@ export async function sendWelcomeEmail(
         <tr>
           <td>
             <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
-            <p style="margin:0;color:#A8C5B0;font-size:12px;">Av. Las Arboledas No. 84 · Tel: 868 156 1069</p>
+            <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
           </td>
           <td align="right" valign="middle">
             <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
@@ -293,5 +294,200 @@ export async function sendWelcomeEmail(
   // por otro medio.
   if (error) {
     logger.error(`Fallo al enviar email de bienvenida a ${email} (contrato ${contractNumber}): ${error.message} (${error.name})`);
+  }
+}
+
+// ── Bienvenida a usuario interno (staff) ─────────────────────────────────────
+// Mismo lenguaje visual que sendWelcomeEmail (el de clientes), pero para quien
+// entra a operar el sistema: en vez de contrato/lote/mensualidad lleva sus
+// credenciales y, sobre todo, avisa del 2FA. Sin ese aviso el usuario mete su
+// contraseña, cae en una pantalla pidiendo un código de 6 dígitos que no
+// esperaba, y termina hablando por teléfono.
+
+const ROLE_LABELS_ES: Record<string, string> = {
+  ADMIN:   'Administrador',
+  MANAGER: 'Gerente',
+  AGENT:   'Agente',
+};
+
+/**
+ * URL del frontend. CORS_ORIGIN ya apunta al dominio real en producción, así
+ * que se deriva de ahí y no hace falta dar de alta otra variable; APP_URL
+ * existe como override para cuando el frontend viva en otro dominio.
+ */
+function appUrl(): string {
+  const fromCors = process.env.CORS_ORIGIN?.split(',')[0]?.trim();
+  return (process.env.APP_URL?.trim() || fromCors || 'http://localhost:3000').replace(/\/+$/, '');
+}
+
+export async function sendStaffWelcomeEmail(
+  email: string,
+  firstName: string,
+  role: string,
+  tempPassword: string,
+): Promise<void> {
+  const roleLabel = ROLE_LABELS_ES[role] ?? role;
+  const loginUrl  = `${appUrl()}/login`;
+
+  const { error } = await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email,
+    subject: `Tu acceso a CentralHub — Central Inmobiliaria`,
+    html: `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#F0EDE8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;padding:48px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+  <!-- HEADER -->
+  <tr>
+    <td style="background:linear-gradient(135deg,#0D2818 0%,#1A3A2A 60%,#2D5A3D 100%);padding:40px 48px 36px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            <p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:600;">Sistema de Gestión Inmobiliaria</p>
+            <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">CentralHub</h1>
+            <p style="margin:6px 0 0;color:#A8C5B0;font-size:13px;">Central Inmobiliaria</p>
+          </td>
+          <td align="right" valign="top">
+            <div style="display:inline-block;background:rgba(201,151,44,0.15);border:1.5px solid #C9972C;border-radius:8px;padding:8px 16px;">
+              <p style="margin:0;color:#C9972C;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Tu rol</p>
+              <p style="margin:2px 0 0;color:#E8B84B;font-size:17px;font-weight:800;letter-spacing:0.02em;">${roleLabel}</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- BANNER BIENVENIDA -->
+  <tr>
+    <td style="background:#F7F9F7;padding:40px 48px 32px;border-bottom:1px solid #E8EDE8;">
+      <p style="margin:0 0 6px;color:#2D6A4F;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">Bienvenido al equipo</p>
+      <h2 style="margin:0 0 12px;color:#0D2818;font-size:32px;font-weight:800;line-height:1.15;letter-spacing:-0.5px;">${firstName},<br>tu acceso ya<br>está listo.</h2>
+      <p style="margin:0;color:#6B7C74;font-size:15px;line-height:1.65;">Se creó tu cuenta en CentralHub con el rol de <strong style="color:#0D2818;">${roleLabel}</strong>. Abajo están tus credenciales para entrar por primera vez.</p>
+    </td>
+  </tr>
+
+  <!-- CREDENCIALES -->
+  <tr>
+    <td style="padding:32px 48px;">
+      <p style="margin:0 0 16px;color:#0D2818;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Tus credenciales de acceso</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5EDE5;border-radius:10px;overflow:hidden;">
+        <tr>
+          <td style="padding:14px 20px;border-bottom:1px solid #E5EDE5;background:#F7F9F7;">
+            <span style="color:#6B7C74;font-size:13px;">Correo</span>
+            <span style="float:right;color:#0D2818;font-size:14px;font-weight:700;">${email}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 20px;background:#FFFBEB;">
+            <span style="color:#6B7C74;font-size:13px;display:block;margin-bottom:10px;">Contraseña temporal</span>
+            <div style="background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:8px;padding:14px 20px;text-align:center;">
+              <p style="margin:0;color:#92400E;font-size:22px;font-weight:800;letter-spacing:0.1em;font-family:'Courier New',Courier,monospace;">${tempPassword}</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:12px 0 0;color:#9CA3AF;font-size:12px;line-height:1.6;">⚠️ Esta contraseña es personal e intransferible. No la compartas con nadie.</p>
+    </td>
+  </tr>
+
+  <!-- CÓMO ENTRAR -->
+  <tr>
+    <td style="padding:0 48px 32px;">
+      <p style="margin:0 0 16px;color:#0D2818;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Cómo entrar</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F9F7;border-radius:10px;overflow:hidden;">
+        <tr>
+          <td style="padding:16px 20px;border-bottom:1px solid #E8EDE8;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding-right:14px;vertical-align:top;">
+                  <div style="width:28px;height:28px;background:#2D6A4F;border-radius:50%;text-align:center;line-height:28px;color:#ffffff;font-size:13px;font-weight:700;">1</div>
+                </td>
+                <td>
+                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">Abre CentralHub e ingresa</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">Usa el correo y la contraseña temporal de arriba</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 20px;border-bottom:1px solid #E8EDE8;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding-right:14px;vertical-align:top;">
+                  <div style="width:28px;height:28px;background:#2D6A4F;border-radius:50%;text-align:center;line-height:28px;color:#ffffff;font-size:13px;font-weight:700;">2</div>
+                </td>
+                <td>
+                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">Revisa este mismo correo</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">Te enviaremos un código de 6 dígitos. Vence en <strong style="color:#0D2818;">10 minutos</strong>.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 20px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding-right:14px;vertical-align:top;">
+                  <div style="width:28px;height:28px;background:#2D6A4F;border-radius:50%;text-align:center;line-height:28px;color:#ffffff;font-size:13px;font-weight:700;">3</div>
+                </td>
+                <td>
+                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">Captura el código y listo</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">Este paso se repite cada vez que inicias sesión, por seguridad</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- CTA -->
+  <tr>
+    <td style="padding:0 48px 40px;text-align:center;">
+      <a href="${loginUrl}" style="display:inline-block;background:linear-gradient(135deg,#1A3A2A,#2D6A4F);color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:0.02em;box-shadow:0 4px 12px rgba(26,58,42,0.3);">Entrar a CentralHub →</a>
+      <p style="margin:14px 0 0;color:#9CA3AF;font-size:12px;">O copia esta dirección: ${loginUrl}</p>
+    </td>
+  </tr>
+
+  <!-- FOOTER -->
+  <tr>
+    <td style="background:#0D2818;padding:28px 48px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
+            <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
+          </td>
+          <td align="right" valign="middle">
+            <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+
+  // Mismo criterio que el de clientes: el usuario ya se creó, así que no se
+  // puede bloquear. Pero un fallo silencioso deja a alguien sin sus accesos
+  // sin que nadie se entere — se loguea para que un admin lo reenvíe.
+  if (error) {
+    logger.error(`Fallo al enviar email de bienvenida a usuario interno ${email} (rol ${role}): ${error.message} (${error.name})`);
   }
 }
