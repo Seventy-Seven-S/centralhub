@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
   Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt, DollarSign,
-  CreditCard,
+  CreditCard, Banknote,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
@@ -38,8 +38,12 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: 'Finanzas',
     items: [
-      { label: 'Ingresos',   href: '/ingresos',   icon: DollarSign, roles: ['ADMIN'] },
-      { label: 'Cortes',     href: '/cortes',     icon: FileText,   roles: ['ADMIN'] },
+      { label: 'Mi corte',        href: '/mi-corte',       icon: Banknote,   roles: ['MANAGER', 'AGENT'] },
+      { label: 'Cortes diarios',  href: '/cortes-diarios', icon: Banknote,   roles: ['ADMIN'] },
+      { label: 'Ingresos',        href: '/ingresos',       icon: DollarSign, roles: ['ADMIN'] },
+      // "Liquidaciones" era "Cortes": con el corte diario encima, dos cosas
+      // distintas se llamaban igual. Ésta es la entrega al dueño del terreno.
+      { label: 'Liquidaciones',   href: '/cortes',         icon: FileText,   roles: ['ADMIN'] },
       { label: 'Gastos',     href: '/gastos',     icon: Receipt,     roles: ['ADMIN', 'MANAGER'] },
       { label: 'Comisiones', href: '/comisiones', icon: DollarSign, roles: ['ADMIN', 'AGENT'] },
     ],

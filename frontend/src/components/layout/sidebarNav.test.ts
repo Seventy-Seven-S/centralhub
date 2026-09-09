@@ -15,9 +15,18 @@ describe('navParaRol — qué ve cada rol en el menú', () => {
     const h = hrefs('MANAGER');
     // La queja original: los clientes ven las cifras por encima del hombro.
     expect(h).not.toContain('/ingresos');
-    expect(h).not.toContain('/cortes');
+    expect(h).not.toContain('/cortes');          // liquidaciones al dueño
+    expect(h).not.toContain('/cortes-diarios');  // los cortes de TODAS
     expect(h).not.toContain('/comisiones');
     expect(h).not.toContain('/usuarios');
+  });
+
+  it('quien cobra ve "Mi corte"; el ADMIN ve la bandeja de cortes diarios', () => {
+    expect(hrefs('MANAGER')).toContain('/mi-corte');
+    expect(hrefs('AGENT')).toContain('/mi-corte');
+    // El ADMIN recibe el dinero, no lo entrega.
+    expect(hrefs('ADMIN')).toContain('/cortes-diarios');
+    expect(hrefs('ADMIN')).not.toContain('/mi-corte');
   });
 
   it('MANAGER SÍ conserva lo que usa para trabajar', () => {

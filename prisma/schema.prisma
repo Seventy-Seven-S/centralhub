@@ -50,6 +50,8 @@ model User {
   expensesCreated    Expense[]         @relation("ExpenseCreatedBy")
   categoriesCreated  ExpenseCategory[] @relation("CategoryCreatedBy")
   cortesCreados      Corte[]           @relation("CorteCreatedBy")
+  cortesDiarios      CorteDiario[]     @relation("CorteDiarioCobrador")
+  cortesRecibidos    CorteDiario[]     @relation("CorteDiarioRecibidoPor")
   lotsReserved       Lot[]             @relation("LotReservedByAgent")
   contractsAsAgent   Contract[]        @relation("ContractAgent")
 
@@ -437,11 +439,17 @@ model Payment {
   corteId           String?       @map("corte_id")
   corte             Corte?        @relation(fields: [corteId], references: [id])
 
+  // Corte DIARIO en el que quien cobró entregó este dinero al administrador.
+  // Independiente de corteId: son dos preguntas distintas sobre el mismo pago.
+  corteDiarioId     String?       @map("corte_diario_id")
+  corteDiario       CorteDiario?  @relation(fields: [corteDiarioId], references: [id])
+
   contract          Contract      @relation(fields: [contractId], references: [id])
   client            Client        @relation(fields: [clientId], references: [id])
   createdByUser     User?         @relation(fields: [createdBy], references: [id])
 
   @@index([corteId])
+  @@index([corteDiarioId])
   @@map("payments")
 }
 
@@ -473,6 +481,48 @@ model Corte {
 
   @@unique([projectId, numero])
   @@map("cortes")
+}
+
+// ============================================================================
+// CORTE DIARIO — entrega del efectivo cobrado en el día al administrador
+//
+// OJO: es un eje distinto al modelo Corte de arriba. Aquel liquida un PROYECTO
+// con el dueño del terreno; éste responde "quién trajo el efectivo hoy". Un
+// mismo pago vive en los dos, por eso Payment tiene corteId y corteDiarioId
+// separados: compartir campo los haría colisionar.
+// ============================================================================
+
+enum CorteDiarioStatus {
+  PENDIENTE_ENTREGA
+  RECIBIDO
+}
+
+model CorteDiario {
+  id            String            @id @default(uuid())
+  numero        Int               @unique          // consecutivo global, no por proyecto
+  fecha         DateTime          @db.Date         // día operativo que se cierra
+  cobradorId    String            @map("cobrador_id")
+  status        CorteDiarioStatus @default(PENDIENTE_ENTREGA)
+
+  totalEfectivo Float             @map("total_efectivo")  // suma de los pagos CASH ligados
+  totalOtros    Float             @map("total_otros")     // TRANSFER/CHECK/CARD — informativo
+  declarado     Float                                     // lo que la cobradora dice que entrega
+  recibido      Float?                                    // lo que el administrador contó
+  diferencia    Float?                                    // recibido − declarado (negativo = faltante)
+
+  cerradoAt     DateTime          @default(now()) @map("cerrado_at")
+  recibidoAt    DateTime?         @map("recibido_at")
+  recibidoPorId String?           @map("recibido_por_id")
+  notaCobrador  String?           @map("nota_cobrador")
+  notaAdmin     String?           @map("nota_admin")      // obligatoria si hay diferencia
+
+  cobrador      User              @relation("CorteDiarioCobrador", fields: [cobradorId], references: [id])
+  recibidoPor   User?             @relation("CorteDiarioRecibidoPor", fields: [recibidoPorId], references: [id])
+  payments      Payment[]
+
+  @@unique([cobradorId, fecha])   // un corte por persona por día
+  @@index([status, fecha])
+  @@map("cortes_diarios")
 }
 
 // ============================================================================
