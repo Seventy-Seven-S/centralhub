@@ -19,9 +19,10 @@ const money = (n: number | null | undefined) =>
 async function main() {
   const filas = leerArchivoMaestro();
   const porLote = new Map<string, FilaLote>();
+  // Una fila puede cubrir VARIOS lotes ("19 Y 20"): se indexa cada uno.
   for (const f of filas) {
-    if (f.manzana == null || f.lote == null) continue;
-    porLote.set(`${f.proyecto}|${String(Number(f.manzana))}|${f.lote.trim()}`, f);
+    if (f.manzana == null) continue;
+    for (const l of f.lotes) porLote.set(`${f.proyecto}|${String(Number(f.manzana))}|${l}`, f);
   }
 
   const lotes = await prisma.lot.findMany({

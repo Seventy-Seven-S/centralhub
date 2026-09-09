@@ -56,6 +56,11 @@ export interface FilaLote {
   anioVenta: number | null;
   /** Columna ESTATUS de las hojas estilo SANTANDER ("Vendido"). */
   estatus: string | null;
+  /** Lotes de la fila. Casi siempre uno, pero el archivo combina los que se
+   *  vendieron juntos en una sola celda ("19 Y 20", "18,19"). */
+  lotes: string[];
+  /** La fila cubre varios lotes vendidos como uno solo. */
+  vendidoJunto: boolean;
   deContado: boolean;
   observaciones: string | null;
 }
@@ -76,6 +81,22 @@ export function aNumero(v: any): number | null {
   if (!/^-?\d*\.?\d+$/.test(limpio)) return null;
   const n = Number(limpio);
   return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Lotes de una celda. El archivo combina en una sola fila los lotes que se
+ * vendieron juntos: "19 Y 20", "18,19", "20, 21". La anotación de la columna
+ * de cliente lo dice explícito ("Se vendio como un solo lote").
+ *
+ * El PRECIO de esa fila es del conjunto, no de cada lote: repartirlo
+ * inventaría precios que nadie firmó. Por eso se devuelven los lotes y se
+ * marca la fila, en vez de dividir.
+ */
+export function parseLotes(celda: any): string[] {
+  if (celda === null || celda === undefined) return [];
+  const s = String(celda).replace(/`/g, '').trim();   // el apóstrofo se cuela al capturar
+  if (!s) return [];
+  return s.split(/\s*(?:,|\sY\s|\sy\s)\s*/).map(x => x.trim()).filter(Boolean);
 }
 
 /** Índice de la fila de encabezado, o -1. Se busca "CODIGO DE CLIENTE". */
@@ -99,7 +120,11 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
   const cCodigo = buscar(s => s.startsWith('CODIGO DE CLIENT'));
   const cCodigoSolo = buscar(s => s === 'CODIGO');
   const iCodigo = cCodigo >= 0 ? cCodigo : cCodigoSolo;
-  const cCliente = buscar(s => s.includes('NOMBRE'));
+  // V.ROBLE titula esta columna "CLIENTE ACTUAL" y SANTANDER/PDS solo
+  // "CLIENTE"; buscar únicamente "NOMBRE" dejaba fuera esas hojas, y con ellas
+  // las anotaciones del tipo "(Se vendio como un solo lote)". Se excluye
+  // "CODIGO Y CLIENTE", que es otra columna del mismo archivo.
+  const cCliente = buscar(s => (s.includes('NOMBRE') || s.includes('CLIENTE')) && !s.startsWith('CODIGO'));
   const cMza = buscar(s => s.startsWith('MANZANA') || s.startsWith('FRACCION') || s === 'MZA');
   const cLote = buscar(s => s === 'LOTE');
   const cPlazo = buscar(s => s.includes('PLAZO'));
@@ -125,7 +150,9 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
       proyecto,
       hoja,
       manzana: cMza >= 0 && r[cMza] != null ? String(r[cMza]).trim() : null,
-      lote: cLote >= 0 && r[cLote] != null ? String(r[cLote]).trim() : null,
+      lote: cLote >= 0 && r[cLote] != null ? String(r[cLote]).replace(/`/g, '').trim() : null,
+      lotes: cLote >= 0 ? parseLotes(r[cLote]) : [],
+      vendidoJunto: /vendio.*un\s*solo\s*lote|vendi[oó].*juntos?/i.test(String(r[cCliente] ?? '')),
       cliente: cCliente >= 0 && r[cCliente] != null ? String(r[cCliente]).trim() : null,
       mensualidad: cMens >= 0 ? aNumero(r[cMens]) : null,
       precio: cPrecio >= 0 ? aNumero(r[cPrecio]) : null,

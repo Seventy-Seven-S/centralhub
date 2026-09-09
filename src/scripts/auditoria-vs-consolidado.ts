@@ -37,9 +37,10 @@ async function main() {
 
   // Índice lote→fila del archivo: proyecto|manzana|lote
   const porLote = new Map<string, FilaLote>();
+  // Una fila puede cubrir VARIOS lotes ("19 Y 20"): se indexa cada uno.
   for (const f of filas) {
-    if (f.manzana == null || f.lote == null) continue;
-    porLote.set(`${f.proyecto}|${String(Number(f.manzana))}|${f.lote.trim()}`, f);
+    if (f.manzana == null) continue;
+    for (const l of f.lotes) porLote.set(`${f.proyecto}|${String(Number(f.manzana))}|${l}`, f);
   }
 
   console.log(`\nFuente de verdad: ${filas.length} filas de lote · ${porContrato.size} contratos · ${new Set(filas.map(f => f.proyecto)).size} proyectos\n`);

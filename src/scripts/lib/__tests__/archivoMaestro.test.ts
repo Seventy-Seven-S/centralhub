@@ -198,3 +198,47 @@ describe('hoja estilo SANTANDER / PUERTA DEL SOL', () => {
     expect(filas[1].primerPagoTexto).toBe('Diciembre/25');
   });
 });
+
+// ── Celdas de lote con varios lotes vendidos juntos ──────────────────────────
+import { parseLotes } from '../archivoMaestro';
+
+describe('parseLotes — "Se vendió como un solo lote"', () => {
+  it('un lote suelto devuelve uno', () => {
+    expect(parseLotes('19')).toEqual(['19']);
+    expect(parseLotes('A-01')).toEqual(['A-01']);
+  });
+
+  it('separa "19 Y 20", que es como lo escriben en el archivo', () => {
+    expect(parseLotes('19 Y 20')).toEqual(['19', '20']);
+    expect(parseLotes('19 y 20')).toEqual(['19', '20']);
+  });
+
+  it('separa por coma: "18,19" y "20, 21"', () => {
+    expect(parseLotes('18,19')).toEqual(['18', '19']);
+    expect(parseLotes('20, 21')).toEqual(['20', '21']);
+  });
+
+  it('tolera el apóstrofo suelto que se cuela al capturar (M`15)', () => {
+    expect(parseLotes('`23')).toEqual(['23']);
+  });
+
+  it('celda vacía no devuelve lotes fantasma', () => {
+    expect(parseLotes(null)).toEqual([]);
+    expect(parseLotes('')).toEqual([]);
+    expect(parseLotes('  ')).toEqual([]);
+  });
+
+  it('el precio de una fila combinada es de TODOS sus lotes juntos, no de cada uno', () => {
+    // El archivo pone el precio del conjunto en la fila; partirlo entre los
+    // lotes inventaría precios que nadie firmó.
+    const filas = leerHoja2([
+      ['V.ROBLE'],
+      ['PROYECTO', 'MZA', 'LOTE', 'CODIGO', 'CLIENTE ACTUAL', 'MENSUALIDAD', 'SUPERFICIE M2', 'PRECIO POR LOTE'],
+      ['VR', 2, '19 Y 20', 'V104', 'AMAYRANI (Se vendio como un solo lote)', 6000, 400, 500000],
+    ] as any, 'V.ROBLE', 'VDR');
+    expect(filas).toHaveLength(1);
+    expect(filas[0].lotes).toEqual(['19', '20']);
+    expect(filas[0].precio).toBe(500000);
+    expect(filas[0].vendidoJunto).toBe(true);
+  });
+});
