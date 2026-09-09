@@ -161,7 +161,7 @@ export default function CortesPage() {
 
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Cortes</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Liquidaciones</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{selectedProjectId ? `${cortes.length} cortes registrados` : 'Selecciona un proyecto para generar un corte'}</p>
         </div>
         <button onClick={() => setAbierto(true)} disabled={!selectedProjectId} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: 'var(--accent)' }}>
