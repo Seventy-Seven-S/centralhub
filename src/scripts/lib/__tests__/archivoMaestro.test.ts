@@ -140,3 +140,61 @@ describe('agruparPorCodigo — un contrato puede tener varios lotes', () => {
     expect(g2.has('JSA3|A046')).toBe(true);
   });
 });
+
+// ── Consolidado 2026-09-09: SANTANDER, PUERTA DEL SOL y la columna 1er PAGO ──
+
+import { parsePrimerPago, leerHoja as leerHoja2 } from '../archivoMaestro';
+
+describe('parsePrimerPago — el mes en que arranca a pagar', () => {
+  it('solo mes (V.ROBLE): usa el año de la fecha de venta', () => {
+    expect(parsePrimerPago('MAYO', 2024)).toEqual({ mes: 5, anio: 2024 });
+    expect(parsePrimerPago('DICIEMBRE', 2023)).toEqual({ mes: 12, anio: 2023 });
+  });
+
+  it('mes/año de dos dígitos (SANTANDER, PDS)', () => {
+    expect(parsePrimerPago('Octubre/25', 2024)).toEqual({ mes: 10, anio: 2025 });
+    expect(parsePrimerPago('Julio/26', 2024)).toEqual({ mes: 7, anio: 2026 });
+  });
+
+  it('tolera acentos, mayúsculas y espacios', () => {
+    expect(parsePrimerPago(' febrero ', 2025)).toEqual({ mes: 2, anio: 2025 });
+    expect(parsePrimerPago('DICIEMBRE/25', 2024)).toEqual({ mes: 12, anio: 2025 });
+  });
+
+  it('vacío o basura devuelve null en vez de inventar una fecha', () => {
+    expect(parsePrimerPago(null, 2024)).toBeNull();
+    expect(parsePrimerPago('', 2024)).toBeNull();
+    expect(parsePrimerPago('-', 2024)).toBeNull();
+    expect(parsePrimerPago('cualquier cosa', 2024)).toBeNull();
+  });
+
+  it('sin año de referencia y sin año en el texto, no adivina', () => {
+    expect(parsePrimerPago('MAYO', null)).toBeNull();
+  });
+});
+
+const HOJA_SAN = [
+  ['SANTANDER'],
+  [],
+  ['PROYECTO', 'MANZANA', 'LOTE', 'SUPERFICIE', 'PRECIO M2', 'PRECIO/VENTA', 'CODIGO', 'CLIENTE', '1er  PAGO', 'MENSUALIDAD', 'ESTATUS', 'NOTA'],
+  ['SDR', 1, 1, 211.64, 1500, 317460, 'H011', 'Christian Nataly', 'Octubre/25', 4957.66, 'Vendido', null],
+  ['SDR', 1, 2, 200, 1300, 260000, 'H081', 'Klismen Horacio', 'Diciembre/25', 4166.66, 'Vendido', null],
+];
+
+describe('hoja estilo SANTANDER / PUERTA DEL SOL', () => {
+  const filas = leerHoja2(HOJA_SAN as any, 'SANTANDER', 'SAN');
+
+  it('toma PRECIO/VENTA y NO el precio por m² (bug fácil: ambas dicen PRECIO)', () => {
+    expect(filas[0].precio).toBe(317460);
+    expect(filas[1].precio).toBe(260000);
+  });
+
+  it('lee superficie, mensualidad y código', () => {
+    expect(filas[0]).toMatchObject({ codigo: 'H011', m2: 211.64, mensualidad: 4957.66 });
+  });
+
+  it('lee el primer pago con su año', () => {
+    expect(filas[0].primerPagoTexto).toBe('Octubre/25');
+    expect(filas[1].primerPagoTexto).toBe('Diciembre/25');
+  });
+});

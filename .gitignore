@@ -40,3 +40,12 @@ frontend/.env.local
 
 # Documentos internos
 CentralHub*.pdf
+
+# ── Datos de producción y fuentes del equipo ─────────────────────────────────
+# NUNCA a git: dumps de producción y Excels con nombres, teléfonos y saldos de
+# ~1,600 clientes. Meterlos a la historia sería irreversible, y contradice el
+# cifrado de campos sensibles que sí aplicamos en la base (utils/fieldCrypto).
+backups/
+data/
+*.dump
+*.xlsx

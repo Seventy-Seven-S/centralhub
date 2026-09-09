@@ -14,7 +14,10 @@
  */
 import * as XLSX from 'xlsx';
 
-export const ARCHIVO_MAESTRO = 'backups/PRECIO,  SUPERFICIE, MENSUALIDAD.xlsx';
+// Consolidado entregado por las secretarias el 2026-09-09: los 12 proyectos
+// en un solo archivo, con la columna "1er PAGO". Es LA fuente de verdad —
+// decisión del usuario: no se reconcilia contra la BD, se asume.
+export const ARCHIVO_MAESTRO = 'data/consolidado-2026-09-09.xlsx';
 
 /** Nombre de hoja → código de proyecto en la app. */
 export const HOJA_A_PROYECTO: Record<string, string> = {
@@ -28,6 +31,10 @@ export const HOJA_A_PROYECTO: Record<string, string> = {
   'JSA-2': 'JSA2',
   'JSA-3': 'JSA3',
   'JSA-4': 'JSA4',
+  // Añadidas en el consolidado del 2026-09-09: antes SAN y PDS vivían en un
+  // archivo aparte y sus 252 contratos quedaban fuera de toda comparación.
+  'SANTANDER': 'SAN',
+  'PUERTA DEL SOL': 'PDS',
 };
 
 export interface FilaLote {
@@ -43,6 +50,12 @@ export interface FilaLote {
   m2: number | null;
   /** Texto crudo del plazo: puede ser un número de años o "DE CONTADO". */
   plazoTexto: string | null;
+  /** Texto crudo del mes del primer pago: "MAYO" o "Octubre/25". */
+  primerPagoTexto: string | null;
+  /** Año de la fecha de venta (serial de Excel), para completar "MAYO" sin año. */
+  anioVenta: number | null;
+  /** Columna ESTATUS de las hojas estilo SANTANDER ("Vendido"). */
+  estatus: string | null;
   deContado: boolean;
   observaciones: string | null;
 }
@@ -92,8 +105,14 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
   const cPlazo = buscar(s => s.includes('PLAZO'));
   const cMens = buscar(s => s.includes('MENSUALIDAD'));
   const cM2 = buscar(s => s === 'M2' || s.includes('SUPERFICIE'));
-  const cPrecio = buscar(s => s.includes('PRECIO'));
+  // OJO: las hojas de SANTANDER/PDS tienen DOS columnas con "PRECIO":
+  // "PRECIO M2" (precio por metro) y "PRECIO/VENTA" (el del lote). Buscar por
+  // includes('PRECIO') a secas agarraba el precio por metro.
+  const cPrecio = buscar(s => s.includes('PRECIO') && !s.includes('M2') && !s.includes('M²'));
+  const cPrimerPago = buscar(s => s.replace(/[\s.]/g, '').includes('1ERPAGO'));
+  const cEstatus = buscar(s => s.startsWith('ESTATUS'));
   const cObs = buscar(s => s.includes('OBSERVACIONES'));
+  const cFecha = buscar(s => s.includes('FECHA DE VENTA'));
 
   const out: FilaLote[] = [];
   for (const r of rows.slice(h + 1)) {
@@ -112,6 +131,9 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
       precio: cPrecio >= 0 ? aNumero(r[cPrecio]) : null,
       m2: cM2 >= 0 ? aNumero(r[cM2]) : null,
       plazoTexto,
+      primerPagoTexto: cPrimerPago >= 0 && r[cPrimerPago] != null ? String(r[cPrimerPago]).trim() || null : null,
+      anioVenta: cFecha >= 0 ? anioDeSerialExcel(r[cFecha]) : null,
+      estatus: cEstatus >= 0 && r[cEstatus] != null ? String(r[cEstatus]).trim() || null : null,
       deContado: norm(plazoTexto).includes('CONTADO'),
       observaciones: cObs >= 0 && r[cObs] != null ? String(r[cObs]).trim() || null : null,
     });
@@ -183,6 +205,43 @@ export function agruparPorCodigo(filas: FilaLote[]): Map<string, ContratoArchivo
     });
   }
   return out;
+}
+
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+const sinAcentos = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/**
+ * Mes en que el cliente empieza a pagar. Dos formatos conviven en el archivo:
+ *   "MAYO"        → V.ROBLE y las hojas de proyecto; el año sale de la venta
+ *   "Octubre/25"  → SANTANDER y PUERTA DEL SOL; trae el año en dos dígitos
+ *
+ * Devuelve null —nunca una fecha inventada— si no se puede determinar, porque
+ * de este dato depende dónde arranca el calendario de cuotas del cliente.
+ */
+export function parsePrimerPago(texto: any, anioVenta: number | null): { mes: number; anio: number } | null {
+  if (texto === null || texto === undefined) return null;
+  const s = sinAcentos(String(texto).trim().toLowerCase());
+  if (!s || s === '-' || s === '\u2014') return null;
+
+  const [nombreMes, anioTxt] = s.split('/').map(x => x.trim());
+  const idx = MESES_ES.findIndex(m => m === nombreMes);
+  if (idx < 0) return null;
+
+  if (anioTxt) {
+    const n = Number(anioTxt);
+    if (!Number.isFinite(n)) return null;
+    return { mes: idx + 1, anio: n < 100 ? 2000 + n : n };
+  }
+  if (anioVenta === null) return null;
+  return { mes: idx + 1, anio: anioVenta };
+}
+
+/** Serial de fecha de Excel → año. Excel cuenta días desde 1899-12-30. */
+export function anioDeSerialExcel(serial: any): number | null {
+  const n = aNumero(serial);
+  if (n === null || n < 1) return null;
+  return new Date(Date.UTC(1899, 11, 30) + n * 86400000).getUTCFullYear();
 }
 
 /** Redondeo al peso mayor inmediato: 4570.15 → 4571, 4570 → 4570. */
