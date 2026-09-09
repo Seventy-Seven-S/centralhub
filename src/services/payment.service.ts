@@ -3,7 +3,8 @@ import { PrismaClient, PaymentStatus, PaymentType, CuotaStatus, ContractStatus, 
 import { RegistrarPagoDto, UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
 import { aplicarPagoACuotas } from './lib/pagoCuotas';
 import { computeInstallmentSchedule } from './lib/installmentSchedule';
-import { buildCuotaRows, CuotaRow } from './lib/cuotaSchedule';
+import { CuotaRow } from './lib/cuotaSchedule';
+import { generarCalendarioFaltante } from './lib/calendarioFaltante';
 import { nextPaymentNumber } from './lib/paymentNumber';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
@@ -16,44 +17,6 @@ const prisma = new PrismaClient();
 const PRISMA_UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 export class PaymentService {
-  /**
-   * Calendario para un contrato financiado que no tiene cuotas (migraciones
-   * incompletas). Mismo schedule que la creación de contratos. Lanza un error
-   * claro si al contrato le faltan datos para calcularlo.
-   */
-  private generarCalendarioFaltante(contract: {
-    id: string; paymentPlanType: PaymentPlanType; financingAmount: number;
-    installmentCount: number | null; interestRate: number | null; startDate: Date | null;
-    balance: number | null;
-  }): CuotaRow[] {
-    const generable =
-      contract.paymentPlanType === PaymentPlanType.INSTALLMENTS &&
-      contract.financingAmount > 0 &&
-      (contract.installmentCount ?? 0) > 0 &&
-      contract.startDate instanceof Date;
-    if (!generable) {
-      throw new Error(
-        'El contrato no tiene calendario de cuotas y no se puede generar automáticamente: ' +
-        'faltan financiamiento, plazo o fecha de inicio. Corrige el contrato antes de registrar pagos.',
-      );
-    }
-    const schedule = computeInstallmentSchedule(contract.financingAmount, contract.installmentCount!, contract.interestRate ?? 0);
-    const rows = buildCuotaRows({ contractId: contract.id, startDate: contract.startDate!, cuotaAmounts: schedule.cuotaAmounts });
-
-    // Lo ya abonado al financiamiento (según el balance del contrato) se
-    // pre-aplica en cascada, para que el calendario nazca cuadrado con el
-    // balance y el pago nuevo continúe desde la cuota que realmente sigue.
-    const historico = round2(contract.financingAmount - (contract.balance ?? contract.financingAmount));
-    if (historico > 0) {
-      const { updates } = aplicarPagoACuotas(historico, contract.startDate!, rows);
-      for (const u of updates) {
-        const row = rows.find(r => r.id === u.id)!;
-        row.montoPagado = round2(u.montoPagado);
-        row.status = u.status;
-      }
-    }
-    return rows;
-  }
 
   /**
    * Registra un pago de MENSUALIDAD de forma unificada:
@@ -95,7 +58,7 @@ export class PaymentService {
     // de la misma transacción del pago, con el mismo schedule que usa la
     // creación de contratos. Si no hay datos para generarlo, se dice claro —
     // antes esto reventaba con "no tiene cuotas pendientes", que es mentira.
-    const cuotasNuevas = cuotasExistentes.length === 0 ? this.generarCalendarioFaltante(contract) : [];
+    const cuotasNuevas = cuotasExistentes.length === 0 ? generarCalendarioFaltante(contract) : [];
     const cuotas = cuotasExistentes.length > 0 ? cuotasExistentes : cuotasNuevas;
 
     const hayPendientes = cuotas.some(c => c.status !== CuotaStatus.PAGADA);
@@ -176,6 +139,8 @@ export class PaymentService {
             notes: data.notes,
             status: PaymentStatus.CONFIRMED,
             balanceAfter: newBalance,
+            // Quién cobró — base de la atribución del corte diario.
+            createdBy: data.userId ?? null,
           },
         });
         for (const u of updates) {

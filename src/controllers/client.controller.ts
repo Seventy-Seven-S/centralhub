@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
+import { formatearGlobalCode } from '../utils/clientCode';
 
 const SENSITIVE = [...CLIENT_SENSITIVE_FIELDS];
 
@@ -56,31 +57,40 @@ export const getClientById = asyncHandler(async (req: Request, res: Response) =>
   });
 });
 
+/**
+ * Máximo consecutivo entre los globalCode que SÍ tienen número. Los que traen
+ * prefijo de proyecto (CLI-MON2-K117) y la basura (CLI-000NaN) quedan fuera
+ * por el filtro del regex, que es justo lo que hacía explotar al generador
+ * anterior. Se resuelve en Postgres para no traerse 1,600 clientes a memoria.
+ */
+async function maxConsecutivoCliente(): Promise<number> {
+  const filas = await prisma.$queryRaw<Array<{ max: number | null }>>`
+    SELECT max(CAST(substring("globalCode" from 5) AS int)) AS max
+    FROM clients
+    WHERE "globalCode" ~ '^CLI-[0-9]+$'
+  `;
+  return filas[0]?.max ?? 0;
+}
+
 export const createClient = asyncHandler(async (req: Request, res: Response) => {
   const { firstName, lastName, email, phone, projectId, projectCode } = req.body;
 
-  const lastClient = await prisma.client.findFirst({
-    orderBy: { createdAt: 'desc' },
-  });
-
-  let nextNumber = 1;
-  if (lastClient) {
-    const lastNumber = parseInt(lastClient.globalCode.split('-')[1]);
-    nextNumber = lastNumber + 1;
+  // Reintento por si dos altas simultáneas calculan el mismo consecutivo:
+  // el índice único es el árbitro, y el segundo vuelve a pedir el máximo.
+  let client;
+  for (let intento = 0; ; intento++) {
+    const globalCode = formatearGlobalCode((await maxConsecutivoCliente()) + 1);
+    try {
+      client = await prisma.client.create({
+        data: { globalCode, firstName, lastName, email, phone, status: 'LEAD' },
+      });
+      break;
+    } catch (err: any) {
+      const esChoqueDeCodigo =
+        err?.code === 'P2002' && (err?.meta?.target as string[] | undefined)?.includes('globalCode');
+      if (!esChoqueDeCodigo || intento >= 4) throw err;
+    }
   }
-
-  const globalCode = `CLI-${String(nextNumber).padStart(6, '0')}`;
-
-  const client = await prisma.client.create({
-    data: {
-      globalCode,
-      firstName,
-      lastName,
-      email,
-      phone,
-      status: 'LEAD',
-    },
-  });
 
   if (projectId) {
     await prisma.clientProject.create({

@@ -17,6 +17,7 @@ import DistribucionPlazo  from '@/components/dashboard/DistribucionPlazo';
 import LotesDisponibles   from '@/components/dashboard/LotesDisponibles';
 import { formatCurrency } from '@/lib/utils';
 import { buildDashboardKpis } from '@/lib/dashboardKpis';
+import DashboardOperativo from '@/components/dashboard/DashboardOperativo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'ingresos' | 'lotes' | 'cuotas' | 'mora' | 'plazos';
@@ -329,10 +330,12 @@ function MoraTable({ mora, loading }: { mora: any[] | undefined; loading: boolea
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('ingresos');
-  const { canAccessDashboard }    = useRole();
+  const { canAccessDashboard, isAdmin } = useRole();
   const { selectedProjectId, selectedProject } = useProjectSelection();
-  const { data, isLoading, isError, error } = useDashboardSummary(selectedProjectId ?? undefined);
-  const { data: mora, isLoading: moraLoading } = useMoraDetail(selectedProjectId ?? undefined, activeTab === 'mora');
+  // Solo ADMIN pide el resumen del negocio: /dashboard/summary ahora responde
+  // 403 a MANAGER, así que ni siquiera se dispara la consulta.
+  const { data, isLoading, isError, error } = useDashboardSummary(selectedProjectId ?? undefined, isAdmin);
+  const { data: mora, isLoading: moraLoading } = useMoraDetail(selectedProjectId ?? undefined, isAdmin && activeTab === 'mora');
 
   if (!canAccessDashboard) {
     return (
@@ -346,6 +349,9 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // Las secretarias ven su tablero de trabajo, no los totales del negocio.
+  if (!isAdmin) return <DashboardOperativo />;
 
   if (isLoading) return <DashboardSkeleton />;
 
