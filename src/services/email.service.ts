@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { logger } from '../utils/logger';
 import { EmailSendError } from '../utils/errors';
-import { PIE_EMPRESA } from '../utils/empresa';
+import { NOMBRE_EMPRESA, DIRECCION_EMPRESA, TELEFONOS_EMPRESA } from '../utils/empresa';
 
 // Fail-fast en producción: sin RESEND_API_KEY no hay 2FA de staff ni emails
 // de bienvenida — mejor que el server no arranque a que arranque "sano" y
@@ -22,6 +22,21 @@ function getResend(): Resend {
   }
   if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
   return _resend;
+}
+
+/**
+ * Pie de todos los correos. Apilado y centrado a propósito: la versión de dos
+ * columnas partía el domicilio en dos renglones y encimaba el "© CentralHub"
+ * contra el teléfono. Además los layouts de dos columnas son frágiles en
+ * Outlook, que ignora buena parte del CSS.
+ */
+function pieHtml(): string {
+  return `<td style="background:#0D2818;padding:26px 32px;text-align:center;">
+      <p style="margin:0 0 6px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">${NOMBRE_EMPRESA}</p>
+      <p style="margin:0 0 3px;color:#A8C5B0;font-size:12px;line-height:1.6;">${DIRECCION_EMPRESA}</p>
+      <p style="margin:0 0 12px;color:#A8C5B0;font-size:12px;">Tel: ${TELEFONOS_EMPRESA}</p>
+      <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
+    </td>`;
 }
 
 export async function sendVerificationCode(email: string, firstName: string, code: string) {
@@ -266,19 +281,7 @@ export async function sendWelcomeEmail(
 
   <!-- FOOTER -->
   <tr>
-    <td style="background:#0D2818;padding:28px 48px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td>
-            <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
-            <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
-          </td>
-          <td align="right" valign="middle">
-            <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
-          </td>
-        </tr>
-      </table>
-    </td>
+    ${pieHtml()}
   </tr>
 
 </table>
@@ -462,19 +465,7 @@ export async function sendStaffWelcomeEmail(
 
   <!-- FOOTER -->
   <tr>
-    <td style="background:#0D2818;padding:28px 48px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td>
-            <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
-            <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
-          </td>
-          <td align="right" valign="middle">
-            <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
-          </td>
-        </tr>
-      </table>
-    </td>
+    ${pieHtml()}
   </tr>
 
 </table>
@@ -601,17 +592,7 @@ export async function sendReciboEmail(email: string | null | undefined, r: Datos
   </tr>
 
   <tr>
-    <td style="background:#0D2818;padding:28px 48px;">
-      <table width="100%" cellpadding="0" cellspacing="0"><tr>
-        <td>
-          <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
-          <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
-        </td>
-        <td align="right" valign="middle">
-          <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
-        </td>
-      </tr></table>
-    </td>
+    ${pieHtml()}
   </tr>
 
 </table>
