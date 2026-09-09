@@ -28,6 +28,9 @@ export interface RegistrarPagoDto {
   // base de la atribución del corte diario (quién entrega el efectivo).
   // Opcional porque los pagos migrados y los de scripts no tienen usuario.
   userId?: string;
+  // Correo al que mandar el recibo, capturado o confirmado por la secretaria
+  // en el modal de cobro. Si no viene, se usa el del expediente del cliente.
+  emailCliente?: string;
 }
 
 // DTO para actualizar pago

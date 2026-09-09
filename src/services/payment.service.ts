@@ -10,6 +10,7 @@ import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import { round2 } from '../utils/money';
 import { crearReciboLog } from './reciboLog.service';
+import { sendReciboEmail } from './email.service';
 import { buildReciboFolio } from '../utils/reciboFolio';
 
 const prisma = new PrismaClient();
@@ -234,6 +235,29 @@ export class PaymentService {
       concepto:       concept,
       balanceDespues: created.balanceAfter ?? 0,
     });
+
+    // El comprobante al correo del cliente. Va DESPUÉS del pago y sin await:
+    // el cobro ya está hecho y confirmado, así que un fallo de Resend no puede
+    // tumbarlo ni hacer esperar a la secretaria con el cliente enfrente.
+    // El correo puede venir en el pago (la secretaria lo capturó o corrigió en
+    // el modal) o del expediente del cliente.
+    if (reciboId) {
+      const destino = data.emailCliente?.trim() || contract.client.email;
+      sendReciboEmail(destino, {
+        reciboId,
+        folio:          buildReciboFolio(contract.codigoLegado ?? contract.contractNumber, primera?.numeroCuota ?? 0, contract.installmentCount ?? 0),
+        clienteNombre:  `${contract.client.firstName} ${contract.client.lastName}`,
+        proyecto:       contract.project.name,
+        loteLabel:      lote ? `M${lote.manzana} L-${lote.lotNumber}` : null,
+        numeroCuota:    primera?.numeroCuota ?? 0,
+        plazoTotal:     contract.installmentCount ?? 0,
+        mes:            primera?.mes ?? '',
+        montoPagado:    montoAplicado,
+        fechaPago,
+        concepto:       concept,
+        balanceDespues: created.balanceAfter ?? 0,
+      }).catch(err => logger.error(`Error enviando recibo por correo: ${err.message}`));
+    }
 
     const payment = await this.getPaymentById(created.id);
     return { payment, cuotasAfectadas, reciboId };

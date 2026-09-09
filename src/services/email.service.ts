@@ -491,3 +491,139 @@ export async function sendStaffWelcomeEmail(
     logger.error(`Fallo al enviar email de bienvenida a usuario interno ${email} (rol ${role}): ${error.message} (${error.name})`);
   }
 }
+
+// ── Recibo de pago al cliente ────────────────────────────────────────────────
+// Se manda al confirmar un cobro. NO lleva el PDF adjunto: ese se renderiza en
+// el navegador (components/pdf/ReciboContrato.tsx) y el backend no sabe
+// dibujarlo. En su lugar lleva los mismos datos y el enlace público de
+// validación, que es lo que hace verificable al recibo.
+
+export interface DatosRecibo {
+  folio: string;
+  clienteNombre: string;
+  proyecto: string;
+  loteLabel: string | null;
+  numeroCuota: number;
+  plazoTotal: number;
+  mes: string;
+  montoPagado: number;
+  fechaPago: Date;
+  concepto: string;
+  balanceDespues: number;
+  reciboId: string;
+}
+
+const pesos = (n: number) =>
+  `$${Math.abs(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export async function sendReciboEmail(email: string | null | undefined, r: DatosRecibo): Promise<void> {
+  // Muchos clientes migrados no tienen correo. No es un error: simplemente no
+  // hay a dónde mandarlo, y el cobro ya quedó registrado.
+  if (!email?.trim()) return;
+
+  const validacionUrl = `${appUrl()}/validar/${r.reciboId}`;
+  const fecha = r.fechaPago.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const liquidado = r.balanceDespues <= 0.005;
+
+  const fila = (etiqueta: string, valor: string, fuerte = false) => `
+        <tr>
+          <td style="padding:12px 20px;border-bottom:1px solid #E5EDE5;">
+            <span style="color:#6B7C74;font-size:13px;">${etiqueta}</span>
+            <span style="float:right;color:#0D2818;font-size:14px;font-weight:${fuerte ? 800 : 600};">${valor}</span>
+          </td>
+        </tr>`;
+
+  const { error } = await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email.trim(),
+    subject: `Recibo de pago ${r.folio} — Central Inmobiliaria`,
+    html: `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F0EDE8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;padding:48px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+  <tr>
+    <td style="background:linear-gradient(135deg,#0D2818 0%,#1A3A2A 60%,#2D5A3D 100%);padding:40px 48px 36px;">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td>
+          <p style="margin:0 0 4px;color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:600;">Comprobante de pago</p>
+          <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">CentralHub</h1>
+          <p style="margin:6px 0 0;color:#A8C5B0;font-size:13px;">Central Inmobiliaria</p>
+        </td>
+        <td align="right" valign="top">
+          <div style="display:inline-block;background:rgba(201,151,44,0.15);border:1.5px solid #C9972C;border-radius:8px;padding:8px 16px;">
+            <p style="margin:0;color:#C9972C;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Folio</p>
+            <p style="margin:2px 0 0;color:#E8B84B;font-size:15px;font-weight:800;letter-spacing:0.03em;">${r.folio}</p>
+          </div>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background:#F7F9F7;padding:36px 48px 28px;border-bottom:1px solid #E8EDE8;">
+      <p style="margin:0 0 6px;color:#2D6A4F;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">Pago recibido</p>
+      <h2 style="margin:0 0 10px;color:#0D2818;font-size:36px;font-weight:800;line-height:1.1;letter-spacing:-0.5px;">${pesos(r.montoPagado)}</h2>
+      <p style="margin:0;color:#6B7C74;font-size:15px;">${r.clienteNombre} · ${fecha}</p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:32px 48px;">
+      <p style="margin:0 0 16px;color:#0D2818;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Detalle</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5EDE5;border-radius:10px;overflow:hidden;">
+        ${fila('Concepto', r.concepto)}
+        ${fila('Mensualidad', `${r.numeroCuota} de ${r.plazoTotal}`)}
+        ${fila('Periodo', r.mes)}
+        ${fila('Proyecto', r.proyecto)}
+        ${r.loteLabel ? fila('Lote', r.loteLabel) : ''}
+        <tr>
+          <td style="padding:16px 20px;background:${liquidado ? '#F0F5F0' : '#1A3A2A'};">
+            <span style="color:${liquidado ? '#2D6A4F' : '#A8C5B0'};font-size:13px;font-weight:600;">${liquidado ? 'Estado' : 'Saldo restante'}</span>
+            <span style="float:right;color:${liquidado ? '#1A3A2A' : '#ffffff'};font-size:${liquidado ? 16 : 20}px;font-weight:800;">${liquidado ? '¡Contrato liquidado!' : pesos(r.balanceDespues)}</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:0 48px 36px;text-align:center;">
+      <p style="margin:0 0 16px;color:#6B7C74;font-size:13px;line-height:1.6;">
+        Puedes verificar que este recibo es auténtico en cualquier momento:
+      </p>
+      <a href="${validacionUrl}" style="display:inline-block;background:linear-gradient(135deg,#1A3A2A,#2D6A4F);color:#ffffff;padding:14px 36px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 12px rgba(26,58,42,0.3);">Validar mi recibo →</a>
+      <p style="margin:14px 0 0;color:#9CA3AF;font-size:11px;word-break:break-all;">${validacionUrl}</p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background:#0D2818;padding:28px 48px;">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td>
+          <p style="margin:0 0 2px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:-0.2px;">Central Inmobiliaria</p>
+          <p style="margin:0;color:#A8C5B0;font-size:12px;">${PIE_EMPRESA}</p>
+        </td>
+        <td align="right" valign="middle">
+          <p style="margin:0;color:#4A7A5A;font-size:11px;">© ${new Date().getFullYear()} CentralHub</p>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+
+  // El pago ya está registrado: un fallo de correo no puede tumbarlo. Se
+  // loguea con el folio para poder reenviarlo a mano si alguien reclama.
+  if (error) {
+    logger.error(`Fallo al enviar recibo ${r.folio} a ${email}: ${error.message} (${error.name})`);
+  }
+}
