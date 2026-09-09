@@ -35,6 +35,10 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
   // selección (antes quedaba en Transferencia por ser el primero de la lista).
   const [metodo, setMetodo]     = useState('CASH');
   const [concepto, setConcepto] = useState('');
+  // Correo al que se manda el recibo. Se precarga con el del expediente para
+  // que la secretaria lo confirme en voz alta con el cliente y lo corrija ahí
+  // mismo si cambió — así la base se va limpiando sola en cada cobro.
+  const [emailCliente, setEmailCliente] = useState('');
   const [error, setError]       = useState('');
 
   // Una sola idempotencyKey por intento de pago — se genera al elegir el
@@ -59,6 +63,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
 
   function elegir(c: ContratoDetalle) {
     setContrato(c);
+    setEmailCliente(c.client.email ?? '');
     setMonto(c.installmentAmount ?? 0);
     setConcepto('');
     idempotencyKeyRef.current = crypto.randomUUID();
@@ -103,6 +108,7 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
         paymentMethod: metodo,
         concept: concepto.trim() || undefined,
         idempotencyKey: idempotencyKeyRef.current,
+        emailCliente: emailCliente.trim() || undefined,
       });
       const cuotasAfectadas: number[] = data?.data?.cuotasAfectadas ?? [];
       const reciboId: string | null = data?.data?.reciboId ?? null;
@@ -233,6 +239,25 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                  Correo del cliente{' '}
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    {contrato.client.email ? '(confírmalo con el cliente)' : '(opcional — para enviarle su recibo)'}
+                  </span>
+                </label>
+                <input type="email" value={emailCliente} disabled={busy}
+                       onChange={e => setEmailCliente(e.target.value)}
+                       placeholder="sin correo registrado"
+                       className="w-full px-3 py-2.5 text-sm rounded-xl outline-none"
+                       style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  {emailCliente.trim()
+                    ? 'Se le enviará el recibo a este correo.'
+                    : 'Sin correo no se envía recibo, pero el cobro se registra igual.'}
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                   Concepto <span style={{ color: 'var(--text-tertiary)' }}>(opcional, aparece en el recibo)</span>
