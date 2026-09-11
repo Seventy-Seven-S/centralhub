@@ -1,6 +1,7 @@
 // src/controllers/dashboard.controller.ts
 import { Request, Response } from 'express';
 import dashboardService from '../services/dashboard.service';
+import dineroRetenidoService from '../services/dineroRetenido.service';
 
 export class DashboardController {
 
@@ -21,6 +22,15 @@ export class DashboardController {
       const projectId = req.query.projectId as string | undefined;
       const data = await dashboardService.getOperativo(req.user?.userId, projectId);
       res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  // GET /api/v1/dashboard/dinero-retenido  (solo ADMIN)
+  async getDineroRetenido(_req: Request, res: Response) {
+    try {
+      res.json({ success: true, data: await dineroRetenidoService.resumen() });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
     }
