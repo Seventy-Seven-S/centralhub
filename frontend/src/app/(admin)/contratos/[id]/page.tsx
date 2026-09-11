@@ -7,6 +7,7 @@ import {
   ArrowLeft, AlertCircle, FileText, DollarSign,
   Calendar, CheckCircle2, Clock, XCircle, FileDown,
   Upload, ExternalLink, CreditCard, ChevronDown, ChevronUp,
+  ArrowRightLeft,
 } from 'lucide-react';
 import {
   useContratoById, useCuotasByContrato, usePagosByContrato,
@@ -14,6 +15,7 @@ import {
 } from '@/hooks/useContratos';
 import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
 import { RescindirContratoModal } from '@/components/contratos/RescindirContratoModal';
+import { TraspasarContratoModal } from '@/components/contratos/TraspasarContratoModal';
 import { puedeRescindir } from '@/lib/rescision';
 import api from '@/lib/api';
 import { formatCurrency, formatDate, formatLotsLabel } from '@/lib/utils';
@@ -101,6 +103,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const [activating, setActivating] = useState(false);
   const [openingSigned, setOpeningSigned] = useState(false);
   const [rescindiendo, setRescindiendo] = useState(false);
+  const [traspasando, setTraspasando]   = useState(false);
   const [openingRescision, setOpeningRescision] = useState(false);
 
   const [reimprimiendo, setReimprimiendo] = useState<string | null>(null);
@@ -255,6 +258,26 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         />
       )}
 
+      {traspasando && contrato && (
+        <TraspasarContratoModal
+          contratoId={id}
+          etiqueta={contrato.codigoLegado ?? contrato.contractNumber}
+          clienteActual={`${contrato.client.firstName} ${contrato.client.lastName}`}
+          projectIdActual={contrato.project.id}
+          lotIdsActuales={(contrato.lots ?? []).map((l: any) => l.lot.id)}
+          // Lo abonado sale de sus pagos confirmados, no del balance: el
+          // balance puede venir arrastrado, los pagos son hechos.
+          abonado={pagos.filter((p: any) => p.status === 'CONFIRMED').reduce((s: number, p: any) => s + p.amount, 0)}
+          onClose={() => setTraspasando(false)}
+          onDone={async () => {
+            setTraspasando(false);
+            await queryClient.invalidateQueries({ queryKey: ['contratos'] });
+            await queryClient.invalidateQueries({ queryKey: ['cuotas', id] });
+            await queryClient.invalidateQueries({ queryKey: ['lotes'] });
+          }}
+        />
+      )}
+
       <div className="space-y-5">
 
         {/* SECCIÓN 1 — Header */}
@@ -314,6 +337,18 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             >
               <XCircle size={16} />
               Rescindir contrato
+            </button>
+          )}
+
+          {/* Traspasar — mismas condiciones que rescindir: solo vigentes */}
+          {puedeRescindir(contrato.status) && (
+            <button
+              onClick={() => setTraspasando(true)}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}
+            >
+              <ArrowRightLeft size={16} />
+              Traspasar
             </button>
           )}
 
