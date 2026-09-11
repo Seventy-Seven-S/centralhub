@@ -44,6 +44,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       // "Liquidaciones" era "Cortes": con el corte diario encima, dos cosas
       // distintas se llamaban igual. Ésta es la entrega al dueño del terreno.
       { label: 'Liquidaciones',   href: '/cortes',         icon: FileText,   roles: ['ADMIN'] },
+      { label: 'Dinero retenido', href: '/dinero-retenido', icon: DollarSign, roles: ['ADMIN'] },
       { label: 'Gastos',     href: '/gastos',     icon: Receipt,     roles: ['ADMIN', 'MANAGER'] },
       { label: 'Comisiones', href: '/comisiones', icon: DollarSign, roles: ['ADMIN', 'AGENT'] },
     ],

@@ -6,7 +6,7 @@ const hrefs = (rol: string | null) => navParaRol(rol).flatMap(g => g.items.map(i
 describe('navParaRol — qué ve cada rol en el menú', () => {
   it('ADMIN ve todo', () => {
     const h = hrefs('ADMIN');
-    for (const r of ['/dashboard', '/ingresos', '/cortes', '/gastos', '/comisiones', '/usuarios']) {
+    for (const r of ['/dashboard', '/ingresos', '/cortes', '/gastos', '/comisiones', '/usuarios', '/dinero-retenido']) {
       expect(h).toContain(r);
     }
   });
@@ -19,6 +19,8 @@ describe('navParaRol — qué ve cada rol en el menú', () => {
     expect(h).not.toContain('/cortes-diarios');  // los cortes de TODAS
     expect(h).not.toContain('/comisiones');
     expect(h).not.toContain('/usuarios');
+    // El dinero retenido es información del negocio, no operativa.
+    expect(h).not.toContain('/dinero-retenido');
   });
 
   it('quien cobra ve "Mi corte"; el ADMIN ve la bandeja de cortes diarios', () => {
