@@ -10,6 +10,9 @@ const cobra = authorize('ADMIN', 'MANAGER', 'AGENT');
 
 // "mi-dia" antes que "/:id" para que no lo capture la ruta con parámetro.
 router.get('/mi-dia', cobra, corteDiarioController.miDia);
+// El total del día es información del negocio: solo ADMIN. Va antes de "/:id"
+// para que la ruta con parámetro no se lo trague.
+router.get('/resumen-diario', authorize('ADMIN'), corteDiarioController.resumenDiario);
 router.get('/',       cobra, corteDiarioController.listar);   // MANAGER ve solo los suyos
 router.post('/',      cobra, corteDiarioController.cerrar);
 router.get('/:id',    cobra, corteDiarioController.obtener);

@@ -13,7 +13,8 @@
 import { PrismaClient, PaymentStatus, CorteDiarioStatus, UserRole } from '@prisma/client';
 import { resumirDia, validarCierre, calcularRecepcion, PagoDelDia } from './lib/corteDiario';
 import { round2 } from '../utils/money';
-import { rangoDelDiaOperativo as rangoDelDia } from './lib/diaOperativo';
+import { rangoDelDiaOperativo as rangoDelDia, fechaOperativa } from './lib/diaOperativo';
+import { construirResumenDiario, CorteDelDia } from './lib/resumenDiarioCortes';
 
 const prisma = new PrismaClient();
 
@@ -128,6 +129,56 @@ export const corteDiarioService = {
         notaAdmin: input.notaAdmin?.trim() || null,
       },
     });
+  },
+
+  /**
+   * Resumen del día: cuánto sumaron todos los cortes. Incluye cuántas personas
+   * cobraron y aún no cierran — sin ese dato, un total parcial se lee como
+   * final. Ver lib/resumenDiarioCortes.ts.
+   */
+  async resumenDiario(fecha?: Date) {
+    const dia = fecha ?? new Date();
+    const { desde, hasta, fecha: fechaStr } = rangoDelDia(dia);
+
+    const [cortes, cobradores] = await Promise.all([
+      prisma.corteDiario.findMany({
+        where: { fecha: desde },
+        include: {
+          cobrador: { select: { firstName: true, lastName: true } },
+          _count: { select: { payments: true } },
+        },
+        orderBy: { numero: 'asc' },
+      }),
+      // Quién registró cobros ese día, haya cerrado o no.
+      prisma.payment.findMany({
+        where: {
+          status: PaymentStatus.CONFIRMED,
+          createdBy: { not: null },
+          paymentDate: { gte: desde, lte: hasta },
+        },
+        select: { createdBy: true },
+        distinct: ['createdBy'],
+      }),
+    ]);
+
+    const filas: CorteDelDia[] = cortes.map(c => ({
+      numero: c.numero,
+      cobradorId: c.cobradorId,
+      cobrador: `${c.cobrador.firstName} ${c.cobrador.lastName}`,
+      totalEfectivo: c.totalEfectivo,
+      totalOtros: c.totalOtros,
+      declarado: c.declarado,
+      recibido: c.recibido,
+      diferencia: c.diferencia,
+      status: c.status as 'PENDIENTE_ENTREGA' | 'RECIBIDO',
+      pagos: c._count.payments,
+    }));
+
+    return construirResumenDiario(
+      fechaStr,
+      filas,
+      cobradores.map(p => p.createdBy!).filter(Boolean),
+    );
   },
 
   /** ADMIN ve todos; cualquier otro rol ve solo los suyos. */

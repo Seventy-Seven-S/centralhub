@@ -96,3 +96,33 @@ export function useRecibirCorte() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['corte-diario'] }),
   });
 }
+
+// ── Resumen del día ─────────────────────────────────────────────────────────
+export interface ResumenDiario {
+  fecha: string;
+  cerrados: number;
+  faltanPorCerrar: number;
+  pendientesDeEntrega: number;
+  completo: boolean;
+  totalEfectivo: number;
+  totalOtros: number;
+  totalDeclarado: number;
+  totalRecibido: number;
+  totalDiferencia: number;
+  cortesConDiferencia: number;
+  cortes: Array<{
+    numero: number; cobrador: string; declarado: number;
+    recibido: number | null; diferencia: number | null;
+    status: 'PENDIENTE_ENTREGA' | 'RECIBIDO'; pagos: number;
+  }>;
+}
+
+export function useResumenDiario(fecha?: string, enabled = true) {
+  return useQuery<ResumenDiario>({
+    queryKey: ['corte-diario', 'resumen', fecha ?? 'hoy'],
+    queryFn: async () => (await api.get('/cortes-diarios/resumen-diario', { params: { fecha } })).data.data,
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}

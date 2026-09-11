@@ -38,6 +38,15 @@ export class CorteDiarioController {
     } catch (e: any) { res.status(400).json({ success: false, message: e.message }); }
   }
 
+  // GET /cortes-diarios/resumen-diario?fecha=YYYY-MM-DD  (solo ADMIN)
+  async resumenDiario(req: Request, res: Response) {
+    try {
+      const f = req.query.fecha as string | undefined;
+      const data = await corteDiarioService.resumenDiario(f ? new Date(`${f}T12:00:00Z`) : undefined);
+      res.json({ success: true, data });
+    } catch (e: any) { res.status(400).json({ success: false, message: e.message }); }
+  }
+
   // GET /cortes-diarios?status=
   async listar(req: Request, res: Response) {
     try {
