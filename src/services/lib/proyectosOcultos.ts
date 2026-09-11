@@ -15,9 +15,12 @@
  * ocultos. Cuando alguien elige un proyecto a propósito, se respeta — ocultar
  * no es prohibir el acceso, es sacarlo de los agregados y de los selectores.
  */
-import { ProjectStatus } from '@prisma/client';
-
-export const PROYECTO_OCULTO = ProjectStatus.HIDDEN;
+// Literal en vez de importar el enum de @prisma/client: este módulo es lógica
+// pura y no debe arrastrar el cliente generado. Importarlo obligaba a que TODO
+// test que mockea @prisma/client exportara ProjectStatus, y rompió siete
+// archivos de test que ni siquiera hablan de proyectos ocultos.
+// Prisma acepta el literal igual que el miembro del enum.
+export const PROYECTO_OCULTO = 'HIDDEN' as const;
 
 export interface OpcionesVisibilidad {
   /** Un administrador puede pedir explícitamente ver también los ocultos. */
