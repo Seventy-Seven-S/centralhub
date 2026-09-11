@@ -16,6 +16,10 @@ router.get('/summary', authorize('ADMIN'), dashboardController.getSummary.bind(d
 // negocio. Es lo que ve un MANAGER.
 router.get('/operativo', authorize('ADMIN', 'MANAGER'), dashboardController.getOperativo.bind(dashboardController));
 
+// Dinero que ya no respalda ninguna obligación con un cliente. Información del
+// negocio, no operativa: solo ADMIN.
+router.get('/dinero-retenido', authorize('ADMIN'), dashboardController.getDineroRetenido.bind(dashboardController));
+
 // Detalle de cuotas vencidas sin pagar — operativo, lo necesitan para cobrar.
 router.get('/mora', authorize('ADMIN', 'MANAGER'), dashboardController.getMoraDetail.bind(dashboardController));
 
