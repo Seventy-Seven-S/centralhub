@@ -118,6 +118,11 @@ enum ProjectStatus {
   ACTIVE
   COMPLETED
   SUSPENDED
+  // Retirado de la operación sin borrarlo: no aparece en selectores ni
+  // listados, y sobre todo NO suma en ningún total de dinero. Los datos
+  // quedan intactos y se revierte con un cambio de estatus.
+  // Ver services/lib/proyectosOcultos.ts.
+  HIDDEN
 }
 
 enum CommissionConfigType {

@@ -1,9 +1,15 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
+import { whereProyectoVisible } from '../services/lib/proyectosOcultos';
 
 export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
+  // Los proyectos ocultos no salen en el selector ni en el listado. Un ADMIN
+  // puede pedirlos con ?incluirOcultos=true — ocultar no es prohibir el
+  // acceso, es sacarlos de la operación diaria y de los totales.
+  const incluirOcultos = req.query.incluirOcultos === 'true' && req.user?.role === 'ADMIN';
   const projects = await prisma.project.findMany({
+    where: whereProyectoVisible(undefined, { incluirOcultos }),
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { contracts: true } },

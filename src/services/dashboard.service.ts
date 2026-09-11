@@ -2,14 +2,17 @@
 import { PrismaClient, CuotaStatus, LotStatus } from '@prisma/client';
 import { construirDashboardOperativo } from './lib/dashboardOperativo';
 import { rangoDelDiaOperativo } from './lib/diaOperativo';
+import { whereContratoVisible, whereLoteVisible, wherePagoVisible, whereGastoVisible } from './lib/proyectosOcultos';
 
 const prisma = new PrismaClient();
 
 export class DashboardService {
 
   async getSummary(projectId?: string) {
-    const contractWhere: any = projectId ? { projectId } : {};
-    const lotWhere: any      = projectId ? { projectId } : {};
+    // Sin proyecto elegido esto decía "todos" y ahí se colaban los proyectos
+    // ocultos. Ver services/lib/proyectosOcultos.ts.
+    const contractWhere: any = whereContratoVisible(projectId);
+    const lotWhere: any      = whereLoteVisible(projectId);
 
     // ── Contratos ────────────────────────────────────────────────
     const [totalContratos, contratosEnMora] = await Promise.all([
@@ -19,10 +22,7 @@ export class DashboardService {
 
     // ── Ingresos (pagos confirmados) ─────────────────────────────
     const pagos = await prisma.payment.aggregate({
-      where: {
-        status: 'CONFIRMED',
-        ...(projectId ? { contract: { projectId } } : {}),
-      },
+      where: { status: 'CONFIRMED', ...wherePagoVisible(projectId) },
       _sum: { amount: true },
       _count: true,
     });
@@ -35,7 +35,7 @@ export class DashboardService {
       where: {
         status: CuotaStatus.PENDIENTE,
         fechaVencimiento: { lt: hoy },
-        ...(projectId ? { contract: { projectId } } : {}),
+        ...wherePagoVisible(projectId),
       },
     });
 
@@ -62,7 +62,7 @@ export class DashboardService {
     // ── Cuotas por status ────────────────────────────────────────
     const rawCuotas = await prisma.cuota.groupBy({
       by: ['status'],
-      where: projectId ? { contract: { projectId } } : {},
+      where: wherePagoVisible(projectId),
       _count: { id: true },
     });
     const cuotasPorStatus = Object.fromEntries(
@@ -74,13 +74,13 @@ export class DashboardService {
       prisma.payment.findMany({
         where: {
           status: 'CONFIRMED',
-          ...(projectId ? { contract: { projectId } } : {}),
+          ...wherePagoVisible(projectId),
         },
         select: { paymentDate: true, amount: true },
         orderBy: { paymentDate: 'asc' },
       }),
       prisma.expense.aggregate({
-        where: projectId ? { projectId } : {},
+        where: whereGastoVisible(projectId),
         _sum: { amount: true },
       }),
     ]);
@@ -132,7 +132,7 @@ export class DashboardService {
    * `userId` acota los cobros a los que registró esa persona.
    */
   async getOperativo(userId: string | undefined, projectId?: string) {
-    const contractWhere: any = projectId ? { projectId } : {};
+    const contractWhere: any = whereContratoVisible(projectId);
 
     // Mismo día operativo que el corte diario: si el dashboard y el corte no
     // coinciden, "Cobrado por mí hoy" no cuadra con lo que va a entregar.
@@ -150,7 +150,7 @@ export class DashboardService {
                 createdBy: userId,
                 status: 'CONFIRMED',
                 paymentDate: { gte: inicioHoy, lte: finHoy },
-                ...(projectId ? { contract: { projectId } } : {}),
+                ...wherePagoVisible(projectId),
               },
               _sum: { amount: true },
               _count: true,
@@ -158,18 +158,18 @@ export class DashboardService {
           : Promise.resolve({ _sum: { amount: 0 }, _count: 0 } as any),
         prisma.cuota.count({
           where: { status: CuotaStatus.PENDIENTE, fechaVencimiento: { lt: ahora },
-                   ...(projectId ? { contract: { projectId } } : {}) },
+                   ...wherePagoVisible(projectId) },
         }),
         prisma.cuota.count({
           where: { status: CuotaStatus.PENDIENTE, fechaVencimiento: { gte: ahora, lte: enUnaSemana },
-                   ...(projectId ? { contract: { projectId } } : {}) },
+                   ...wherePagoVisible(projectId) },
         }),
         prisma.lot.count({
           where: { status: LotStatus.RESERVED, reservationExpiry: { gte: ahora, lte: enUnaSemana },
-                   ...(projectId ? { projectId } : {}) },
+                   ...whereLoteVisible(projectId) },
         }),
         prisma.contract.count({ where: { ...contractWhere, status: { in: ['ACTIVE', 'IN_MORA'] } } }),
-        prisma.lot.count({ where: { status: LotStatus.AVAILABLE, ...(projectId ? { projectId } : {}) } }),
+        prisma.lot.count({ where: { status: LotStatus.AVAILABLE, ...whereLoteVisible(projectId) } }),
       ]);
 
     return construirDashboardOperativo({
@@ -188,7 +188,7 @@ export class DashboardService {
       where: {
         status: CuotaStatus.PENDIENTE,
         fechaVencimiento: { lt: hoy },
-        ...(projectId ? { contract: { projectId } } : {}),
+        ...wherePagoVisible(projectId),
       },
       include: {
         contract: {

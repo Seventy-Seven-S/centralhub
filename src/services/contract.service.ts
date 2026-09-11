@@ -13,6 +13,7 @@ import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
 import { round2 } from '../utils/money';
+import { whereContratoVisible } from './lib/proyectosOcultos';
 
 const prisma = new PrismaClient();
 
@@ -424,6 +425,10 @@ export class ContractService {
       if (filters.startDateFrom) where.startDate.gte = filters.startDateFrom;
       if (filters.startDateTo) where.startDate.lte = filters.startDateTo;
     }
+
+    // Mismo criterio que en lotes y pagos: sin proyecto elegido se excluyen
+    // los proyectos ocultos.
+    if (!filters.projectId) Object.assign(where, whereContratoVisible());
 
     const contracts = await prisma.contract.findMany({
       where,

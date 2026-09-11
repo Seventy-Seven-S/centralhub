@@ -5,6 +5,7 @@ import { getFileStorage } from './storage';
 import { buildIneKey, isIneRequired, validateIneUpload, IneFileInput } from './ineDocument';
 import { logger } from '../utils/logger';
 import notificationService from './notification.service';
+import { whereLoteVisible } from './lib/proyectosOcultos';
 
 const prisma = new PrismaClient();
 
@@ -70,6 +71,10 @@ export class LotService {
       if (filters.minArea) where.areaM2.gte = filters.minArea;
       if (filters.maxArea) where.areaM2.lte = filters.maxArea;
     }
+
+    // Sin proyecto en los filtros, esto lista lotes de TODOS los proyectos:
+    // los ocultos también. Ver services/lib/proyectosOcultos.ts.
+    if (!filters.projectId) Object.assign(where, whereLoteVisible());
 
     return await prisma.lot.findMany({
       where,

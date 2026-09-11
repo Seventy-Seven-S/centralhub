@@ -9,6 +9,7 @@ import { nextPaymentNumber } from './lib/paymentNumber';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import { round2 } from '../utils/money';
+import { wherePagoVisible } from './lib/proyectosOcultos';
 import { crearReciboLog } from './reciboLog.service';
 import { sendReciboEmail } from './email.service';
 import { buildReciboFolio } from '../utils/reciboFolio';
@@ -277,7 +278,10 @@ export class PaymentService {
 
     if (filters.contractId) where.contractId = filters.contractId;
     if (filters.clientId) where.clientId = filters.clientId;
+    // Sin proyecto y sin contrato, esto lista TODOS los pagos: ahí se colaban
+    // los de los proyectos ocultos. Ver services/lib/proyectosOcultos.ts.
     if (filters.projectId) where.contract = { projectId: filters.projectId };
+    else if (!filters.contractId) Object.assign(where, wherePagoVisible());
     if (filters.status) where.status = filters.status;
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
 
