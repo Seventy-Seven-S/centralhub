@@ -52,6 +52,7 @@ model User {
   cortesCreados      Corte[]           @relation("CorteCreatedBy")
   cortesDiarios      CorteDiario[]     @relation("CorteDiarioCobrador")
   cortesRecibidos    CorteDiario[]     @relation("CorteDiarioRecibidoPor")
+  traspasosCreados   Traspaso[]        @relation("TraspasoCreatedBy")
   lotsReserved       Lot[]             @relation("LotReservedByAgent")
   contractsAsAgent   Contract[]        @relation("ContractAgent")
 
@@ -202,6 +203,8 @@ model Client {
   activities        Activity[]
 
   @@map("clients")
+  traspasosComoAnterior Traspaso[]   @relation("TraspasoAnterior")
+  traspasosComoNuevo    Traspaso[]   @relation("TraspasoNuevo")
 }
 
 model ClientProject {
@@ -283,6 +286,9 @@ enum ContractStatus {
   COMPLETED
   CANCELED
   RESCISSION
+  // El lote pasó a otro dueño. Distinto de CANCELED: aquí no se deshizo la
+  // venta, cambió de manos.
+  TRASPASADO
 }
 
 enum PaymentPlanType {
@@ -346,6 +352,8 @@ model Contract {
   estadoCuentaLogs    EstadoCuentaLog[]
 
   @@map("contracts")
+  traspasosOrigen   Traspaso[]       @relation("TraspasoOrigen")
+  traspasosDestino  Traspaso[]       @relation("TraspasoDestino")
 }
 
 model ContractLot {
@@ -394,6 +402,9 @@ enum PaymentType {
   ADJUSTMENT
   RESCISSION_REFUND
   RESERVATION_DEPOSIT
+  // Dinero que venía de otro contrato al traspasarse. No es un cobro nuevo:
+  // ya había entrado a caja cuando el cliente anterior pagó.
+  TRASPASO_ENTRADA
 }
 
 enum PaymentMethod {
@@ -449,12 +460,17 @@ model Payment {
   corteDiarioId     String?       @map("corte_diario_id")
   corteDiario       CorteDiario?  @relation(fields: [corteDiarioId], references: [id])
 
+  // Traspaso del que proviene este abono (solo en TRASPASO_ENTRADA).
+  traspasoId        String?       @map("traspaso_id")
+  traspaso          Traspaso?     @relation(fields: [traspasoId], references: [id])
+
   contract          Contract      @relation(fields: [contractId], references: [id])
   client            Client        @relation(fields: [clientId], references: [id])
   createdByUser     User?         @relation(fields: [createdBy], references: [id])
 
   @@index([corteId])
   @@index([corteDiarioId])
+  @@index([traspasoId])
   @@map("payments")
 }
 
@@ -528,6 +544,55 @@ model CorteDiario {
   @@unique([cobradorId, fecha])   // un corte por persona por día
   @@index([status, fecha])
   @@map("cortes_diarios")
+}
+
+// ============================================================================
+// TRASPASOS — un lote cambia de manos
+//
+// El acta del movimiento. Existe porque hasta ahora esto se resolvía editando
+// el cliente a mano o cancelando por SQL, y el dinero que el cliente anterior
+// había abonado desaparecía sin explicación.
+// ============================================================================
+
+enum TraspasoTipo {
+  CAMBIO_TITULAR   // mismo lote y proyecto: el contrato sigue, cambia el dueño
+  REUBICACION      // otro lote u otro proyecto: se cierra uno y se abre otro
+}
+
+model Traspaso {
+  id                String       @id @default(uuid())
+  numero            Int          @unique
+  fecha             DateTime
+  tipo              TraspasoTipo
+
+  contratoOrigenId  String       @map("contrato_origen_id")
+  contratoDestinoId String?      @map("contrato_destino_id")
+
+  clienteAnteriorId String       @map("cliente_anterior_id")
+  clienteNuevoId    String       @map("cliente_nuevo_id")
+
+  montoAbonado      Float        @map("monto_abonado")
+  montoRespetado    Float        @map("monto_respetado")
+
+  motivo            String?
+  // Obligatoria si montoRespetado <> montoAbonado: sin ella el dinero que no
+  // pasó quedaría sin explicación.
+  nota              String?
+  documentoUrl      String?      @map("documento_url")
+
+  createdById       String       @map("created_by_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  contratoOrigen    Contract     @relation("TraspasoOrigen",  fields: [contratoOrigenId],  references: [id])
+  contratoDestino   Contract?    @relation("TraspasoDestino", fields: [contratoDestinoId], references: [id])
+  clienteAnterior   Client       @relation("TraspasoAnterior", fields: [clienteAnteriorId], references: [id])
+  clienteNuevo      Client       @relation("TraspasoNuevo",    fields: [clienteNuevoId],    references: [id])
+  createdBy         User         @relation("TraspasoCreatedBy", fields: [createdById], references: [id])
+  payments          Payment[]
+
+  @@index([contratoOrigenId])
+  @@index([fecha])
+  @@map("traspasos")
 }
 
 // ============================================================================
