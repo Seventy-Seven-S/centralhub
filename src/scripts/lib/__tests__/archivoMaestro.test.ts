@@ -298,3 +298,32 @@ describe('agruparPorCodigo — detecta el precio acumulado', () => {
     expect(g.get('MON1|Z002')!.precioSospechoso).toBe(false);
   });
 });
+
+describe('columnas de cliente anterior (traspasos y rescisiones)', () => {
+  it('hojas tipo MONARCA: columnas CODIGO y CLIENTE ANTERIOR al final', () => {
+    const filas = leerHoja2([
+      ['MONARCA'],
+      ['FECHA', 'NOMBRE DE CLIENTE', 'MANZANA', 'LOTE', 'CODIGO DE CLIENTE', 'MENSUALIDAD', 'M2', 'PRECIO', 'OBSERVACIONES', 'CODIGO', 'CLIENTE ANTERIOR'],
+      [1, 'Diana Alonso', 5, '6', 'V084', 3666.66, 210, 235000, 'TRASPASO', 'V084', 'Brandon Aaron Guzman'],
+    ] as any, 'MONARCA', 'MON1');
+    expect(filas[0].clienteAnterior).toBe('Brandon Aaron Guzman');
+    expect(filas[0].observaciones).toBe('TRASPASO');
+  });
+
+  it('hoja V.ROBLE: una sola columna "CODIGO Y CLIENTE ANTERIOR (TRASPASO O RESCISION)"', () => {
+    const filas = leerHoja2([
+      ['PROYECTO', 'MZA', 'LOTE', 'CODIGO', 'CLIENTE ACTUAL', 'MENSUALIDAD', 'SUPERFICIE M2', 'PRECIO POR LOTE', 'x', 'CODIGO Y CLIENTE ANTERIOR (TRASPASO O RESCISION)'],
+      ['VR', 13, '29', 'V463', 'MARILIN MARTINEZ', 4500, 300, 280000, null, 'V348'],
+    ] as any, 'V.ROBLE', 'VDR');
+    expect(filas[0].clienteAnterior).toBe('V348');
+  });
+
+  it('sin cliente anterior queda null, no cadena vacía', () => {
+    const filas = leerHoja2([
+      ['MONARCA'],
+      ['NOMBRE DE CLIENTE', 'MANZANA', 'LOTE', 'CODIGO DE CLIENTE', 'PRECIO', 'CLIENTE ANTERIOR'],
+      ['Ana', 1, '1', 'Z001', 100000, '  '],
+    ] as any, 'MONARCA', 'MON1');
+    expect(filas[0].clienteAnterior).toBeNull();
+  });
+});

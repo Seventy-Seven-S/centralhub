@@ -61,6 +61,14 @@ export interface FilaLote {
   lotes: string[];
   /** La fila cubre varios lotes vendidos como uno solo. */
   vendidoJunto: boolean;
+  /**
+   * A quién pertenecía el lote antes. En casi todas las hojas son dos columnas
+   * al final (CODIGO y CLIENTE ANTERIOR); V.ROBLE las junta en una sola,
+   * titulada "CODIGO Y CLIENTE ANTERIOR (TRASPASO O RESCISION)". Es la huella
+   * de los traspasos y rescisiones que la app todavía no refleja.
+   */
+  clienteAnterior: string | null;
+  codigoAnterior: string | null;
   deContado: boolean;
   observaciones: string | null;
 }
@@ -138,6 +146,11 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
   const cEstatus = buscar(s => s.startsWith('ESTATUS'));
   const cObs = buscar(s => s.includes('OBSERVACIONES'));
   const cFecha = buscar(s => s.includes('FECHA DE VENTA'));
+  const cAnterior = buscar(s => s.includes('ANTERIOR'));
+  // La columna "CODIGO" suelta del final es el código del dueño anterior; la
+  // del principio ("CODIGO DE CLIENTE") es la del actual.
+  const cCodAnterior = headers.map((s, i) => ({ s, i }))
+    .filter(x => x.s === 'CODIGO' && x.i !== iCodigo).map(x => x.i)[0] ?? -1;
 
   const out: FilaLote[] = [];
   for (const r of rows.slice(h + 1)) {
@@ -163,6 +176,8 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
       primerPagoTexto: cPrimerPago >= 0 && r[cPrimerPago] != null ? String(r[cPrimerPago]).trim() || null : null,
       anioVenta: cFecha >= 0 ? anioDeSerialExcel(r[cFecha]) : null,
       estatus: cEstatus >= 0 && r[cEstatus] != null ? String(r[cEstatus]).trim() || null : null,
+      clienteAnterior: cAnterior >= 0 && r[cAnterior] != null ? String(r[cAnterior]).trim() || null : null,
+      codigoAnterior: cCodAnterior >= 0 && r[cCodAnterior] != null ? String(r[cCodAnterior]).trim() || null : null,
       deContado: norm(plazoTexto).includes('CONTADO'),
       observaciones: cObs >= 0 && r[cObs] != null ? String(r[cObs]).trim() || null : null,
     });
