@@ -13,6 +13,7 @@
 import { PrismaClient, PaymentStatus, CorteDiarioStatus, UserRole } from '@prisma/client';
 import { resumirDia, validarCierre, calcularRecepcion, PagoDelDia } from './lib/corteDiario';
 import { round2 } from '../utils/money';
+import { rangoDelDiaOperativo as rangoDelDia } from './lib/diaOperativo';
 
 const prisma = new PrismaClient();
 
@@ -34,12 +35,9 @@ const aPagoDelDia = (p: any): PagoDelDia => ({
   proyectoNombre: p.contract.project.name,
 });
 
-/** Rango [00:00, 23:59:59.999] del día local de una fecha. */
-function rangoDelDia(fecha: Date) {
-  const desde = new Date(fecha); desde.setHours(0, 0, 0, 0);
-  const hasta = new Date(fecha); hasta.setHours(23, 59, 59, 999);
-  return { desde, hasta };
-}
+// El día operativo lo define la zona del negocio, no la del servidor: Railway
+// corre en UTC y a las 9 de la noche en Matamoros allá ya es el día siguiente.
+// Ver services/lib/diaOperativo.ts.
 
 export const corteDiarioService = {
   /** Los pagos que esta persona cobró y aún no entrega. Vista viva. */

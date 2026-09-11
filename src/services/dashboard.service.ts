@@ -1,6 +1,7 @@
 // src/services/dashboard.service.ts
 import { PrismaClient, CuotaStatus, LotStatus } from '@prisma/client';
 import { construirDashboardOperativo } from './lib/dashboardOperativo';
+import { rangoDelDiaOperativo } from './lib/diaOperativo';
 
 const prisma = new PrismaClient();
 
@@ -133,8 +134,9 @@ export class DashboardService {
   async getOperativo(userId: string | undefined, projectId?: string) {
     const contractWhere: any = projectId ? { projectId } : {};
 
-    const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
-    const finHoy    = new Date(); finHoy.setHours(23, 59, 59, 999);
+    // Mismo día operativo que el corte diario: si el dashboard y el corte no
+    // coinciden, "Cobrado por mí hoy" no cuadra con lo que va a entregar.
+    const { desde: inicioHoy, hasta: finHoy } = rangoDelDiaOperativo();
     const enUnaSemana = new Date(); enUnaSemana.setDate(enUnaSemana.getDate() + 7);
     const ahora = new Date();
 
