@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { Banknote, AlertCircle, CheckCircle2, Clock, X, Loader2 } from 'lucide-react';
-import { useCortesDiarios, useRecibirCorte, useCorteDiario, CorteDiario } from '@/hooks/useCorteDiario';
+import { useCortesDiarios, useRecibirCorte, useCorteDiario, useResumenDiario, CorteDiario } from '@/hooks/useCorteDiario';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency, formatDateUTC } from '@/lib/utils';
 
@@ -143,6 +143,7 @@ export default function CortesDiariosPage() {
   const [recibiendo, setRecibiendo] = useState<CorteDiario | null>(null);
 
   const pendientes = cortes.filter(c => c.status === 'PENDIENTE_ENTREGA');
+  const { data: resumen } = useResumenDiario(undefined, isAdmin);
 
   if (isLoading) {
     return <div className="h-64 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--surface)' }} />;
@@ -158,6 +159,80 @@ export default function CortesDiariosPage() {
             : `${cortes.length} ${cortes.length === 1 ? 'corte tuyo' : 'cortes tuyos'}`}
         </p>
       </div>
+
+      {isAdmin && resumen && (resumen.cerrados > 0 || resumen.faltanPorCerrar > 0) && (
+        <div className="rounded-2xl p-6"
+             style={{ backgroundColor: 'var(--surface)',
+                      border: `1.5px solid ${resumen.completo ? 'var(--accent)' : 'var(--gold)'}` }}>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                Total del día
+              </p>
+              <p className="text-4xl font-bold mt-2 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                {formatCurrency(resumen.totalDeclarado)}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                {resumen.cerrados} {resumen.cerrados === 1 ? 'corte cerrado' : 'cortes cerrados'}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{
+                    backgroundColor: resumen.completo ? 'var(--accent-pale)' : 'var(--gold-pale)',
+                    color: resumen.completo ? 'var(--accent)' : 'var(--gold)',
+                  }}>
+              {resumen.completo
+                ? <><CheckCircle2 className="w-3.5 h-3.5" /> Todas cerraron</>
+                : <><Clock className="w-3.5 h-3.5" /> {resumen.faltanPorCerrar} por cerrar</>}
+            </span>
+          </div>
+
+          {!resumen.completo && (
+            <p className="text-xs mt-3 rounded-lg px-3 py-2"
+               style={{ backgroundColor: 'var(--gold-pale)', color: 'var(--gold)' }}>
+              Este total todavía no es el del día: falta{resumen.faltanPorCerrar === 1 ? '' : 'n'}{' '}
+              {resumen.faltanPorCerrar} {resumen.faltanPorCerrar === 1 ? 'persona' : 'personas'} por cerrar su corte.
+            </p>
+          )}
+
+          <div className="mt-4 pt-4 space-y-1.5" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex justify-between text-sm">
+              <span style={{ color: 'var(--text-secondary)' }}>Ya recibido</span>
+              <span className="font-semibold tabular-nums" style={{ color: 'var(--accent)' }}>
+                {formatCurrency(resumen.totalRecibido)}
+              </span>
+            </div>
+            {resumen.pendientesDeEntrega > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Pendiente de entrega <span style={{ color: 'var(--text-tertiary)' }}>· {resumen.pendientesDeEntrega}</span>
+                </span>
+                <span className="font-semibold tabular-nums" style={{ color: 'var(--gold)' }}>
+                  {formatCurrency(resumen.totalDeclarado - resumen.totalRecibido)}
+                </span>
+              </div>
+            )}
+            {resumen.totalOtros > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--text-tertiary)' }}>Transferencias y cheques (no se entregan)</span>
+                <span className="tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                  {formatCurrency(resumen.totalOtros)}
+                </span>
+              </div>
+            )}
+            {resumen.cortesConDiferencia > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--danger)' }}>
+                  Con diferencia <span style={{ color: 'var(--text-tertiary)' }}>· {resumen.cortesConDiferencia}</span>
+                </span>
+                <span className="font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>
+                  {formatCurrency(resumen.totalDiferencia)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {cortes.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: 'var(--surface)' }}>
