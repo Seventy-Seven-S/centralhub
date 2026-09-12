@@ -2,6 +2,7 @@
 import { PrismaClient, CuotaStatus, LotStatus } from '@prisma/client';
 import { construirDashboardOperativo } from './lib/dashboardOperativo';
 import { rangoDelDiaOperativo } from './lib/diaOperativo';
+import { construirSerieMensual } from './lib/serieIngresosMensuales';
 import { whereContratoVisible, whereLoteVisible, wherePagoVisible, whereGastoVisible } from './lib/proyectosOcultos';
 
 const prisma = new PrismaClient();
@@ -85,16 +86,11 @@ export class DashboardService {
       }),
     ]);
 
-    const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    const mesMap = new Map<string, number>();
-    for (const p of rawPagosMes) {
-      const d   = new Date(p.paymentDate);
-      const key = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
-      mesMap.set(key, (mesMap.get(key) ?? 0) + (p.amount ?? 0));
-    }
-    const ingresosPorMes = Array.from(mesMap.entries())
-      .map(([mes, total]) => ({ mes, total }))
-      .slice(-12);
+    // Se devuelve la serie COMPLETA desde el primer pago, con los meses sin
+    // ingresos en cero. Antes se cortaba a 12 meses aquí, lo que hacía
+    // imposible ofrecer rangos más largos en la gráfica; el recorte ahora lo
+    // hace quien la dibuja. Son unas decenas de puntos, no pesa.
+    const ingresosPorMes = construirSerieMensual(rawPagosMes);
 
     return {
       contratos: {

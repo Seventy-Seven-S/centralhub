@@ -19,7 +19,10 @@ export interface DashboardSummary {
     porcentajeVendido: number;
   };
   distribucionPlazo: Array<{ plazoMeses: number; contratos: number }>;
-  ingresosPorMes: Array<{ mes: string; total: number }>;
+  // `periodo` ("YYYY-MM") viene del backend para poder cortar rangos sin
+  // depender de la etiqueta traducida. La serie llega completa desde el primer
+  // pago, con los meses sin ingresos en cero.
+  ingresosPorMes: Array<{ periodo: string; mes: string; total: number }>;
   gastos: {
     total: number;
   };

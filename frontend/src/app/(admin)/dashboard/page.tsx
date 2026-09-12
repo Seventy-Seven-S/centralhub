@@ -17,6 +17,7 @@ import DistribucionPlazo  from '@/components/dashboard/DistribucionPlazo';
 import LotesDisponibles   from '@/components/dashboard/LotesDisponibles';
 import { formatCurrency } from '@/lib/utils';
 import { buildDashboardKpis } from '@/lib/dashboardKpis';
+import { recortarSerie, rangosDisponibles, type PuntoMensual } from '@/lib/rangoIngresos';
 import DashboardOperativo from '@/components/dashboard/DashboardOperativo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -79,7 +80,16 @@ function ChartTooltip({ active, payload, formatter }: any) {
 }
 
 // ── Tab: Ingresos ─────────────────────────────────────────────────────────────
-function IngresosChart({ data }: { data: Array<{ mes: string; total: number }> }) {
+function IngresosChart({ data }: { data: PuntoMensual[] }) {
+  // El rango arranca en 12 meses, que es lo que la gráfica mostraba siempre.
+  const [meses, setMeses] = useState<number | null>(12);
+  const opciones = rangosDisponibles(data.length);
+  // Si el proyecto tiene menos historia que el rango elegido, se cae al más
+  // largo disponible en vez de dejar seleccionado un botón que ya no existe.
+  const activo = opciones.some(o => o.meses === meses) ? meses : (opciones.at(-1)?.meses ?? null);
+  const visible = recortarSerie(data, activo);
+  const total = visible.reduce((s, p) => s + p.total, 0);
+
   return (
     <div
       className="rounded-2xl p-5"
@@ -89,16 +99,44 @@ function IngresosChart({ data }: { data: Array<{ mes: string; total: number }> }
         boxShadow: 'var(--shadow-sm)',
       }}
     >
-      <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-        Ingresos mensuales
-      </h3>
-      {data.length === 0 ? (
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Ingresos mensuales
+          </h3>
+          {visible.length > 0 && (
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              {formatCurrency(total)} en {visible.length} {visible.length === 1 ? 'mes' : 'meses'}
+            </p>
+          )}
+        </div>
+        {opciones.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {opciones.map(o => (
+              <button
+                key={o.etiqueta}
+                onClick={() => setMeses(o.meses)}
+                aria-pressed={activo === o.meses}
+                className="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
+                style={{
+                  border: `1px solid ${activo === o.meses ? 'var(--accent)' : 'var(--border)'}`,
+                  backgroundColor: activo === o.meses ? 'var(--accent)' : 'transparent',
+                  color: activo === o.meses ? '#fff' : 'var(--text-secondary)',
+                }}
+              >
+                {o.etiqueta}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {visible.length === 0 ? (
         <div className="flex items-center justify-center" style={{ height: 260 }}>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Sin datos disponibles</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={270}>
-          <AreaChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+          <AreaChart data={visible} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor="#4A8C3F" stopOpacity={0.3} />
