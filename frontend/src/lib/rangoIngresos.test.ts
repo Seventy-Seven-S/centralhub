@@ -56,3 +56,23 @@ describe('RANGOS', () => {
     ]);
   });
 });
+
+import { etiquetaEje } from './rangoIngresos';
+
+describe('etiquetaEje', () => {
+  it('abrevia el año a dos dígitos para que quepa en el eje', () => {
+    expect(etiquetaEje('Mar 2026')).toBe("Mar '26");
+  });
+
+  it('distingue el mismo mes de años distintos, que era el problema', () => {
+    expect(etiquetaEje('Mar 2025')).not.toBe(etiquetaEje('Mar 2026'));
+  });
+
+  it('si la etiqueta no trae año, la deja tal cual', () => {
+    expect(etiquetaEje('Mar')).toBe('Mar');
+  });
+
+  it('tolera vacío', () => {
+    expect(etiquetaEje('')).toBe('');
+  });
+});

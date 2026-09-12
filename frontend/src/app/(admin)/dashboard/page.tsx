@@ -17,7 +17,7 @@ import DistribucionPlazo  from '@/components/dashboard/DistribucionPlazo';
 import LotesDisponibles   from '@/components/dashboard/LotesDisponibles';
 import { formatCurrency } from '@/lib/utils';
 import { buildDashboardKpis } from '@/lib/dashboardKpis';
-import { recortarSerie, rangosDisponibles, type PuntoMensual } from '@/lib/rangoIngresos';
+import { recortarSerie, rangosDisponibles, etiquetaEje, type PuntoMensual } from '@/lib/rangoIngresos';
 import DashboardOperativo from '@/components/dashboard/DashboardOperativo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ function DashboardSkeleton() {
 }
 
 // ── Tooltip compartido ────────────────────────────────────────────────────────
-function ChartTooltip({ active, payload, formatter }: any) {
+function ChartTooltip({ active, payload, label, formatter }: any) {
   if (!active || !payload?.length) return null;
   const { name, value } = payload[0];
   return (
@@ -71,6 +71,11 @@ function ChartTooltip({ active, payload, formatter }: any) {
       padding: '8px 12px',
       fontSize: 13,
     }}>
+      {label && (
+        <p style={{ color: 'var(--text-tertiary)', fontSize: 11, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+          {label}
+        </p>
+      )}
       <p style={{ color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{name}</p>
       <p style={{ color: 'var(--text-secondary)', margin: '2px 0 0' }}>
         {formatter ? formatter(value) : value}
@@ -149,7 +154,7 @@ function IngresosChart({ data }: { data: PuntoMensual[] }) {
               style={{ fill: 'var(--text-tertiary)' }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: string) => v.split(' ')[0]}
+              tickFormatter={etiquetaEje}
             />
             <YAxis
               tick={{ fontSize: 11 }}

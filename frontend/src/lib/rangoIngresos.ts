@@ -36,3 +36,14 @@ export function rangosDisponibles(totalMeses: number): Rango[] {
   if (totalMeses <= 0) return [];
   return RANGOS.filter(r => r.meses === null || r.meses <= totalMeses);
 }
+
+/**
+ * Etiqueta del eje X: "Mar 2026" → "Mar '26".
+ *
+ * Antes se cortaba el año ("Mar" a secas) y con 24 meses o más aparecía el
+ * mismo mes varias veces sin forma de distinguir el año.
+ */
+export function etiquetaEje(mes: string): string {
+  const [nombre, anio] = mes.split(' ');
+  return anio ? `${nombre} '${anio.slice(-2)}` : (nombre ?? '');
+}
