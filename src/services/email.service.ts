@@ -16,7 +16,45 @@ if (process.env.NODE_ENV === 'production' && !process.env.RESEND_API_KEY) {
 // chequeo sigue siendo necesario — da un error accionable al primer intento
 // de envío en vez de un stack trace de `resend` sin contexto.
 let _resend: Resend | null = null;
-function getResend(): Resend {
+
+/** Lo mínimo que este módulo le pide a un transporte de correo. */
+// Se toman los tipos del propio Resend para que el transporte de consola sea
+// intercambiable sin ensanchar el tipo del error que revisan los llamadores.
+type CargaCorreo = Parameters<Resend['emails']['send']>[0];
+type RespuestaCorreo = Awaited<ReturnType<Resend['emails']['send']>>;
+interface Transporte {
+  emails: { send(payload: CargaCorreo): Promise<RespuestaCorreo> };
+}
+
+/**
+ * Transporte de consola para trabajar en local contra una copia de producción.
+ * La copia trae los correos REALES de los clientes: sin esto, una prueba local
+ * del recibo o del correo de bienvenida le llegaría de verdad a un cliente.
+ * En vez de enviar, deja el destinatario y el asunto en el log — de ahí se lee
+ * el código 2FA para poder entrar.
+ *
+ * Se activa con EMAIL_TRANSPORT=console y NUNCA aplica en producción, donde el
+ * correo sí tiene que salir.
+ */
+function transporteDeConsola(): Transporte {
+  return {
+    emails: {
+      async send(payload) {
+        logger.info(
+          `📧 [EMAIL_TRANSPORT=console] correo NO enviado — para: ${String(payload.to)} · asunto: ${String(payload.subject)}`,
+        );
+        return { data: null, error: null, headers: null } as unknown as RespuestaCorreo;
+      },
+    },
+  };
+}
+
+function usarConsola(): boolean {
+  return process.env.NODE_ENV !== 'production' && process.env.EMAIL_TRANSPORT === 'console';
+}
+
+function getResend(): Transporte {
+  if (usarConsola()) return transporteDeConsola();
   if (!process.env.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY no configurada — no se pueden enviar emails (2FA/bienvenida)');
   }
