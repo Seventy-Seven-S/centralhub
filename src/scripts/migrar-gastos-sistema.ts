@@ -27,6 +27,8 @@ const DUENO = process.argv.includes('--dueno') ? process.argv[process.argv.index
 /** Registrar también los renglones sin fecha, heredando la del anterior y
  *  marcándolos para corregirlos después. */
 const CON_SIN_FECHA = process.argv.includes('--incluir-sin-fecha');
+/** Renglones sin concepto: usar el nombre de la categoría como descripción. */
+const CON_SIN_CONCEPTO = process.argv.includes('--incluir-sin-concepto');
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -36,11 +38,13 @@ async function main() {
   const ws = XLSX.readFile(ARCHIVO).Sheets[HOJA];
   if (!ws) throw new Error(`El archivo no tiene una hoja "${HOJA}"`);
   const todas = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][];
-  // El encabezado no siempre está en la primera fila (arriba hay un título).
-  const iH = todas.findIndex(r => r.some(c => typeof c === 'string' && /^\s*concepto\s*$/i.test(c)));
-  if (iH < 0) throw new Error(`No encontré el encabezado (columna "Concepto") en la hoja "${HOJA}"`);
+  // El encabezado no siempre está en la primera fila (arriba hay un título), y
+  // no todas las hojas titulan la columna del concepto: Valle del Roble la deja
+  // sin nombre. "Fecha" sí está en todas, así que se ancla ahí.
+  const iH = todas.findIndex(r => r.some(c => typeof c === 'string' && /^\s*fecha\s*$/i.test(c)));
+  if (iH < 0) throw new Error(`No encontré el encabezado (columna "Fecha") en la hoja "${HOJA}"`);
 
-  const { gastos, sinMonto, sinFecha, sinConcepto, sinColumna } = leerGastosDeMatriz(todas.slice(iH), DUENO, { fecharConAnterior: CON_SIN_FECHA });
+  const { gastos, sinMonto, sinFecha, sinConcepto, sinColumna } = leerGastosDeMatriz(todas.slice(iH), DUENO, { fecharConAnterior: CON_SIN_FECHA, usarCategoriaComoConcepto: CON_SIN_CONCEPTO });
 
   const proyecto = await prisma.project.findFirst({ where: { code: PROYECTO }, select: { id: true, name: true } });
   if (!proyecto) throw new Error(`No existe el proyecto ${PROYECTO}`);
@@ -54,6 +58,8 @@ async function main() {
   }
   const total = gastos.reduce((s, g) => s + g.monto, 0);
   const fechas = gastos.map(g => g.fecha.getTime());
+  const derivados = gastos.filter(g => g.conceptoDerivado);
+  if (derivados.length) console.log(`   ⚠ ${derivados.length} sin concepto en el archivo · se usa el nombre de la categoría, marcados [SIN CONCEPTO]`);
   const provisionales = gastos.filter(g => g.fechaProvisional);
   console.log(`   gastos legibles: ${gastos.length} · ${money(total)}`);
   if (provisionales.length) {
@@ -84,8 +90,9 @@ async function main() {
   // La marca va en la descripción, no en una columna nueva: así el gasto se ve
   // y se busca en la pantalla de Gastos tal cual, y al corregir la fecha basta
   // con quitarla. Sin migración de por medio.
-  const descripcionDe = (g: { concepto: string; etiqueta: string; fechaProvisional?: boolean }) =>
-    `${g.fechaProvisional ? '[FECHA PENDIENTE] ' : ''}${g.concepto} — ${g.etiqueta} (migrado de ${archivo})`;
+  const descripcionDe = (g: { concepto: string; etiqueta: string; fechaProvisional?: boolean; conceptoDerivado?: boolean }) =>
+    `${g.fechaProvisional ? '[FECHA PENDIENTE] ' : ''}${g.conceptoDerivado ? '[SIN CONCEPTO] ' : ''}` +
+    `${g.concepto} — ${g.etiqueta} (migrado de ${archivo})`;
   // Se compara solo por fecha + monto: el archivo se reedita y entre versiones
   // cambian los nombres de categoría y los conceptos. Ver faltantesContra.
   const faltantes = faltantesContra(gastos, existentes.map(e => ({ date: e.date, amount: Number(e.amount) })));

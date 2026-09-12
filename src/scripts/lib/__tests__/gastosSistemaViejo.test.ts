@@ -63,10 +63,13 @@ describe('categoriaDeColumnaGasto', () => {
   it('Caballero es el dueño del terreno de Santander', () => {
     expect(categoriaDeColumnaGasto('Caballero ')).toBe('Dueño del terreno');
   });
-  it('planos y maquinaria caen en la categoría que agrupó el arquitecto', () => {
+  it('la columna YA combinada se unifica', () => {
     expect(categoriaDeColumnaGasto('Planos, Trazo y Marcas')).toBe('Planos, Trazo y Maquinaria');
     expect(categoriaDeColumnaGasto('Planos, Trazo y Maquinaria')).toBe('Planos, Trazo y Maquinaria');
-    expect(categoriaDeColumnaGasto('Maquinaria')).toBe('Planos, Trazo y Maquinaria');
+  });
+  it('si la hoja las separa, NO se fusionan: agrupar es decisión del negocio', () => {
+    expect(categoriaDeColumnaGasto('Planos ')).toBe('Planos');
+    expect(categoriaDeColumnaGasto('Maquinaria')).toBe('Maquinaria');
   });
   it('"Oficina2" del archivo usa la categoría "Oficina 2" que ya existe', () => {
     expect(categoriaDeColumnaGasto('Oficina2')).toBe('Oficina 2');
@@ -163,5 +166,49 @@ describe('leerGastosDeMatriz — gastos sin fecha que igual hay que registrar', 
       null, { fecharConAnterior: true });
     expect(gastos).toEqual([]);
     expect(sinFecha).toHaveLength(1);
+  });
+});
+
+describe('leerGastosDeMatriz — hoja con el concepto en columna SIN encabezado', () => {
+  // Valle del Roble: la columna del concepto no tiene título, va pegada a Fecha.
+  const H3 = ['', '', 'Fecha ', 'Despacho ', 'Aldo '];
+  const fila = (con: any, fecha: any, desp: any, aldo: any) => ['', con, fecha, desp, aldo];
+
+  it('toma como concepto la columna inmediatamente a la izquierda de Fecha', () => {
+    const { gastos } = leerGastosDeMatriz([H3, fila('PAGO DESPACHO', 45483, 250000, null)]);
+    expect(gastos).toHaveLength(1);
+    expect(gastos[0]).toMatchObject({ concepto: 'PAGO DESPACHO', etiqueta: 'Despacho', monto: 250000 });
+  });
+
+  it('esa columna sin encabezado NO se confunde con una categoría', () => {
+    const { gastos, sinColumna } = leerGastosDeMatriz([H3, fila('PAGO DESPACHO', 45483, 250000, null)]);
+    expect(gastos.map(g => g.etiqueta)).toEqual(['Despacho']);
+    expect(sinColumna).toEqual([]);
+  });
+
+  it('sin concepto se reporta, como siempre', () => {
+    const { gastos, sinConcepto } = leerGastosDeMatriz([H3, fila(null, 45483, null, 50000)]);
+    expect(gastos).toEqual([]);
+    expect(sinConcepto).toHaveLength(1);
+  });
+
+  it('con usarCategoriaComoConcepto sí se carga, usando el nombre de la categoría', () => {
+    const { gastos, sinConcepto } = leerGastosDeMatriz([H3, fila(null, 45483, null, 50000)],
+      null, { usarCategoriaComoConcepto: true });
+    expect(sinConcepto).toEqual([]);
+    expect(gastos).toHaveLength(1);
+    expect(gastos[0]).toMatchObject({ concepto: 'Aldo', etiqueta: 'Aldo', conceptoDerivado: true });
+  });
+
+  it('un concepto real nunca se marca como derivado', () => {
+    const { gastos } = leerGastosDeMatriz([H3, fila('PAGO DESPACHO', 45483, 250000, null)],
+      null, { usarCategoriaComoConcepto: true });
+    expect(gastos[0].conceptoDerivado).toBe(false);
+  });
+
+  it('si la hoja SÍ titula "Concepto", se usa esa y no la vecina de Fecha', () => {
+    const H4 = ['Concepto ', 'Fecha ', 'Central'];
+    const { gastos } = leerGastosDeMatriz([H4, ['Topografia', 45866, 10000]]);
+    expect(gastos[0].concepto).toBe('Topografia');
   });
 });

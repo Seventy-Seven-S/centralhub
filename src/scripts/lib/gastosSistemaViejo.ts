@@ -21,6 +21,8 @@ export interface GastoLeido {
   /** La fecha se heredó del renglón anterior porque el archivo la trae vacía.
    *  Hay que corregirla a mano: el gasto está registrado, la fecha no es firme. */
   fechaProvisional: boolean;
+  /** El archivo no traía concepto y se usó el nombre de la categoría. */
+  conceptoDerivado: boolean;
 }
 
 export interface LecturaGastos {
@@ -48,9 +50,11 @@ export function categoriaDeColumnaGasto(columna: string, duenoEtiqueta?: string 
   const s = columna.trim().toLowerCase();
   if (duenoEtiqueta && s === duenoEtiqueta.trim().toLowerCase()) return 'Dueño del terreno';
   if (s.startsWith('caballero')) return 'Dueño del terreno';
-  // El arquitecto agrupó planos, trazo y maquinaria en una sola categoría.
-  if (s.startsWith('planos')) return 'Planos, Trazo y Maquinaria';
-  if (s.startsWith('maquinaria')) return 'Planos, Trazo y Maquinaria';
+  // Solo se unifica cuando el archivo YA trae la columna combinada ("Planos,
+  // Trazo y Marcas/Maquinaria"). Si la hoja separa Planos de Maquinaria —como
+  // Valle del Roble, con montos muy distintos— se respeta esa separación: la
+  // agrupación es una decisión del negocio, no del lector.
+  if (/^planos,\s*trazo/.test(s)) return 'Planos, Trazo y Maquinaria';
   if (s.startsWith('central')) return 'Central';
   // "Oficina2" en el archivo; en la app la categoría ya existe con espacio.
   if (s.startsWith('oficina')) return 'Oficina 2';
@@ -72,6 +76,12 @@ export interface OpcionesGastos {
    * contabilizado y localizable para corregirlo después.
    */
   fecharConAnterior?: boolean;
+  /**
+   * Registrar también los renglones sin concepto, usando el nombre de su
+   * categoría como descripción. Valle del Roble tiene pagos recurrentes donde
+   * la celda del concepto quedó vacía porque la categoría ya lo dice todo.
+   */
+  usarCategoriaComoConcepto?: boolean;
 }
 
 export function leerGastosDeMatriz(
@@ -80,9 +90,13 @@ export function leerGastosDeMatriz(
   opciones: OpcionesGastos = {},
 ): LecturaGastos {
   const H = (rows[0] ?? []).map(c => (typeof c === 'string' ? c.trim() : ''));
-  const cConcepto = H.findIndex(h => /^concepto$/i.test(h));
   const cFecha = H.findIndex(h => /^fecha$/i.test(h));
-  if (cConcepto < 0 || cFecha < 0) throw new Error('La hoja no tiene columnas Concepto y Fecha');
+  if (cFecha < 0) throw new Error('La hoja no tiene columna Fecha');
+  // Valle del Roble no titula la columna del concepto: va pegada a la izquierda
+  // de Fecha. Se usa esa cuando no hay una llamada "Concepto".
+  const cTitulada = H.findIndex(h => /^concepto$/i.test(h));
+  const cConcepto = cTitulada >= 0 ? cTitulada : cFecha - 1;
+  if (cConcepto < 0) throw new Error('La hoja no tiene columna de concepto');
 
   const columnas = H
     .map((h, i) => ({ h, i }))
@@ -107,17 +121,21 @@ export function leerGastosDeMatriz(
       .map(c => ({ etiqueta: c.h, monto: Number(r[c.i]) }))
       .filter(x => Number.isFinite(x.monto) && x.monto !== 0);
 
-    if (!concepto) {
+    if (!concepto && !(opciones.usarCategoriaComoConcepto && montos.length === 1)) {
       // La fila de totales no trae concepto y repite TODAS las columnas: no es
       // un gasto suelto, así que solo se reporta cuando toca una sola columna.
       if (montos.length === 1) out.sinConcepto.push(montos[0]);
       continue;
     }
-    if (!montos.length) { out.sinMonto.push(concepto); continue; }
+    // Sin concepto pero con una sola categoría: el nombre de la categoría es la
+    // mejor descripción disponible, y es mejor que perder el gasto.
+    const conceptoDerivado = !concepto;
+    const conceptoFinal = concepto || montos[0].etiqueta;
+    if (!montos.length) { if (concepto) out.sinMonto.push(concepto); continue; }
     const serial = r[cFecha];
     const tieneFecha = esSerialExcel(serial);
     if (!tieneFecha && !(opciones.fecharConAnterior && ultimaFecha)) {
-      for (const m of montos) out.sinFecha.push({ concepto, ...m });
+      for (const m of montos) out.sinFecha.push({ concepto: conceptoFinal, ...m });
       continue;
     }
 
@@ -125,9 +143,9 @@ export function leerGastosDeMatriz(
     if (tieneFecha) ultimaFecha = fecha;
     for (const m of montos) {
       out.gastos.push({
-        concepto, fecha, etiqueta: m.etiqueta,
+        concepto: conceptoFinal, fecha, etiqueta: m.etiqueta,
         categoria: categoriaDeColumnaGasto(m.etiqueta, duenoEtiqueta),
-        monto: m.monto, fechaProvisional: !tieneFecha,
+        monto: m.monto, fechaProvisional: !tieneFecha, conceptoDerivado,
       });
     }
   }
