@@ -18,6 +18,9 @@ export interface GastoLeido {
   /** Categoría de la app. */
   categoria: string;
   monto: number;
+  /** La fecha se heredó del renglón anterior porque el archivo la trae vacía.
+   *  Hay que corregirla a mano: el gasto está registrado, la fecha no es firme. */
+  fechaProvisional: boolean;
 }
 
 export interface LecturaGastos {
@@ -32,11 +35,18 @@ export interface LecturaGastos {
   sinColumna: Array<{ concepto: string; monto: number; columna: number }>;
 }
 
-/** Nombre de la columna del archivo → categoría de gasto en la app. */
-export function categoriaDeColumnaGasto(columna: string): string {
+/**
+ * Nombre de la columna del archivo → categoría de gasto en la app.
+ *
+ * Cada proyecto titula la columna del dueño con su apellido ("Caballero" en
+ * Santander, "Rogelio Guerra" en Bugambilias). Todas van a "Dueño del terreno",
+ * la misma categoría que usan los JSA, para que el reporte de cuánto se le ha
+ * entregado al dueño funcione igual en todos los proyectos. El nombre se pasa
+ * desde afuera en vez de irlo agregando a una lista dentro del código.
+ */
+export function categoriaDeColumnaGasto(columna: string, duenoEtiqueta?: string | null): string {
   const s = columna.trim().toLowerCase();
-  // Caballero es el apellido del dueño del terreno de Santander; se unifica con
-  // la categoría que ya usan los proyectos JSA para el mismo concepto.
+  if (duenoEtiqueta && s === duenoEtiqueta.trim().toLowerCase()) return 'Dueño del terreno';
   if (s.startsWith('caballero')) return 'Dueño del terreno';
   // El arquitecto agrupó planos, trazo y maquinaria en una sola categoría.
   if (s.startsWith('planos')) return 'Planos, Trazo y Maquinaria';
@@ -54,7 +64,21 @@ export const fechaDeSerial = (s: number) =>
   new Date(Date.UTC(1899, 11, 30) + Math.round(s * 86400000));
 
 /** Recibe la matriz cruda; la primera fila es el encabezado. */
-export function leerGastosDeMatriz(rows: unknown[][]): LecturaGastos {
+export interface OpcionesGastos {
+  /**
+   * Registrar también los renglones sin fecha, heredando la del último renglón
+   * fechado de arriba. La columna `date` es obligatoria en la base, así que no
+   * se puede guardar un gasto sin fecha; heredarla y marcarlo deja el gasto
+   * contabilizado y localizable para corregirlo después.
+   */
+  fecharConAnterior?: boolean;
+}
+
+export function leerGastosDeMatriz(
+  rows: unknown[][],
+  duenoEtiqueta?: string | null,
+  opciones: OpcionesGastos = {},
+): LecturaGastos {
   const H = (rows[0] ?? []).map(c => (typeof c === 'string' ? c.trim() : ''));
   const cConcepto = H.findIndex(h => /^concepto$/i.test(h));
   const cFecha = H.findIndex(h => /^fecha$/i.test(h));
@@ -66,6 +90,7 @@ export function leerGastosDeMatriz(rows: unknown[][]): LecturaGastos {
   const conEncabezado = new Set(columnas.map(c => c.i));
 
   const out: LecturaGastos = { gastos: [], sinMonto: [], sinFecha: [], sinConcepto: [], sinColumna: [] };
+  let ultimaFecha: Date | null = null;
 
   for (const r of rows.slice(1)) {
     const concepto = typeof r[cConcepto] === 'string' ? r[cConcepto].trim() : '';
@@ -89,14 +114,21 @@ export function leerGastosDeMatriz(rows: unknown[][]): LecturaGastos {
       continue;
     }
     if (!montos.length) { out.sinMonto.push(concepto); continue; }
-    if (!esSerialExcel(r[cFecha])) {
+    const serial = r[cFecha];
+    const tieneFecha = esSerialExcel(serial);
+    if (!tieneFecha && !(opciones.fecharConAnterior && ultimaFecha)) {
       for (const m of montos) out.sinFecha.push({ concepto, ...m });
       continue;
     }
 
-    const fecha = fechaDeSerial(r[cFecha]);
+    const fecha: Date = tieneFecha ? fechaDeSerial(serial) : new Date(ultimaFecha!.getTime());
+    if (tieneFecha) ultimaFecha = fecha;
     for (const m of montos) {
-      out.gastos.push({ concepto, fecha, etiqueta: m.etiqueta, categoria: categoriaDeColumnaGasto(m.etiqueta), monto: m.monto });
+      out.gastos.push({
+        concepto, fecha, etiqueta: m.etiqueta,
+        categoria: categoriaDeColumnaGasto(m.etiqueta, duenoEtiqueta),
+        monto: m.monto, fechaProvisional: !tieneFecha,
+      });
     }
   }
   return out;

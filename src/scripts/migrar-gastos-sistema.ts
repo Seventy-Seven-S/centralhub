@@ -21,11 +21,17 @@ const ARCHIVO = process.argv[2];
 const PROYECTO = process.argv[3];
 const HOJA = process.argv.includes('--hoja') ? process.argv[process.argv.indexOf('--hoja') + 1] : 'Gastos';
 const CONFIRM = process.argv.includes('--confirm');
+// Cada proyecto titula la columna del dueño con su apellido; se indica aquí en
+// vez de acumular nombres dentro del lector.
+const DUENO = process.argv.includes('--dueno') ? process.argv[process.argv.indexOf('--dueno') + 1] : null;
+/** Registrar también los renglones sin fecha, heredando la del anterior y
+ *  marcándolos para corregirlos después. */
+const CON_SIN_FECHA = process.argv.includes('--incluir-sin-fecha');
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 async function main() {
-  if (!ARCHIVO || !PROYECTO) throw new Error('Uso: migrar-gastos-sistema.ts <archivo.xlsx> <PROYECTO> [--hoja Gastos] [--confirm]');
+  if (!ARCHIVO || !PROYECTO) throw new Error('Uso: migrar-gastos-sistema.ts <archivo.xlsx> <PROYECTO> [--hoja Gastos] [--dueno "Apellido"] [--confirm]');
 
   const ws = XLSX.readFile(ARCHIVO).Sheets[HOJA];
   if (!ws) throw new Error(`El archivo no tiene una hoja "${HOJA}"`);
@@ -34,7 +40,7 @@ async function main() {
   const iH = todas.findIndex(r => r.some(c => typeof c === 'string' && /^\s*concepto\s*$/i.test(c)));
   if (iH < 0) throw new Error(`No encontré el encabezado (columna "Concepto") en la hoja "${HOJA}"`);
 
-  const { gastos, sinMonto, sinFecha, sinConcepto, sinColumna } = leerGastosDeMatriz(todas.slice(iH));
+  const { gastos, sinMonto, sinFecha, sinConcepto, sinColumna } = leerGastosDeMatriz(todas.slice(iH), DUENO, { fecharConAnterior: CON_SIN_FECHA });
 
   const proyecto = await prisma.project.findFirst({ where: { code: PROYECTO }, select: { id: true, name: true } });
   if (!proyecto) throw new Error(`No existe el proyecto ${PROYECTO}`);
@@ -48,7 +54,13 @@ async function main() {
   }
   const total = gastos.reduce((s, g) => s + g.monto, 0);
   const fechas = gastos.map(g => g.fecha.getTime());
+  const provisionales = gastos.filter(g => g.fechaProvisional);
   console.log(`   gastos legibles: ${gastos.length} · ${money(total)}`);
+  if (provisionales.length) {
+    console.log(`   ⚠ ${provisionales.length} SIN FECHA en el archivo · ${money(provisionales.reduce((s, g) => s + g.monto, 0))}`);
+    console.log(`     Se registran con la fecha del renglón anterior y marcados [FECHA PENDIENTE]:`);
+    for (const g of provisionales) console.log(`       ${iso(g.fecha)}  ${money(g.monto).padStart(13)}  "${g.concepto}"`);
+  }
   console.log(`   periodo: ${iso(new Date(Math.min(...fechas)))} → ${iso(new Date(Math.max(...fechas)))}\n`);
   for (const [c, v] of [...porCat].sort((a, b) => b[1].monto - a[1].monto))
     console.log(`     ${c.padEnd(22)} ${String(v.n).padStart(4)}  ${money(v.monto).padStart(16)}`);
@@ -69,8 +81,11 @@ async function main() {
     select: { date: true, amount: true },
   });
   const archivo = ARCHIVO.split('/').pop();
-  const descripcionDe = (g: { concepto: string; etiqueta: string }) =>
-    `${g.concepto} — ${g.etiqueta} (migrado de ${archivo})`;
+  // La marca va en la descripción, no en una columna nueva: así el gasto se ve
+  // y se busca en la pantalla de Gastos tal cual, y al corregir la fecha basta
+  // con quitarla. Sin migración de por medio.
+  const descripcionDe = (g: { concepto: string; etiqueta: string; fechaProvisional?: boolean }) =>
+    `${g.fechaProvisional ? '[FECHA PENDIENTE] ' : ''}${g.concepto} — ${g.etiqueta} (migrado de ${archivo})`;
   // Se compara solo por fecha + monto: el archivo se reedita y entre versiones
   // cambian los nombres de categoría y los conceptos. Ver faltantesContra.
   const faltantes = faltantesContra(gastos, existentes.map(e => ({ date: e.date, amount: Number(e.amount) })));

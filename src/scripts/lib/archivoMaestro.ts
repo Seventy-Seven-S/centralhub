@@ -47,6 +47,9 @@ export interface FilaLote {
   /** null cuando la celda dice "DE CONTADO", trae guion o viene vacía. */
   mensualidad: number | null;
   precio: number | null;
+  /** Columna COMISION: lo que se le pagó al asesor por ese lote. Solo algunas
+   *  hojas la traen; en las demás es null. */
+  comision: number | null;
   m2: number | null;
   /** Texto crudo del plazo: puede ser un número de años o "DE CONTADO". */
   plazoTexto: string | null;
@@ -151,6 +154,7 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string, opciones
   // "PRECIO M2" (precio por metro) y "PRECIO/VENTA" (el del lote). Buscar por
   // includes('PRECIO') a secas agarraba el precio por metro.
   const cPrecio = buscar(s => s.includes('PRECIO') && !s.includes('M2') && !s.includes('M²'));
+  const cComision = buscar(s => s.startsWith('COMISION'));
   const cPrimerPago = buscar(s => s.replace(/[\s.]/g, '').includes('1ERPAGO'));
   const cEstatus = buscar(s => s.startsWith('ESTATUS'));
   const cObs = buscar(s => s.includes('OBSERVACIONES'));
@@ -189,6 +193,7 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string, opciones
       cliente: cCliente >= 0 && r[cCliente] != null ? String(r[cCliente]).trim() : null,
       mensualidad: cMens >= 0 ? aNumero(r[cMens]) : null,
       precio: cPrecio >= 0 ? aNumero(r[cPrecio]) : null,
+      comision: cComision >= 0 ? aNumero(r[cComision]) : null,
       m2: cM2 >= 0 ? aNumero(r[cM2]) : null,
       plazoTexto,
       primerPagoTexto: cPrimerPago >= 0 && r[cPrimerPago] != null ? String(r[cPrimerPago]).trim() || null : null,

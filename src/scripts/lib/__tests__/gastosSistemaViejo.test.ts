@@ -113,3 +113,55 @@ describe('faltantesContra — idempotencia estable entre versiones del archivo',
     expect(faltantesContra([g('2025-01-01', 100), g('2025-01-02', 200)], [])).toHaveLength(2);
   });
 });
+
+describe('categoriaDeColumnaGasto — la columna del dueño cambia de nombre por proyecto', () => {
+  it('el nombre del dueño se indica desde afuera y va a "Dueño del terreno"', () => {
+    expect(categoriaDeColumnaGasto('Rogelio Guerra ', 'Rogelio Guerra')).toBe('Dueño del terreno');
+  });
+  it('sin indicarlo, ese nombre conserva su etiqueta en vez de perderse', () => {
+    expect(categoriaDeColumnaGasto('Rogelio Guerra ')).toBe('Rogelio Guerra');
+  });
+  it('Caballero sigue funcionando sin necesidad de indicarlo', () => {
+    expect(categoriaDeColumnaGasto('Caballero ')).toBe('Dueño del terreno');
+  });
+  it('indicar un dueño no altera las demás columnas', () => {
+    expect(categoriaDeColumnaGasto('Central', 'Rogelio Guerra')).toBe('Central');
+    expect(categoriaDeColumnaGasto('Asesores', 'Rogelio Guerra')).toBe('Asesores');
+  });
+});
+
+describe('leerGastosDeMatriz — gastos sin fecha que igual hay que registrar', () => {
+  const H2 = ['Concepto ', 'Fecha ', 'Central', 'Planos, Trazo y Maquinaria'];
+
+  it('por omisión siguen quedando fuera', () => {
+    const { gastos, sinFecha } = leerGastosDeMatriz([H2,
+      ['Trazo', 45950, null, 11750], ['Trazo otra', null, null, 14000]]);
+    expect(gastos).toHaveLength(1);
+    expect(sinFecha).toHaveLength(1);
+  });
+
+  it('con fecharConAnterior heredan la fecha del renglón fechado de arriba y quedan marcados', () => {
+    const { gastos, sinFecha } = leerGastosDeMatriz([H2,
+      ['Trazo', 45950, null, 11750], ['Trazo otra', null, null, 14000]],
+      null, { fecharConAnterior: true });
+    expect(sinFecha).toHaveLength(0);
+    expect(gastos).toHaveLength(2);
+    expect(gastos[1].fecha.toISOString().slice(0, 10)).toBe(gastos[0].fecha.toISOString().slice(0, 10));
+    expect(gastos[1].fechaProvisional).toBe(true);
+    expect(gastos[0].fechaProvisional).toBe(false);
+  });
+
+  it('la fecha heredada es la del ÚLTIMO renglón fechado, no la del primero', () => {
+    const { gastos } = leerGastosDeMatriz([H2,
+      ['A', 45950, null, 100], ['B', 46073, null, 200], ['C', null, null, 300]],
+      null, { fecharConAnterior: true });
+    expect(gastos[2].fecha.getTime()).toBe(gastos[1].fecha.getTime());
+  });
+
+  it('si no hay ningún renglón fechado antes, no se inventa: se reporta', () => {
+    const { gastos, sinFecha } = leerGastosDeMatriz([H2, ['Primero sin fecha', null, null, 500]],
+      null, { fecharConAnterior: true });
+    expect(gastos).toEqual([]);
+    expect(sinFecha).toHaveLength(1);
+  });
+});

@@ -19,21 +19,43 @@
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { leerComisionesDeMatriz } from './lib/comisionesSistemaViejo';
+import { leerArchivoMaestro } from './lib/archivoMaestro';
 
 const prisma = new PrismaClient();
 const ARCHIVO = process.argv[2];
 const PROYECTO = process.argv[3];
+/**
+ * Dos orígenes distintos porque los archivos son distintos: Santander tiene una
+ * hoja "Comisiones" propia (con asesor y recibo), y el archivo maestro trae una
+ * columna COMISION por lote. La carga es la misma en ambos casos.
+ */
+const MAESTRO = process.argv.includes('--maestro');
+/** Las comisiones que no se pueden fechar entran como UN solo gasto, para que
+ *  el total del proyecto cuadre en vez de quedarse corto. */
+const RESTO_JUNTO = process.argv.includes('--resto-junto');
 const CATEGORIA = 'Asesores';
 const CONFIRM = process.argv.includes('--confirm');
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 async function main() {
-  if (!ARCHIVO || !PROYECTO) throw new Error('Uso: migrar-comisiones.ts <archivo.xlsx> <PROYECTO> [--confirm]');
+  if (!ARCHIVO || !PROYECTO) throw new Error('Uso: migrar-comisiones.ts <archivo.xlsx> <PROYECTO> [--maestro] [--confirm]');
 
-  const ws = XLSX.readFile(ARCHIVO).Sheets['Comisiones'];
-  if (!ws) throw new Error('El archivo no tiene una hoja "Comisiones"');
-  const { comisiones, enCero } = leerComisionesDeMatriz(XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][]);
+  let comisiones: Array<{ manzana: number; lote: string; asesor: string; monto: number }>;
+  let enCero: unknown[];
+  if (MAESTRO) {
+    const filas = leerArchivoMaestro(ARCHIVO, { incluirSinCodigo: true })
+      .filter(f => f.proyecto === PROYECTO && f.comision);
+    comisiones = filas.flatMap(f => (f.lotes.length ? f.lotes : [f.lote])
+      .filter((l): l is string => !!l && !!f.manzana)
+      .map(l => ({ manzana: Number(f.manzana), lote: String(l), asesor: '', monto: f.comision! })));
+    enCero = [];
+  } else {
+    const ws = XLSX.readFile(ARCHIVO).Sheets['Comisiones'];
+    if (!ws) throw new Error('El archivo no tiene una hoja "Comisiones"');
+    const r = leerComisionesDeMatriz(XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][]);
+    comisiones = r.comisiones; enCero = r.enCero;
+  }
 
   const proyecto = await prisma.project.findFirst({ where: { code: PROYECTO }, select: { id: true } });
   if (!proyecto) throw new Error(`No existe el proyecto ${PROYECTO}`);
@@ -61,11 +83,12 @@ async function main() {
 
   const listos: Array<{ fecha: Date; monto: number; descripcion: string; origen: string }> = [];
   const sinFecha: string[] = [];
+  const sinFechaMontos: number[] = [];
   for (const c of comisiones) {
     const ref = `M${c.manzana}-L${c.lote}`;
     const contrato = porLote.get(ref)?.contracts[0]?.contract;
     const fecha = contrato?.payments[0]?.paymentDate ?? contrato?.startDate ?? null;
-    if (!fecha) { sinFecha.push(`${ref} (${c.asesor}, ${money(c.monto)})`); continue; }
+    if (!fecha) { sinFecha.push(`${ref} (${c.asesor}, ${money(c.monto)})`); sinFechaMontos.push(c.monto); continue; }
     listos.push({
       fecha, monto: c.monto,
       descripcion: `Comisión ${ref}${c.asesor ? ` — ${c.asesor}` : ''}${contrato?.codigoLegado ? ` (${contrato.codigoLegado})` : ''}`,
@@ -89,6 +112,21 @@ async function main() {
   const yaHay = new Set(existentes.map(e => clave(e.date, Number(e.amount), e.description ?? '')));
   const faltantes = listos.filter(l => !yaHay.has(clave(l.fecha, l.monto, l.descripcion)));
   console.log(`   ya en la base: ${existentes.length} · faltan: ${faltantes.length} · ${money(faltantes.reduce((s, l) => s + l.monto, 0))}\n`);
+
+  // Las que no se pudieron fechar, agrupadas en un solo renglón fechado con la
+  // última comisión conocida del proyecto: así el total cuadra y queda claro
+  // que es un agregado, no una comisión individual.
+  const montoResto = sinFechaMontos.reduce((s, m) => s + m, 0);
+  if (RESTO_JUNTO && montoResto > 0) {
+    const fechaResto = listos.length
+      ? new Date(Math.max(...listos.map(l => l.fecha.getTime())))
+      : new Date();
+    const desc = `Comisiones sin desglose de fecha (${sinFecha.length} lotes) — ${PROYECTO}`;
+    if (!yaHay.has(clave(fechaResto, montoResto, desc))) {
+      faltantes.push({ fecha: fechaResto, monto: montoResto, descripcion: desc, origen: 'agrupado' });
+      console.log(`   + agrupado: ${money(montoResto)} en 1 renglón (${iso(fechaResto)})`);
+    }
+  }
 
   if (!CONFIRM) { console.log('Nada escrito. Repite con --confirm.\n'); return; }
   if (!faltantes.length) { console.log('Nada que cargar.\n'); return; }
