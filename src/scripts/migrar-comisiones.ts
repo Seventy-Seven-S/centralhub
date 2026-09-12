@@ -33,6 +33,12 @@ const MAESTRO = process.argv.includes('--maestro');
 /** Las comisiones que no se pueden fechar entran como UN solo gasto, para que
  *  el total del proyecto cuadre en vez de quedarse corto. */
 const RESTO_JUNTO = process.argv.includes('--resto-junto');
+/** Borra las comisiones ya cargadas del proyecto antes de recargar. Se usa
+ *  cuando la fuente cambió de forma y un ajuste incremental no basta. */
+const REEMPLAZAR = process.argv.includes('--reemplazar');
+/** Archivo del sistema viejo con la hoja "Comisiones", solo para recuperar el
+ *  nombre del asesor: el archivo maestro no lo trae. */
+const ASESORES = process.argv.includes('--asesores') ? process.argv[process.argv.indexOf('--asesores') + 1] : null;
 const CATEGORIA = 'Asesores';
 const CONFIRM = process.argv.includes('--confirm');
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
@@ -41,14 +47,44 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 async function main() {
   if (!ARCHIVO || !PROYECTO) throw new Error('Uso: migrar-comisiones.ts <archivo.xlsx> <PROYECTO> [--maestro] [--confirm]');
 
-  let comisiones: Array<{ manzana: number; lote: string; asesor: string; monto: number }>;
+  let comisiones: Array<{ manzana: number; lote: string; asesor: string; monto: number; doble?: boolean }>;
   let enCero: unknown[];
   if (MAESTRO) {
     const filas = leerArchivoMaestro(ARCHIVO, { incluirSinCodigo: true })
-      .filter(f => f.proyecto === PROYECTO && f.comision);
-    comisiones = filas.flatMap(f => (f.lotes.length ? f.lotes : [f.lote])
-      .filter((l): l is string => !!l && !!f.manzana)
-      .map(l => ({ manzana: Number(f.manzana), lote: String(l), asesor: '', monto: f.comision! })));
+      .filter(f => f.proyecto === PROYECTO && (f.comision || f.comisionDoble));
+    // La comisión doble entra como su PROPIO renglón, no sumada a la normal:
+    // es un segundo pago al vendedor por el mismo lote y conviene poder verlo.
+    comisiones = filas.flatMap(f => {
+      // La comisión es del RENGLÓN, no de cada lote: cuando una fila cubre
+      // varios lotes vendidos juntos ("19 Y 20"), repetirla por lote duplicaba
+      // el monto. Se usa el primer lote solo como referencia para fecharla.
+      const lotes = (f.lotes.length ? f.lotes : [f.lote]).filter((l): l is string => !!l);
+      if (!lotes.length || !f.manzana) return [];
+      const base = { manzana: Number(f.manzana), lote: String(lotes[0]), asesor: '' };
+      const out: Array<typeof base & { monto: number; doble?: boolean }> = [];
+      if (f.comision) out.push({ ...base, monto: f.comision });
+      if (f.comisionDoble) out.push({ ...base, monto: f.comisionDoble, doble: true });
+      return out;
+    });
+    // El maestro no dice qué asesor cobró; se recupera del archivo viejo.
+    if (ASESORES) {
+      const ws2 = XLSX.readFile(ASESORES).Sheets['Comisiones'];
+      if (ws2) {
+        const previo = leerComisionesDeMatriz(XLSX.utils.sheet_to_json(ws2, { header: 1, defval: null }) as unknown[][]);
+        const porLote = new Map<string, string[]>();
+        for (const c of previo.comisiones) {
+          if (!c.asesor) continue;
+          const k = `M${c.manzana}-L${c.lote}`;
+          const l = porLote.get(k) ?? [];
+          if (!l.includes(c.asesor)) l.push(c.asesor);
+          porLote.set(k, l);
+        }
+        for (const c of comisiones) {
+          const nombres = porLote.get(`M${c.manzana}-L${c.lote}`);
+          if (nombres?.length) c.asesor = nombres.join(' / ');
+        }
+      }
+    }
     enCero = [];
   } else {
     const ws = XLSX.readFile(ARCHIVO).Sheets['Comisiones'];
@@ -91,7 +127,7 @@ async function main() {
     if (!fecha) { sinFecha.push(`${ref} (${c.asesor}, ${money(c.monto)})`); sinFechaMontos.push(c.monto); continue; }
     listos.push({
       fecha, monto: c.monto,
-      descripcion: `Comisión ${ref}${c.asesor ? ` — ${c.asesor}` : ''}${contrato?.codigoLegado ? ` (${contrato.codigoLegado})` : ''}`,
+      descripcion: `${c.doble ? 'Doble comisión' : 'Comisión'} ${ref}${c.asesor ? ` — ${c.asesor}` : ''}${contrato?.codigoLegado ? ` (${contrato.codigoLegado})` : ''}`,
       origen: contrato?.payments[0] ? 'enganche' : 'firma',
     });
   }
@@ -128,8 +164,12 @@ async function main() {
     }
   }
 
-  if (!CONFIRM) { console.log('Nada escrito. Repite con --confirm.\n'); return; }
-  if (!faltantes.length) { console.log('Nada que cargar.\n'); return; }
+  if (REEMPLAZAR) {
+    const yaHabia = await prisma.expense.count({ where: { projectId: proyecto.id, category: { name: CATEGORIA } } });
+    console.log(`\n   ⚠ --reemplazar: se BORRARÁN los ${yaHabia} renglones de "${CATEGORIA}" de ${PROYECTO} antes de recargar`);
+  }
+  if (!CONFIRM) { console.log('\nNada escrito. Repite con --confirm.\n'); return; }
+  if (!faltantes.length && !REEMPLAZAR) { console.log('Nada que cargar.\n'); return; }
 
   const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
   if (!admin) throw new Error('No hay usuario ADMIN');
@@ -137,13 +177,20 @@ async function main() {
     where: { name: CATEGORIA }, update: {}, create: { name: CATEGORIA, createdById: admin.id }, select: { id: true },
   });
 
-  await prisma.expense.createMany({
-    data: faltantes.map(l => ({
+  // Todo en una transacción: si algo falla, no queda el proyecto sin comisiones.
+  await prisma.$transaction(async tx => {
+    if (REEMPLAZAR) {
+      const r = await tx.expense.deleteMany({ where: { projectId: proyecto.id, categoryId: cat.id } });
+      console.log(`   borrados ${r.count} renglones previos`);
+    }
+    await tx.expense.createMany({
+    data: (REEMPLAZAR ? listos : faltantes).map(l => ({
       projectId: proyecto.id, categoryId: cat.id, amount: l.monto,
       date: l.fecha, createdById: admin.id, description: l.descripcion,
     })),
+    });
   });
-  console.log(`✅ Cargadas ${faltantes.length} comisiones en ${PROYECTO}\n`);
+  console.log(`✅ Cargadas ${REEMPLAZAR ? listos.length : faltantes.length} comisiones en ${PROYECTO}\n`);
 }
 
 main().catch(e => { console.error('❌', e.message); process.exit(1); }).finally(() => prisma.$disconnect());

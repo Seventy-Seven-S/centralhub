@@ -50,6 +50,9 @@ export interface FilaLote {
   /** Columna COMISION: lo que se le pagó al asesor por ese lote. Solo algunas
    *  hojas la traen; en las demás es null. */
   comision: number | null;
+  /** Columna DOBLE COMISION: un segundo pago al vendedor por ese mismo lote.
+   *  Es dinero que salió igual, aparte de la comisión normal. */
+  comisionDoble: number | null;
   m2: number | null;
   /** Texto crudo del plazo: puede ser un número de años o "DE CONTADO". */
   plazoTexto: string | null;
@@ -154,7 +157,13 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string, opciones
   // "PRECIO M2" (precio por metro) y "PRECIO/VENTA" (el del lote). Buscar por
   // includes('PRECIO') a secas agarraba el precio por metro.
   const cPrecio = buscar(s => s.includes('PRECIO') && !s.includes('M2') && !s.includes('M²'));
-  const cComision = buscar(s => s.startsWith('COMISION'));
+  // Cada hoja lo escribe distinto: MONARCA usa "COMISION" y "DOBLE COMISION";
+  // V.ROBLE trae "COMICION" (con C, tal cual en el archivo) y "COMISIONDOBLE"
+  // sin espacio. Se aceptan las dos grafías y la doble se excluye de la normal.
+  const esComision = (s: string) => /^COMI[SC]ION/.test(s);
+  const esDoble = (s: string) => s.includes('DOBLE') && /COMI[SC]ION/.test(s);
+  const cComision = buscar(s => esComision(s) && !s.includes('DOBLE'));
+  const cComisionDoble = buscar(esDoble);
   const cPrimerPago = buscar(s => s.replace(/[\s.]/g, '').includes('1ERPAGO'));
   const cEstatus = buscar(s => s.startsWith('ESTATUS'));
   const cObs = buscar(s => s.includes('OBSERVACIONES'));
@@ -194,6 +203,7 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string, opciones
       mensualidad: cMens >= 0 ? aNumero(r[cMens]) : null,
       precio: cPrecio >= 0 ? aNumero(r[cPrecio]) : null,
       comision: cComision >= 0 ? aNumero(r[cComision]) : null,
+      comisionDoble: cComisionDoble >= 0 ? aNumero(r[cComisionDoble]) : null,
       m2: cM2 >= 0 ? aNumero(r[cM2]) : null,
       plazoTexto,
       primerPagoTexto: cPrimerPago >= 0 && r[cPrimerPago] != null ? String(r[cPrimerPago]).trim() || null : null,
