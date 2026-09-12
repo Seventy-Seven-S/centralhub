@@ -118,7 +118,16 @@ export function encontrarEncabezado(rows: any[][]): number {
   return -1;
 }
 
-export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLote[] {
+export interface OpcionesLectura {
+  /**
+   * Incluir las filas SIN código de cliente, que son el inventario sin vender.
+   * Por omisión se omiten: casi todo el código que usa este lector concilia
+   * contratos, y ahí una fila sin cliente no significa nada.
+   */
+  incluirSinCodigo?: boolean;
+}
+
+export function leerHoja(rows: any[][], hoja: string, proyecto: string, opciones: OpcionesLectura = {}): FilaLote[] {
   const h = encontrarEncabezado(rows);
   if (h < 0) return [];
 
@@ -155,7 +164,16 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
   const out: FilaLote[] = [];
   for (const r of rows.slice(h + 1)) {
     const codigo = norm(r?.[iCodigo]);
-    if (!codigo) continue;
+    if (!codigo && !opciones.incluirSinCodigo) continue;
+
+    // Al pie de cada hoja hay cuadros de resumen ("Total | 164", "Reservados",
+    // "Libres") cuyas celdas caen bajo las mismas columnas. Un lote real tiene
+    // manzana numérica y número de lote; esas etiquetas no. El filtro solo
+    // aplica si la hoja trae esas columnas: sin ellas no hay nada que filtrar.
+    const mzaCruda = cMza >= 0 && r[cMza] != null ? String(r[cMza]).replace(/`/g, '').trim() : '';
+    const loteCrudo = cLote >= 0 && r[cLote] != null ? String(r[cLote]).replace(/`/g, '').trim() : '';
+    if (cMza >= 0 && !/^\d+$/.test(mzaCruda)) continue;
+    if (cLote >= 0 && !loteCrudo) continue;
 
     const plazoTexto = cPlazo >= 0 && r[cPlazo] != null ? String(r[cPlazo]).trim() : null;
     out.push({
@@ -185,14 +203,14 @@ export function leerHoja(rows: any[][], hoja: string, proyecto: string): FilaLot
   return out;
 }
 
-export function leerArchivoMaestro(ruta = ARCHIVO_MAESTRO): FilaLote[] {
+export function leerArchivoMaestro(ruta = ARCHIVO_MAESTRO, opciones: OpcionesLectura = {}): FilaLote[] {
   const wb = XLSX.readFile(ruta);
   const out: FilaLote[] = [];
   for (const hoja of wb.SheetNames) {
     const proyecto = HOJA_A_PROYECTO[hoja.trim().toUpperCase()] ?? HOJA_A_PROYECTO[hoja.trim()];
     if (!proyecto) continue;
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[hoja], { header: 1, defval: null }) as any[][];
-    out.push(...leerHoja(rows, hoja, proyecto));
+    out.push(...leerHoja(rows, hoja, proyecto, opciones));
   }
   return out;
 }
