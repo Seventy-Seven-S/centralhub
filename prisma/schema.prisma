@@ -56,6 +56,11 @@ model User {
   lotsReserved       Lot[]             @relation("LotReservedByAgent")
   contractsAsAgent   Contract[]        @relation("ContractAgent")
 
+  // Ajustes de pantalla de ESTE usuario (p.ej. el orden en que acomodó las
+  // tarjetas de Proyectos). No son datos del negocio: si se pierden, la
+  // aplicación sigue igual, solo vuelve al orden por omisión.
+  preferencias       Json?
+
   @@map("users")
 }
 

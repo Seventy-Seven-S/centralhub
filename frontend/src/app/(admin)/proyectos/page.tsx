@@ -1,8 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Building2, MapPin, TrendingUp, AlertCircle } from 'lucide-react';
-import { useProyectos, Proyecto } from '@/hooks/useProyectos';
+import { useState, useMemo, useRef } from 'react';
+import { aplicarOrden, mover } from '@/lib/ordenProyectos';
+import { Building2, MapPin, TrendingUp, AlertCircle, TrendingDown, GripVertical } from 'lucide-react';
+import { useProyectos, useOrdenProyectos, Proyecto } from '@/hooks/useProyectos';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
 
@@ -30,21 +32,43 @@ function GridSkeleton() {
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
-function ProyectoCard({ proyecto, onClick, hideIngresos }: { proyecto: Proyecto; onClick: () => void; hideIngresos: boolean }) {
-  const totalReal = proyecto.lotesVendidos + proyecto.lotesDisponibles;
-  const pct       = totalReal > 0 ? Math.min(100, Math.round((proyecto.lotesVendidos / totalReal) * 100)) : 0;
+function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrando, onDragStart, onDragEnter, onDragEnd }: {
+  proyecto: Proyecto; onClick: () => void; hideIngresos: boolean;
+  arrastrable: boolean; arrastrando: boolean;
+  onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void;
+}) {
+  const totalReal  = proyecto.lotesVendidos + proyecto.lotesDisponibles;
+  const pct        = totalReal > 0 ? Math.min(100, Math.round((proyecto.lotesVendidos / totalReal) * 100)) : 0;
+  const diferencia = proyecto.totalIngresos - proyecto.totalEgresos;
 
   return (
     <div
       onClick={onClick}
+      draggable={arrastrable}
+      onDragStart={onDragStart}
+      onDragEnter={onDragEnter}
+      onDragEnd={onDragEnd}
+      onDragOver={e => e.preventDefault()}
       className="rounded-2xl shadow-sm hover:shadow-md transition-shadow cursor-pointer p-5 space-y-4"
-      style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: `1px solid ${arrastrando ? 'var(--accent)' : 'var(--border)'}`,
+        opacity: arrastrando ? 0.5 : 1,
+      }}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2">
+          {arrastrable && (
+            <GripVertical
+              className="w-4 h-4 mt-0.5 shrink-0 cursor-grab active:cursor-grabbing"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          )}
         <div>
           <h3 className="font-bold text-base leading-tight" style={{ color: 'var(--text-primary)' }}>{proyecto.name}</h3>
           <span className="text-xs font-mono mt-0.5 block" style={{ color: 'var(--text-tertiary)' }}>{proyecto.code}</span>
+        </div>
         </div>
         <span
           className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold shrink-0"
@@ -91,12 +115,27 @@ function ProyectoCard({ proyecto, onClick, hideIngresos }: { proyecto: Proyecto;
         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{totalReal} lotes totales</p>
       </div>
 
-      {/* Ingresos */}
-      {proyecto.totalIngresos > 0 && !hideIngresos && (
-        <div className="flex items-center gap-2 pt-1" style={{ borderTop: '1px solid var(--border)' }}>
-          <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Ingresos:</span>
-          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(proyecto.totalIngresos)}</span>
+      {/* Finanzas */}
+      {!hideIngresos && (proyecto.totalIngresos > 0 || proyecto.totalEgresos > 0) && (
+        <div className="pt-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <TrendingUp className="w-3.5 h-3.5" /> Ingresos
+            </span>
+            <span className="font-semibold" style={{ color: 'var(--accent)' }}>{formatCurrency(proyecto.totalIngresos)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <TrendingDown className="w-3.5 h-3.5" /> Egresos
+            </span>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(proyecto.totalEgresos)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs pt-1" style={{ borderTop: '1px dashed var(--border)' }}>
+            <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Diferencia</span>
+            <span className="font-bold" style={{ color: diferencia < 0 ? 'var(--danger)' : 'var(--accent)' }}>
+              {formatCurrency(diferencia)}
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -108,6 +147,38 @@ export default function ProyectosPage() {
   const router = useRouter();
   const { canOnlyViewLots } = useRole();
   const { data: proyectos = [], isLoading, isError } = useProyectos();
+  const { orden, guardar } = useOrdenProyectos();
+
+  // El orden que se ve sale de reconciliar el guardado con lo que manda el
+  // servidor: un proyecto nuevo aparece al final en vez de perderse.
+  const ordenados = useMemo(() => aplicarOrden(proyectos, orden), [proyectos, orden]);
+
+  const [arrastrado, setArrastrado] = useState<string | null>(null);
+  const [vista, setVista] = useState<string[] | null>(null);
+  // Distingue arrastrar de hacer clic: sin esto, soltar una tarjeta abre el
+  // proyecto además de reacomodarlo.
+  const moviendo = useRef(false);
+
+  const lista = vista
+    ? (vista.map(id => ordenados.find(p => p.id === id)).filter(Boolean) as typeof ordenados)
+    : ordenados;
+
+  function alEntrar(id: string) {
+    if (!arrastrado || arrastrado === id) return;
+    const ids = lista.map(p => p.id);
+    const nuevos = mover(ids, ids.indexOf(arrastrado), ids.indexOf(id));
+    moviendo.current = true;
+    setVista(nuevos);
+  }
+
+  function alSoltar() {
+    if (vista) guardar.mutate(vista);
+    setArrastrado(null);
+    setVista(null);
+    // Se libera en el siguiente tick para que el clic que sigue al soltar no
+    // navegue al proyecto.
+    setTimeout(() => { moviendo.current = false; }, 0);
+  }
 
   if (isLoading) return (
     <div className="space-y-4">
@@ -130,7 +201,9 @@ export default function ProyectosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Proyectos</h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{activos} proyectos activos</p>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            {activos} proyectos activos · arrastra las tarjetas para acomodarlas
+          </p>
         </div>
       </div>
 
@@ -141,12 +214,17 @@ export default function ProyectosPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {proyectos.map(p => (
+          {lista.map(p => (
             <ProyectoCard
               key={p.id}
               proyecto={p}
-              onClick={() => router.push(`/proyectos/${p.id}`)}
+              onClick={() => { if (!moviendo.current) router.push(`/proyectos/${p.id}`); }}
               hideIngresos={canOnlyViewLots}
+              arrastrable
+              arrastrando={arrastrado === p.id}
+              onDragStart={() => setArrastrado(p.id)}
+              onDragEnter={() => alEntrar(p.id)}
+              onDragEnd={alSoltar}
             />
           ))}
         </div>

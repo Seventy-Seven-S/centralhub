@@ -18,13 +18,14 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
 
   const enriched = await Promise.all(
     projects.map(async (p) => {
-      const [lotesVendidos, lotesDisponibles, totalIngresos] = await Promise.all([
+      const [lotesVendidos, lotesDisponibles, totalIngresos, totalEgresos] = await Promise.all([
         prisma.lot.count({ where: { projectId: p.id, status: 'SOLD' } }),
         prisma.lot.count({ where: { projectId: p.id, status: 'AVAILABLE' } }),
         prisma.payment.aggregate({
           where: { contract: { projectId: p.id }, status: 'CONFIRMED' },
           _sum: { amount: true },
         }),
+        prisma.expense.aggregate({ where: { projectId: p.id }, _sum: { amount: true } }),
       ]);
 
       const { _count, ...project } = p;
@@ -34,6 +35,9 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
         lotesVendidos,
         lotesDisponibles,
         totalIngresos:    totalIngresos._sum.amount ?? 0,
+        // Number() porque el monto de un gasto es Decimal: sin convertir, el
+        // frontend recibe una cadena y la resta concatena en vez de restar.
+        totalEgresos:     Number(totalEgresos._sum.amount ?? 0),
       };
     })
   );
