@@ -278,6 +278,13 @@ model Lot {
 // CONTRATOS Y VENTAS
 // ============================================================================
 
+enum EnvioReciboEstado {
+  PENDIENTE
+  ENVIADO
+  FALLO
+  SIN_CORREO
+}
+
 enum ContractStatus {
   DRAFT
   SIGNED
@@ -628,6 +635,16 @@ model ReciboLog {
   issuedAt       DateTime @default(now())
   issuedByIp     String?
 
+  // Desenlace del correo al cliente. Antes, si Resend fallaba, el error solo
+  // quedaba en el log del servidor: el cliente no recibía nada y nadie se
+  // enteraba. SIN_CORREO no es un fallo — es que no había a dónde mandarlo.
+  envioEstado    EnvioReciboEstado @default(PENDIENTE)
+  envioDestino   String?
+  envioError     String?
+  envioAt        DateTime?
+  envioIntentos  Int      @default(0)
+
+  @@index([envioEstado])
   @@map("recibo_logs")
 }
 

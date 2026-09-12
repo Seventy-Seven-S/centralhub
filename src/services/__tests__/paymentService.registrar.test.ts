@@ -27,7 +27,11 @@ vi.mock('../notification.service', () => ({ default: { createNotification: vi.fn
 // config/database (a propósito — ver el comentario en ese archivo). No
 // queremos que este test unitario de payment.service dependa de esa
 // otra ruta de mocking.
-vi.mock('../reciboLog.service', () => ({ crearReciboLog: mocks.crearReciboLog }));
+vi.mock('../reciboLog.service', () => ({
+  crearReciboLog: mocks.crearReciboLog,
+  // El envío del recibo cuelga del cobro sin await; aquí solo debe no estorbar.
+  enviarYRegistrarRecibo: vi.fn().mockResolvedValue('ENVIADO'),
+}));
 
 import paymentService from '../payment.service';
 

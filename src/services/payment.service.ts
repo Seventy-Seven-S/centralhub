@@ -10,8 +10,8 @@ import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import { round2 } from '../utils/money';
 import { wherePagoVisible } from './lib/proyectosOcultos';
-import { crearReciboLog } from './reciboLog.service';
-import { sendReciboEmail } from './email.service';
+import { crearReciboLog, enviarYRegistrarRecibo } from './reciboLog.service';
+
 import { buildReciboFolio } from '../utils/reciboFolio';
 
 const prisma = new PrismaClient();
@@ -242,9 +242,11 @@ export class PaymentService {
     // tumbarlo ni hacer esperar a la secretaria con el cliente enfrente.
     // El correo puede venir en el pago (la secretaria lo capturó o corrigió en
     // el modal) o del expediente del cliente.
+    // enviarYRegistrarRecibo deja constancia del desenlace en el recibo: antes
+    // un fallo solo iba al log del servidor y nadie se enteraba.
     if (reciboId) {
       const destino = data.emailCliente?.trim() || contract.client.email;
-      sendReciboEmail(destino, {
+      enviarYRegistrarRecibo(reciboId, destino, {
         reciboId,
         folio:          buildReciboFolio(contract.codigoLegado ?? contract.contractNumber, primera?.numeroCuota ?? 0, contract.installmentCount ?? 0),
         clienteNombre:  `${contract.client.firstName} ${contract.client.lastName}`,
@@ -257,7 +259,7 @@ export class PaymentService {
         fechaPago,
         concepto:       concept,
         balanceDespues: created.balanceAfter ?? 0,
-      }).catch(err => logger.error(`Error enviando recibo por correo: ${err.message}`));
+      });
     }
 
     const payment = await this.getPaymentById(created.id);
