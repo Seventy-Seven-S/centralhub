@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import ChipResumen from '@/components/ui/ChipResumen';
+import { resumirGastosPorCategoria, filtrarPorCategoria } from '@/lib/gastos';
 import {
   Receipt, Plus, Pencil, Trash2, ChevronLeft, ChevronRight,
   AlertCircle, X, ChevronDown, ChevronUp, Tag, TrendingDown,
 } from 'lucide-react';
 import { useProyectos } from '@/hooks/useProyectos';
 import {
-  useExpenseCategories, useExpensesByProject, useExpenseSummary,
+  useExpenseCategories, useExpensesByProject,
   useCreateExpense, useUpdateExpense, useDeleteExpense,
   useCreateCategory, useUpdateCategory, useDeleteCategory,
   Expense, ExpenseCategory, CreateExpenseDto, UpdateExpenseDto,
@@ -355,14 +357,21 @@ export default function GastosPage() {
   const { data: proyectos = [] } = useProyectos();
   const { data: categories = [] } = useExpenseCategories();
 
+  // La categoría NO se manda al servidor: se necesita traer todas para poder
+  // mostrar cuánto suma cada una junto al filtro. Las fechas sí, porque acotan
+  // el universo y el resumen debe responder a ellas.
   const filters: ExpenseFilters = {
-    categoryId: selectedCategory || undefined,
-    dateFrom:   dateFrom || undefined,
-    dateTo:     dateTo   || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo:   dateTo   || undefined,
   };
 
-  const { data: expenses = [], isLoading: loadingExpenses } = useExpensesByProject(selectedProject, filters);
-  const { data: summary, isLoading: loadingSummary } = useExpenseSummary(selectedProject);
+  const { data: todosLosGastos = [], isLoading: loadingExpenses } = useExpensesByProject(selectedProject, filters);
+
+  const resumenCategorias = useMemo(() => resumirGastosPorCategoria(todosLosGastos), [todosLosGastos]);
+  const expenses = useMemo(() => filtrarPorCategoria(todosLosGastos, selectedCategory || null), [todosLosGastos, selectedCategory]);
+  const totalFiltrado = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  const totalPeriodo  = useMemo(() => todosLosGastos.reduce((s, e) => s + Number(e.amount), 0), [todosLosGastos]);
+  const elegirCategoria = (id: string) => { setSelectedCategory(id); setPage(1); };
 
   const deleteMutation = useDeleteExpense(selectedProject);
   const deleteCategoryMutation = useDeleteCategory();
@@ -371,10 +380,7 @@ export default function GastosPage() {
   const paginated  = useMemo(() => expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [expenses, page]);
   const totalPages = Math.max(1, Math.ceil(expenses.length / PAGE_SIZE));
 
-  const topCategory = useMemo(() => {
-    if (!summary?.byCategory.length) return '—';
-    return summary.byCategory[0].categoryName;
-  }, [summary]);
+  const topCategory = resumenCategorias[0]?.etiqueta ?? '—';
 
   function clearFilters() {
     setSelectedCategory('');
@@ -422,24 +428,24 @@ export default function GastosPage() {
           <Receipt className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
           <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Selecciona un proyecto para ver los gastos</p>
         </div>
-      ) : loadingSummary ? (
+      ) : loadingExpenses ? (
         <KpiSkeleton />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <KpiCard
-            label="Total del período"
-            value={formatCurrency(summary?.total ?? 0)}
-            sub={`${expenses.length} gasto${expenses.length !== 1 ? 's' : ''} registrado${expenses.length !== 1 ? 's' : ''}`}
+            label={selectedCategory ? 'Total de la categoría' : 'Total del período'}
+            value={formatCurrency(totalFiltrado)}
+            sub={`${expenses.length} gasto${expenses.length !== 1 ? 's' : ''}`}
           />
           <KpiCard
-            label="Número de gastos"
-            value={String(expenses.length)}
-            sub={selectedCategory ? 'categoría filtrada' : 'todas las categorías'}
+            label="Total del período"
+            value={formatCurrency(totalPeriodo)}
+            sub={`${todosLosGastos.length} gasto${todosLosGastos.length !== 1 ? 's' : ''} · todas las categorías`}
           />
           <KpiCard
             label="Mayor categoría"
             value={topCategory}
-            sub={summary?.byCategory[0] ? formatCurrency(summary.byCategory[0].total) : undefined}
+            sub={resumenCategorias[0] ? formatCurrency(resumenCategorias[0].monto) : undefined}
           />
         </div>
       )}
@@ -458,18 +464,7 @@ export default function GastosPage() {
           ))}
         </select>
 
-        <select
-          value={selectedCategory}
-          onChange={e => { setSelectedCategory(e.target.value); setPage(1); }}
-          disabled={!selectedProject}
-          className="px-3 py-2.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer disabled:opacity-50"
-          style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-        >
-          <option value="">Todas las categorías</option>
-          {categories.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+
 
         <input
           type="date"
@@ -499,6 +494,29 @@ export default function GastosPage() {
           </button>
         )}
       </div>
+
+      {/* ── Resumen por categoría, que es a la vez el filtro ── */}
+      {selectedProject && resumenCategorias.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <ChipResumen
+            activo={!selectedCategory}
+            onClick={() => elegirCategoria('')}
+            etiqueta="Todas"
+            cantidad={todosLosGastos.length}
+            monto={totalPeriodo}
+          />
+          {resumenCategorias.map(c => (
+            <ChipResumen
+              key={c.clave}
+              activo={selectedCategory === c.clave}
+              onClick={() => elegirCategoria(c.clave)}
+              etiqueta={c.etiqueta}
+              cantidad={c.cantidad}
+              monto={c.monto}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Tabla ── */}
       <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
