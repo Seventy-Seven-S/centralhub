@@ -130,6 +130,21 @@ export class ExpenseController {
     }
   }
 
+  // GET /api/v1/expenses — gastos de TODOS los proyectos visibles
+  async getAllExpenses(req: Request, res: Response) {
+    try {
+      const filters: ExpenseFilters = {
+        categoryId: req.query.categoryId as string | undefined,
+        dateFrom:   req.query.dateFrom   as string | undefined,
+        dateTo:     req.query.dateTo     as string | undefined,
+      };
+      const expenses = await expenseService.getExpensesAll(filters);
+      res.status(200).json({ success: true, data: expenses, count: expenses.length });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'Error al obtener gastos' });
+    }
+  }
+
   // GET /api/v1/expenses/:id
   async getExpenseById(req: Request, res: Response) {
     try {

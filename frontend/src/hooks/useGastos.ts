@@ -77,6 +77,15 @@ async function fetchExpensesByProject(projectId: string, filters?: ExpenseFilter
   return data.data;
 }
 
+async function fetchAllExpenses(filters?: ExpenseFilters): Promise<Expense[]> {
+  const params: Record<string, string> = {};
+  if (filters?.categoryId) params.categoryId = filters.categoryId;
+  if (filters?.dateFrom)   params.dateFrom   = filters.dateFrom;
+  if (filters?.dateTo)     params.dateTo     = filters.dateTo;
+  const { data } = await api.get('/expenses', { params });
+  return data.data;
+}
+
 async function fetchExpenseSummary(projectId: string): Promise<ExpenseSummary> {
   const { data } = await api.get(`/expenses/project/${projectId}/summary`);
   return data.data;
@@ -92,12 +101,12 @@ export function useExpenseCategories() {
   });
 }
 
+/** Sin projectId trae los gastos de TODOS los proyectos visibles. */
 export function useExpensesByProject(projectId: string, filters?: ExpenseFilters) {
   return useQuery<Expense[]>({
-    queryKey: ['expenses', projectId, filters],
-    queryFn:  () => fetchExpensesByProject(projectId, filters),
+    queryKey: ['expenses', projectId || 'todos', filters],
+    queryFn:  () => (projectId ? fetchExpensesByProject(projectId, filters) : fetchAllExpenses(filters)),
     staleTime: 30_000,
-    enabled:  !!projectId,
   });
 }
 

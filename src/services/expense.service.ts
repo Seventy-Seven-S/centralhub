@@ -1,5 +1,6 @@
 // src/services/expense.service.ts
 import { PrismaClient } from '@prisma/client';
+import { whereGastoVisible } from './lib/proyectosOcultos';
 import {
   CreateExpenseCategoryDto,
   UpdateExpenseCategoryDto,
@@ -83,6 +84,33 @@ export class ExpenseService {
         project:  { select: { id: true, code: true, name: true } },
         category: { select: { id: true, name: true } },
       },
+    });
+  }
+
+  /**
+   * Gastos de TODOS los proyectos visibles. Sirve para ver el desglose por
+   * categoría del negocio completo, no de uno solo.
+   *
+   * Excluye los proyectos ocultos (Betania se cobra con el sistema viejo): si
+   * se colaran aquí, el total del negocio no cuadraría con ninguna otra
+   * pantalla, que sí los excluyen.
+   */
+  async getExpensesAll(filters: ExpenseFilters) {
+    const where: any = { ...whereGastoVisible() };
+    if (filters.categoryId) where.categoryId = filters.categoryId;
+    if (filters.dateFrom || filters.dateTo) {
+      where.date = {};
+      if (filters.dateFrom) where.date.gte = new Date(filters.dateFrom);
+      if (filters.dateTo)   where.date.lte = new Date(filters.dateTo);
+    }
+    return prisma.expense.findMany({
+      where,
+      include: {
+        project:   { select: { id: true, code: true, name: true } },
+        category:  { select: { id: true, name: true } },
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { date: 'desc' },
     });
   }
 

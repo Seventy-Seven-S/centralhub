@@ -410,7 +410,11 @@ export default function GastosPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Gastos</h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>Control de egresos por proyecto</p>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            {selectedProject
+              ? proyectos.find(p => p.id === selectedProject)?.name ?? 'Control de egresos'
+              : 'Todos los proyectos'}
+          </p>
         </div>
         <button
           onClick={() => setExpenseModal({ open: true, expense: null })}
@@ -423,12 +427,7 @@ export default function GastosPage() {
       </div>
 
       {/* ── KPIs ── */}
-      {!selectedProject ? (
-        <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <Receipt className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Selecciona un proyecto para ver los gastos</p>
-        </div>
-      ) : loadingExpenses ? (
+      {loadingExpenses ? (
         <KpiSkeleton />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -458,19 +457,16 @@ export default function GastosPage() {
           className="px-3 py-2.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
           style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         >
-          <option value="">Selecciona proyecto…</option>
+          <option value="">Todos los proyectos</option>
           {proyectos.map(p => (
             <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
           ))}
         </select>
 
-
-
         <input
           type="date"
           value={dateFrom}
           onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-          disabled={!selectedProject}
           className="px-3 py-2.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 transition disabled:opacity-50"
           style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         />
@@ -479,7 +475,6 @@ export default function GastosPage() {
           type="date"
           value={dateTo}
           onChange={e => { setDateTo(e.target.value); setPage(1); }}
-          disabled={!selectedProject}
           className="px-3 py-2.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 transition disabled:opacity-50"
           style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         />
@@ -496,7 +491,7 @@ export default function GastosPage() {
       </div>
 
       {/* ── Resumen por categoría, que es a la vez el filtro ── */}
-      {selectedProject && resumenCategorias.length > 0 && (
+      {resumenCategorias.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <ChipResumen
             activo={!selectedCategory}
@@ -520,12 +515,7 @@ export default function GastosPage() {
 
       {/* ── Tabla ── */}
       <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
-        {!selectedProject ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <TrendingDown className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
-            <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Selecciona un proyecto para ver sus gastos</p>
-          </div>
-        ) : loadingExpenses ? (
+        {loadingExpenses ? (
           <TableSkeleton />
         ) : expenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
