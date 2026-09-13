@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import ChipResumen from '@/components/ui/ChipResumen';
-import { resumirGastosPorCategoria, filtrarPorCategoria } from '@/lib/gastos';
+import { resumirGastosPorCategoria, filtrarPorCategoria, resumirGastosPorProyecto, filtrarPorProyecto } from '@/lib/gastos';
 import {
   Receipt, Plus, Pencil, Trash2, ChevronLeft, ChevronRight,
   AlertCircle, X, ChevronDown, ChevronUp, Tag, TrendingDown,
@@ -343,6 +343,8 @@ export default function GastosPage() {
   // ── Filters state ──────────────────────────────────────────────────────────
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  // Sub-filtro por proyecto, solo cuando se están viendo todos.
+  const [subProyecto, setSubProyecto] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
   const [page, setPage] = useState(1);
@@ -368,10 +370,21 @@ export default function GastosPage() {
   const { data: todosLosGastos = [], isLoading: loadingExpenses } = useExpensesByProject(selectedProject, filters);
 
   const resumenCategorias = useMemo(() => resumirGastosPorCategoria(todosLosGastos), [todosLosGastos]);
-  const expenses = useMemo(() => filtrarPorCategoria(todosLosGastos, selectedCategory || null), [todosLosGastos, selectedCategory]);
+  // Los gastos de la categoría elegida, antes de acotar por proyecto: de ahí
+  // sale el desglose "de los $12.6M de Despacho, cuánto fue en cada proyecto".
+  const deLaCategoria = useMemo(
+    () => filtrarPorCategoria(todosLosGastos, selectedCategory || null),
+    [todosLosGastos, selectedCategory]);
+  const resumenProyectos = useMemo(() => resumirGastosPorProyecto(deLaCategoria), [deLaCategoria]);
+  const expenses = useMemo(
+    () => filtrarPorProyecto(deLaCategoria, subProyecto),
+    [deLaCategoria, subProyecto]);
   const totalFiltrado = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  const totalCategoria = useMemo(() => deLaCategoria.reduce((s, e) => s + Number(e.amount), 0), [deLaCategoria]);
   const totalPeriodo  = useMemo(() => todosLosGastos.reduce((s, e) => s + Number(e.amount), 0), [todosLosGastos]);
-  const elegirCategoria = (id: string) => { setSelectedCategory(id); setPage(1); };
+  // Cambiar de categoría limpia el proyecto: el desglose es de OTRA categoría.
+  const elegirCategoria = (id: string) => { setSelectedCategory(id); setSubProyecto(null); setPage(1); };
+  const elegirSubProyecto = (id: string | null) => { setSubProyecto(id); setPage(1); };
 
   const deleteMutation = useDeleteExpense(selectedProject);
   const deleteCategoryMutation = useDeleteCategory();
@@ -384,6 +397,7 @@ export default function GastosPage() {
 
   function clearFilters() {
     setSelectedCategory('');
+    setSubProyecto(null);
     setDateFrom('');
     setDateTo('');
     setPage(1);
@@ -453,7 +467,7 @@ export default function GastosPage() {
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <select
           value={selectedProject}
-          onChange={e => { setSelectedProject(e.target.value); setPage(1); }}
+          onChange={e => { setSelectedProject(e.target.value); setSubProyecto(null); setPage(1); }}
           className="px-3 py-2.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
           style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         >
@@ -479,7 +493,7 @@ export default function GastosPage() {
           style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         />
 
-        {(selectedCategory || dateFrom || dateTo) && (
+        {(selectedCategory || subProyecto || dateFrom || dateTo) && (
           <button
             onClick={clearFilters}
             className="px-3 py-2.5 text-sm rounded-xl transition"
@@ -510,6 +524,38 @@ export default function GastosPage() {
               monto={c.monto}
             />
           ))}
+        </div>
+      )}
+
+      {/* Desglose por proyecto de lo que se está viendo. Solo con "Todos los
+          proyectos": si ya se eligió uno, el desglose sería una sola barra. */}
+      {!selectedProject && resumenProyectos.length > 1 && (
+        <div className="rounded-2xl p-4 space-y-2.5" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            {selectedCategory
+              ? `${resumenCategorias.find(c => c.clave === selectedCategory)?.etiqueta ?? ''} por proyecto`
+              : 'Por proyecto'}
+            <span style={{ color: 'var(--text-tertiary)' }}> · {formatCurrency(totalCategoria)}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <ChipResumen
+              activo={subProyecto === null}
+              onClick={() => elegirSubProyecto(null)}
+              etiqueta="Todos"
+              cantidad={deLaCategoria.length}
+              monto={totalCategoria}
+            />
+            {resumenProyectos.map(pr => (
+              <ChipResumen
+                key={pr.clave}
+                activo={subProyecto === pr.clave}
+                onClick={() => elegirSubProyecto(pr.clave)}
+                etiqueta={pr.etiqueta}
+                cantidad={pr.cantidad}
+                monto={pr.monto}
+              />
+            ))}
+          </div>
         </div>
       )}
 

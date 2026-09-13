@@ -71,8 +71,11 @@ describe('categoriaDeColumnaGasto', () => {
     expect(categoriaDeColumnaGasto('Planos ')).toBe('Planos');
     expect(categoriaDeColumnaGasto('Maquinaria')).toBe('Maquinaria');
   });
-  it('"Oficina2" del archivo usa la categoría "Oficina 2" que ya existe', () => {
-    expect(categoriaDeColumnaGasto('Oficina2')).toBe('Oficina 2');
+  it('Oficina2 y Presidencia son lo mismo que Despacho para el negocio', () => {
+    expect(categoriaDeColumnaGasto('Oficina2')).toBe('Despacho');
+    expect(categoriaDeColumnaGasto('Oficina 2')).toBe('Despacho');
+    expect(categoriaDeColumnaGasto('Presidencia ')).toBe('Despacho');
+    expect(categoriaDeColumnaGasto('Despacho ')).toBe('Despacho');
   });
   it('las demás conservan su nombre', () => {
     expect(categoriaDeColumnaGasto('Administrativos')).toBe('Administrativos');

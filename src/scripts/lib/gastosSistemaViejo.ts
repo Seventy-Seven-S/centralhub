@@ -56,8 +56,10 @@ export function categoriaDeColumnaGasto(columna: string, duenoEtiqueta?: string 
   // agrupación es una decisión del negocio, no del lector.
   if (/^planos,\s*trazo/.test(s)) return 'Planos, Trazo y Maquinaria';
   if (s.startsWith('central')) return 'Central';
-  // "Oficina2" en el archivo; en la app la categoría ya existe con espacio.
-  if (s.startsWith('oficina')) return 'Oficina 2';
+  // Despacho, Oficina 2 y Presidencia son lo mismo para el negocio; los
+  // archivos las titulan distinto según el proyecto y se unifican al cargar.
+  if (s.startsWith('oficina') || s.startsWith('presidencia') || s.startsWith('despacho'))
+    return 'Despacho';
   return columna.trim();
 }
 

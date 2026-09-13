@@ -46,3 +46,54 @@ describe('filtrarPorCategoria', () => {
     expect(filtrarPorCategoria(lista, 'c2')[0]).toBe(lista[1]);
   });
 });
+
+import { resumirGastosPorProyecto, filtrarPorProyecto } from './gastos';
+
+const g2 = (projectId: string, code: string, name: string, amount: string) =>
+  ({ projectId, project: { id: projectId, code, name }, amount });
+
+describe('resumirGastosPorProyecto', () => {
+  it('suma por proyecto y etiqueta con el código, que es como los nombra el equipo', () => {
+    const r = resumirGastosPorProyecto([
+      g2('p1', 'VDR', 'Valle del Roble', '5299000'),
+      g2('p2', 'MON1', 'Monarca I', '2500000'),
+      g2('p1', 'VDR', 'Valle del Roble', '1000'),
+    ]);
+    expect(r).toEqual([
+      { clave: 'p1', etiqueta: 'VDR', cantidad: 2, monto: 5300000 },
+      { clave: 'p2', etiqueta: 'MON1', cantidad: 1, monto: 2500000 },
+    ]);
+  });
+
+  it('ordena por monto de mayor a menor', () => {
+    const r = resumirGastosPorProyecto([
+      g2('a', 'A', 'A', '10'), g2('b', 'B', 'B', '999'),
+    ]);
+    expect(r.map(x => x.etiqueta)).toEqual(['B', 'A']);
+  });
+
+  it('sin gastos → vacío', () => {
+    expect(resumirGastosPorProyecto([])).toEqual([]);
+  });
+
+  it('un gasto sin proyecto cargado usa su id en vez de desaparecer del total', () => {
+    const r = resumirGastosPorProyecto([{ projectId: 'p9', amount: '100' } as never]);
+    expect(r[0]).toMatchObject({ clave: 'p9', monto: 100 });
+  });
+});
+
+describe('filtrarPorProyecto', () => {
+  const lista = [g2('p1', 'VDR', 'V', '1'), g2('p2', 'MON1', 'M', '2'), g2('p1', 'VDR', 'V', '3')];
+
+  it('null = todos', () => {
+    expect(filtrarPorProyecto(lista, null)).toHaveLength(3);
+  });
+
+  it('filtra al proyecto pedido', () => {
+    expect(filtrarPorProyecto(lista, 'p1').map(x => x.amount)).toEqual(['1', '3']);
+  });
+
+  it('un proyecto sin gastos devuelve vacío', () => {
+    expect(filtrarPorProyecto(lista, 'p9')).toEqual([]);
+  });
+});
