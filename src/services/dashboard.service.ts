@@ -21,13 +21,22 @@ export class DashboardService {
       prisma.contract.count({ where: { ...contractWhere, moraMonthsCount: { gt: 0 } } }),
     ]);
 
-    // ── Ingresos (pagos confirmados) ─────────────────────────────
-    const pagos = await prisma.payment.aggregate({
-      where: { status: 'CONFIRMED', ...wherePagoVisible(projectId) },
-      _sum: { amount: true },
-      _count: true,
-    });
-    const ingresosTotal = pagos._sum.amount ?? 0;
+    // ── Ingresos (pagos confirmados + lo que no viene de un cliente) ──
+    // Las aportaciones del dueño del terreno para cubrir gastos suman a los
+    // ingresos: su gasto sí está registrado, y sin la contraparte la
+    // diferencia del proyecto sale en rojo por dinero que sí entró.
+    const [pagos, otros] = await Promise.all([
+      prisma.payment.aggregate({
+        where: { status: 'CONFIRMED', ...wherePagoVisible(projectId) },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.otroIngreso.aggregate({
+        where: whereGastoVisible(projectId),
+        _sum: { monto: true },
+      }),
+    ]);
+    const ingresosTotal = (pagos._sum.amount ?? 0) + (otros._sum.monto ?? 0);
     const totalPagos    = pagos._count;
 
     // ── Cuotas vencidas sin pagar ────────────────────────────────

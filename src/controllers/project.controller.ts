@@ -68,13 +68,15 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
     throw new ApiError(404, 'Project not found');
   }
 
-  const [lotesVendidos, lotesDisponibles, totalIngresos] = await Promise.all([
+  const [lotesVendidos, lotesDisponibles, totalIngresos, totalEgresos, otrosIngresos] = await Promise.all([
     prisma.lot.count({ where: { projectId: id, status: 'SOLD' } }),
     prisma.lot.count({ where: { projectId: id, status: 'AVAILABLE' } }),
     prisma.payment.aggregate({
       where: { contract: { projectId: id }, status: 'CONFIRMED' },
       _sum: { amount: true },
     }),
+    prisma.expense.aggregate({ where: { projectId: id }, _sum: { amount: true } }),
+    prisma.otroIngreso.aggregate({ where: { projectId: id }, _sum: { monto: true } }),
   ]);
 
   const { _count, ...rest } = project;
@@ -83,7 +85,11 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
     totalContratos:   _count.contracts,
     lotesVendidos,
     lotesDisponibles,
-    totalIngresos:    totalIngresos._sum.amount ?? 0,
+    // Mismo criterio que el listado: las aportaciones que no vienen de un
+    // cliente suman a los ingresos, y se reportan aparte para distinguirlas.
+    totalIngresos:    (totalIngresos._sum.amount ?? 0) + (otrosIngresos._sum.monto ?? 0),
+    otrosIngresos:    otrosIngresos._sum.monto ?? 0,
+    totalEgresos:     Number(totalEgresos._sum.amount ?? 0),
   };
 
   res.status(200).json({
