@@ -16,6 +16,8 @@ export const ETIQUETAS_TIPO: Record<string, string> = {
   RESCISSION_REFUND: 'Devolución',
   RESERVATION_DEPOSIT: 'Apartado',
   TRASPASO_ENTRADA: 'Traspaso',
+  // Dinero que entra al proyecto sin venir de un cliente.
+  OTRO_INGRESO: 'Otros ingresos',
 };
 
 /** Un tipo que no esté en el mapa se muestra con su clave: mejor un código

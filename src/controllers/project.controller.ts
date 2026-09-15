@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { whereProyectoVisible } from '../services/lib/proyectosOcultos';
+import { componerTotales } from '../services/lib/totalesProyecto';
 
 export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
   // Los proyectos ocultos no salen en el selector ni en el listado. Un ADMIN
@@ -38,12 +39,11 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
         totalContratos:   _count.contracts,
         lotesVendidos,
         lotesDisponibles,
-        totalIngresos:    (totalIngresos._sum.amount ?? 0) + (otrosIngresos._sum.monto ?? 0),
-        // Aparte para poder distinguirlo de lo cobrado a clientes.
-        otrosIngresos:    otrosIngresos._sum.monto ?? 0,
-        // Number() porque el monto de un gasto es Decimal: sin convertir, el
-        // frontend recibe una cadena y la resta concatena en vez de restar.
-        totalEgresos:     Number(totalEgresos._sum.amount ?? 0),
+        ...componerTotales({
+          pagos: totalIngresos._sum.amount,
+          otros: otrosIngresos._sum.monto,
+          egresos: totalEgresos._sum.amount as unknown as string,
+        }),
       };
     })
   );
@@ -85,11 +85,11 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
     totalContratos:   _count.contracts,
     lotesVendidos,
     lotesDisponibles,
-    // Mismo criterio que el listado: las aportaciones que no vienen de un
-    // cliente suman a los ingresos, y se reportan aparte para distinguirlas.
-    totalIngresos:    (totalIngresos._sum.amount ?? 0) + (otrosIngresos._sum.monto ?? 0),
-    otrosIngresos:    otrosIngresos._sum.monto ?? 0,
-    totalEgresos:     Number(totalEgresos._sum.amount ?? 0),
+    ...componerTotales({
+      pagos: totalIngresos._sum.amount,
+      otros: otrosIngresos._sum.monto,
+      egresos: totalEgresos._sum.amount as unknown as string,
+    }),
   };
 
   res.status(200).json({

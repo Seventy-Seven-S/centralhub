@@ -66,6 +66,9 @@ describe('etiquetaTipo', () => {
     expect(etiquetaTipo('DOWN_PAYMENT')).toBe('Enganche');
     expect(etiquetaTipo('RESERVATION_DEPOSIT')).toBe('Apartado');
   });
+  it('los ingresos que no vienen de un cliente tienen su propia etiqueta', () => {
+    expect(etiquetaTipo('OTRO_INGRESO')).toBe('Otros ingresos');
+  });
   it('deja pasar el código cuando no lo conoce', () => {
     expect(etiquetaTipo('LO_QUE_SEA')).toBe('LO_QUE_SEA');
   });

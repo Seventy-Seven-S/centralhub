@@ -3,6 +3,7 @@ import { PrismaClient, CuotaStatus, LotStatus } from '@prisma/client';
 import { construirDashboardOperativo } from './lib/dashboardOperativo';
 import { rangoDelDiaOperativo } from './lib/diaOperativo';
 import { construirSerieMensual } from './lib/serieIngresosMensuales';
+import { componerTotales } from './lib/totalesProyecto';
 import { whereContratoVisible, whereLoteVisible, wherePagoVisible, whereGastoVisible } from './lib/proyectosOcultos';
 
 const prisma = new PrismaClient();
@@ -36,7 +37,9 @@ export class DashboardService {
         _sum: { monto: true },
       }),
     ]);
-    const ingresosTotal = (pagos._sum.amount ?? 0) + (otros._sum.monto ?? 0);
+    const { totalIngresos: ingresosTotal, otrosIngresos } = componerTotales({
+      pagos: pagos._sum.amount, otros: otros._sum.monto, egresos: 0,
+    });
     const totalPagos    = pagos._count;
 
     // ── Cuotas vencidas sin pagar ────────────────────────────────
@@ -109,6 +112,8 @@ export class DashboardService {
       ingresos: {
         total: ingresosTotal,
         totalPagos,
+        // Aparte, para poder distinguir lo cobrado a clientes de lo aportado.
+        otrosIngresos,
       },
       cuotas: {
         vencidasSinPagar: cuotasVencidas,

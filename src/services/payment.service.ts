@@ -9,7 +9,7 @@ import { nextPaymentNumber } from './lib/paymentNumber';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
 import { round2 } from '../utils/money';
-import { wherePagoVisible } from './lib/proyectosOcultos';
+import { whereGastoVisible, wherePagoVisible } from './lib/proyectosOcultos';
 import { crearReciboLog, enviarYRegistrarRecibo } from './reciboLog.service';
 
 import { buildReciboFolio } from '../utils/reciboFolio';
@@ -299,7 +299,7 @@ export class PaymentService {
       if (filters.endDate) where.paymentDate.lte = filters.endDate;
     }
 
-    return await prisma.payment.findMany({
+    const pagos = await prisma.payment.findMany({
       where,
       include: {
         contract: {
@@ -322,6 +322,63 @@ export class PaymentService {
       },
       orderBy: { paymentDate: 'desc' },
     });
+
+    // Los ingresos que no vienen de un cliente (aportaciones del dueño del
+    // terreno) se listan junto con los pagos: si solo se sumaran a los totales,
+    // esta pantalla mostraría menos dinero del que reportan las tarjetas de
+    // Proyectos y no habría dónde ver de qué se trata.
+    // Se omiten al filtrar por contrato o por cliente: ahí no aplican.
+    if (filters.contractId || filters.clientId) return pagos;
+    const otros = await this.getOtrosIngresosComoPagos(filters);
+    return [...pagos, ...otros].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime());
+  }
+
+  /**
+   * Otros ingresos con la MISMA forma que un pago, para que la pantalla de
+   * Ingresos los muestre y agrupe sin casos especiales. `paymentType` los
+   * distingue y el resumen por tipo los separa solo.
+   */
+  private async getOtrosIngresosComoPagos(filters: PaymentFilters) {
+    const where: any = {};
+    if (filters.projectId) where.projectId = filters.projectId;
+    else Object.assign(where, whereGastoVisible());
+    if (filters.startDate || filters.endDate) {
+      where.fecha = {};
+      if (filters.startDate) where.fecha.gte = filters.startDate;
+      if (filters.endDate) where.fecha.lte = filters.endDate;
+    }
+    if (filters.minAmount || filters.maxAmount) {
+      where.monto = {};
+      if (filters.minAmount) where.monto.gte = filters.minAmount;
+      if (filters.maxAmount) where.monto.lte = filters.maxAmount;
+    }
+
+    const otros = await prisma.otroIngreso.findMany({
+      where,
+      include: { project: { select: { id: true, code: true, name: true } } },
+    });
+
+    return otros.map(o => ({
+      id: o.id,
+      paymentNumber: `OI-${o.id.slice(0, 8).toUpperCase()}`,
+      paymentType: 'OTRO_INGRESO',
+      paymentMethod: 'CASH',
+      amount: o.monto,
+      paymentDate: o.fecha,
+      concept: o.concepto,
+      status: 'CONFIRMED',
+      // No hay contrato ni cliente: se rellena con el proyecto para que la
+      // tabla tenga qué mostrar en esas columnas en vez de quedar vacía.
+      contract: {
+        id: null,
+        contractNumber: o.project.code,
+        codigoLegado: null,
+        balance: null,
+        client: { id: null, firstName: o.project.name, lastName: '' },
+        lots: [],
+      },
+      corte: null,
+    })) as unknown as Awaited<ReturnType<typeof prisma.payment.findMany>>;
   }
 
   // Obtener un pago por ID
