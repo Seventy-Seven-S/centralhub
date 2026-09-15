@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => {
     cuota:    { count: spy.count, findMany: spy.findMany, groupBy: spy.groupBy },
     lot:      { count: spy.count },
     expense:  { aggregate: spy.aggregate },
+    // Las aportaciones que no vienen de un cliente también suman a los
+    // ingresos, así que igual deben excluir los proyectos ocultos.
+    otroIngreso: { aggregate: spy.aggregate },
   };
   return { prisma, spy };
 });
