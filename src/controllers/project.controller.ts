@@ -18,7 +18,7 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
 
   const enriched = await Promise.all(
     projects.map(async (p) => {
-      const [lotesVendidos, lotesDisponibles, totalIngresos, totalEgresos] = await Promise.all([
+      const [lotesVendidos, lotesDisponibles, totalIngresos, totalEgresos, otrosIngresos] = await Promise.all([
         prisma.lot.count({ where: { projectId: p.id, status: 'SOLD' } }),
         prisma.lot.count({ where: { projectId: p.id, status: 'AVAILABLE' } }),
         prisma.payment.aggregate({
@@ -26,6 +26,10 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
           _sum: { amount: true },
         }),
         prisma.expense.aggregate({ where: { projectId: p.id }, _sum: { amount: true } }),
+        // Dinero que entró al proyecto sin venir de un cliente (aportaciones
+        // del dueño para cubrir gastos). Suma a los ingresos: si no, el gasto
+        // que cubrió aparece sin su contraparte y la diferencia sale en rojo.
+        prisma.otroIngreso.aggregate({ where: { projectId: p.id }, _sum: { monto: true } }),
       ]);
 
       const { _count, ...project } = p;
@@ -34,7 +38,9 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
         totalContratos:   _count.contracts,
         lotesVendidos,
         lotesDisponibles,
-        totalIngresos:    totalIngresos._sum.amount ?? 0,
+        totalIngresos:    (totalIngresos._sum.amount ?? 0) + (otrosIngresos._sum.monto ?? 0),
+        // Aparte para poder distinguirlo de lo cobrado a clientes.
+        otrosIngresos:    otrosIngresos._sum.monto ?? 0,
         // Number() porque el monto de un gasto es Decimal: sin convertir, el
         // frontend recibe una cadena y la resta concatena en vez de restar.
         totalEgresos:     Number(totalEgresos._sum.amount ?? 0),
