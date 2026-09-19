@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatCurrency, normalizeForSearch, todayLocalISO } from '@/lib/utils';
 import { useLotes } from '@/hooks/useLotes';
-import { validarFormularioTraspaso, resumenDinero } from './traspasoForm';
+import { validarFormularioTraspaso, resumenDinero, listaDe } from './traspasoForm';
 
 interface Props {
   contratoId: string;
@@ -53,13 +53,13 @@ export function TraspasarContratoModal({
 
   const { data: proyectos = [] } = useQuery<Proyecto[]>({
     queryKey: ['proyectos-traspaso'],
-    queryFn: async () => (await api.get('/projects')).data.data,
+    queryFn: async () => listaDe<Proyecto>((await api.get('/projects')).data?.data, 'projects'),
     staleTime: 300_000,
   });
   const { data: lotes = [] } = useLotes(projectIdDestino);
   const { data: clientes = [] } = useQuery<ClienteBusqueda[]>({
     queryKey: ['clientes-traspaso'],
-    queryFn: async () => (await api.get('/clients')).data.data.clients ?? (await api.get('/clients')).data.data,
+    queryFn: async () => listaDe<ClienteBusqueda>((await api.get('/clients')).data?.data, 'clients'),
     staleTime: 300_000,
   });
 

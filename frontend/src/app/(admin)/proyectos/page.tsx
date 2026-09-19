@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useMemo, useRef } from 'react';
 import { aplicarOrden, mover } from '@/lib/ordenProyectos';
+import { avanceDeVentas } from '@/lib/avanceProyecto';
 import { Building2, MapPin, TrendingUp, AlertCircle, TrendingDown, GripVertical } from 'lucide-react';
 import { useProyectos, useOrdenProyectos, Proyecto } from '@/hooks/useProyectos';
 import { useRole } from '@/hooks/useRole';
@@ -37,8 +38,8 @@ function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrand
   arrastrable: boolean; arrastrando: boolean;
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void;
 }) {
-  const totalReal  = proyecto.lotesVendidos + proyecto.lotesDisponibles;
-  const pct        = totalReal > 0 ? Math.min(100, Math.round((proyecto.lotesVendidos / totalReal) * 100)) : 0;
+  const avance     = avanceDeVentas(proyecto);
+  const pct        = avance.pct;
   const diferencia = proyecto.totalIngresos - proyecto.totalEgresos;
 
   return (
@@ -112,7 +113,9 @@ function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrand
             style={{ width: `${pct}%`, backgroundColor: pct >= 75 ? 'var(--accent)' : 'var(--gold)' }}
           />
         </div>
-        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{totalReal} lotes totales</p>
+        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+          {avance.detalle}{avance.aparte && <> · {avance.aparte}</>}
+        </p>
       </div>
 
       {/* Finanzas */}

@@ -83,9 +83,10 @@ async function main() {
       return sinM2 || precio <= 0;
     });
 
-    // Proyecto sin nada que pedir: ni datos faltantes ni lotes por capturar.
-    // No lo incluimos para no llenar el archivo de filas inútiles.
-    const inventarioCompleto = lots.length >= pr.totalLots;
+    // Proyecto sin nada que pedir: ni datos faltantes ni inventario vacío.
+    // Antes esto se comparaba contra project.totalLots, un número capturado a
+    // mano que nadie mantuvo; ahora solo se pregunta si hay lotes cargados.
+    const inventarioCompleto = lots.length > 0;
     if (faltantes.length === 0 && inventarioCompleto) continue;
 
     for (const l of faltantes) {

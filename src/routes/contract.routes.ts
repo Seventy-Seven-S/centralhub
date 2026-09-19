@@ -33,6 +33,11 @@ router.put('/:id',  adminOrManager, contractController.update);
 // Activación manual de contrato (sin PDF firmado)
 router.patch('/:id/activate', adminOrManager, contractController.activate);
 
+// Edición de los datos de dinero del contrato. SOLO ADMIN: rehace el calendario
+// de cuotas, reaplica los pagos y recalcula balance y mora.
+router.patch('/:id/datos',  authorize('ADMIN'), contractController.editarDatos);
+router.get('/:id/cambios',  adminOrManager,     contractController.cambios);
+
 // Co-titulares
 router.post('/:id/coowners', adminOrManager, contractController.addCoOwner);
 

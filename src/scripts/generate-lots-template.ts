@@ -32,7 +32,7 @@ const prisma = new PrismaClient();
  *
  *  - Migrados solo desde la hoja "Códigos de Cliente" (que únicamente lista
  *    ventas), así que los lotes DISPONIBLES nunca se cargaron.
- *  - O con menos lotes en BD que los declarados en `project.totalLots`.
+ *  - O marcados a mano en INVENTARIO_INCOMPLETO.
  */
 const INVENTARIO_INCOMPLETO: Record<string, string> = {
   BET: 'Solo se cargaron los 11 lotes vendidos. Falta TODO el inventario disponible.',
@@ -115,7 +115,7 @@ interface FilaLote {
 interface DatosProyecto {
   code: string;
   name: string;
-  totalLotsDeclarado: number;
+  lotesEnBase: number;
   filas: FilaLote[];
   faltanM2: number;
   faltanPrecio: number;
@@ -179,7 +179,7 @@ async function cargarDatos(): Promise<DatosProyecto[]> {
     out.push({
       code: pr.code,
       name: pr.name,
-      totalLotsDeclarado: pr.totalLots,
+      lotesEnBase: filas.length,
       filas,
       faltanM2,
       faltanPrecio,

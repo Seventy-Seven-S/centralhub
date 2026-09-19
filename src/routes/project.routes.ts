@@ -24,7 +24,6 @@ router.post(
     body('location').trim().notEmpty().withMessage('Location is required'),
     body('city').trim().notEmpty().withMessage('City is required'),
     body('state').trim().notEmpty().withMessage('State is required'),
-    body('totalLots').isInt({ min: 1 }).withMessage('Total lots must be at least 1'),
   ],
   createProject
 );

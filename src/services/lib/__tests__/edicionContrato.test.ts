@@ -1,0 +1,83 @@
+import { describe, it, expect } from 'vitest';
+import { validarEdicion, camposQueCambian, montosDeCuotas, inicioDesdeMes } from '../edicionContrato';
+import { round2 } from '../../../utils/money';
+
+const f = (s: string) => new Date(`${s}T00:00:00`);
+
+const actual = {
+  totalPrice: 250000, downPayment: 10000, installmentAmount: 4000,
+  installmentCount: 60, startDate: f('2025-01-15'), lotIds: ['lote-a'],
+};
+
+describe('validarEdicion', () => {
+  it('acepta una corrección normal', () => {
+    expect(validarEdicion({ ...actual }, { totalPrice: 250000, installmentAmount: 3473, installmentCount: 72 }, { pagado: 50000, primerPago: f('2025-02-10'), lotesOcupadosPorOtros: [] })).toBeNull();
+  });
+
+  it('rechaza un precio menor a lo que el cliente ya pagó', () => {
+    const msg = validarEdicion({ ...actual }, { totalPrice: 40000 }, { pagado: 50000, primerPago: f('2025-02-10'), lotesOcupadosPorOtros: [] });
+    expect(msg).toMatch(/ya pagó/i);
+  });
+
+  it('rechaza un lote que ya tiene dueño en otro contrato', () => {
+    const msg = validarEdicion({ ...actual }, { lotIds: ['lote-b'] }, { pagado: 0, primerPago: null, lotesOcupadosPorOtros: ['lote-b'] });
+    expect(msg).toMatch(/otro contrato/i);
+  });
+
+  it('rechaza arrancar el calendario después del primer pago real', () => {
+    const msg = validarEdicion({ ...actual }, { mesInicioCalendario: '2025-06' }, { pagado: 50000, primerPago: f('2025-02-10'), lotesOcupadosPorOtros: [] });
+    expect(msg).toMatch(/primer pago/i);
+  });
+
+  it('exige que el plazo y la mensualidad sean positivos', () => {
+    expect(validarEdicion({ ...actual }, { installmentCount: 0 }, { pagado: 0, primerPago: null, lotesOcupadosPorOtros: [] })).toMatch(/plazo/i);
+    expect(validarEdicion({ ...actual }, { installmentAmount: -1 }, { pagado: 0, primerPago: null, lotesOcupadosPorOtros: [] })).toMatch(/mensualidad/i);
+  });
+});
+
+describe('camposQueCambian', () => {
+  it('lista solo lo que de verdad cambia, con su valor anterior', () => {
+    const r = camposQueCambian({ ...actual }, { totalPrice: 250000, installmentAmount: 3473 });
+    expect(r).toEqual([{ campo: 'installmentAmount', valorAnterior: '4000', valorNuevo: '3473' }]);
+  });
+
+  it('registra el cambio de lote como lista legible', () => {
+    const r = camposQueCambian({ ...actual }, { lotIds: ['lote-b'] });
+    expect(r).toEqual([{ campo: 'lotIds', valorAnterior: 'lote-a', valorNuevo: 'lote-b' }]);
+  });
+
+  it('no inventa cambios cuando no se manda nada', () => {
+    expect(camposQueCambian({ ...actual }, {})).toEqual([]);
+  });
+});
+
+describe('montosDeCuotas', () => {
+  it('reparte el financiado en cuotas iguales y ajusta la última al centavo', () => {
+    const m = montosDeCuotas(10000, 3);
+    expect(m).toHaveLength(3);
+    expect(m.reduce((a, b) => a + b, 0)).toBeCloseTo(10000, 2);
+  });
+
+  it('usa la mensualidad capturada y cierra la suma en la última cuota', () => {
+    // 3473 x 72 = 250,056: sesenta y seis pesos de más sobre lo financiado.
+    // Si no se ajusta, el cliente nunca llega a saldo cero.
+    const m = montosDeCuotas(250000, 72, 3473);
+    expect(m).toHaveLength(72);
+    expect(m[0]).toBe(3473);
+    expect(m[71]).toBe(3417);
+    expect(round2(m.reduce((a, b) => a + b, 0))).toBe(250000);
+  });
+
+  it('avisa cuando la mensualidad no alcanza a cubrir el financiado en el plazo', () => {
+    expect(() => montosDeCuotas(250000, 60, 1000)).toThrow(/no alcanza/i);
+  });
+});
+
+describe('inicioDesdeMes', () => {
+  it('la cuota 1 vence en el mes que el ADMIN indicó', () => {
+    // El calendario ancla en startDate y la cuota i vence en startDate + i meses.
+    const inicio = inicioDesdeMes('2025-04');
+    expect(inicio.getFullYear()).toBe(2025);
+    expect(inicio.getMonth()).toBe(2); // marzo: la cuota 1 cae en abril
+  });
+});

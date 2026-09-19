@@ -1166,9 +1166,8 @@ async function resolveOrCreateProject(
   });
   if (existing) return existing;
 
-  // Crear — totalLots = lotes vendidos derivados (placeholder; el inventario
-  // completo se cargará desde planos en otra tarea).
-  const totalLots = opts.rows.reduce((s, r) => s + r.lotes.length, 0);
+  // Crear. El total de lotes ya no se captura al dar de alta el proyecto: se
+  // cuenta de los lotes reales. El inventario completo se carga aparte.
   const created = await prisma.project.create({
     data: {
       code,
@@ -1176,11 +1175,10 @@ async function resolveOrCreateProject(
       location: 'Por definir',
       city: 'Por definir',
       state: 'Por definir',
-      totalLots,
       status: 'ACTIVE',
     },
   });
-  console.log(`✓ Proyecto creado: ${created.name} (${created.code}) — totalLots=${totalLots}`);
+  console.log(`✓ Proyecto creado: ${created.name} (${created.code})`);
   return created;
 }
 

@@ -7,7 +7,7 @@ import {
   ArrowLeft, AlertCircle, FileText, DollarSign,
   Calendar, CheckCircle2, Clock, XCircle, FileDown,
   Upload, ExternalLink, CreditCard, ChevronDown, ChevronUp,
-  ArrowRightLeft,
+  ArrowRightLeft, Pencil, History,
 } from 'lucide-react';
 import {
   useContratoById, useCuotasByContrato, usePagosByContrato,
@@ -16,6 +16,11 @@ import {
 import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
 import { RescindirContratoModal } from '@/components/contratos/RescindirContratoModal';
 import { TraspasarContratoModal } from '@/components/contratos/TraspasarContratoModal';
+import { EditarDatosContratoModal } from '@/components/contratos/EditarDatosContratoModal';
+import { MenuAcciones, AccionMenu } from '@/components/ui/MenuAcciones';
+import { useRole } from '@/hooks/useRole';
+import { useCambiosContrato } from '@/hooks/useCambiosContrato';
+import { nombreDeCampo, valorLegible } from '@/lib/cambiosContrato';
 import { puedeRescindir } from '@/lib/rescision';
 import api from '@/lib/api';
 import { formatCurrency, formatDate, formatLotsLabel } from '@/lib/utils';
@@ -97,6 +102,9 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const { data: contrato, isLoading: loadingContrato, isError: errorContrato } = useContratoById(id);
   const { data: cuotas   = [], isLoading: loadingCuotas } = useCuotasByContrato(id);
   const { data: pagos    = [], isLoading: loadingPagos }  = usePagosByContrato(id);
+  const { data: cambios  = [] } = useCambiosContrato(id);
+  const { role } = useRole();
+  const esAdmin = role === 'ADMIN';
 
   const fileInputRef           = useRef<HTMLInputElement>(null);
   const [uploading, setUploading]   = useState(false);
@@ -105,6 +113,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const [rescindiendo, setRescindiendo] = useState(false);
   const [traspasando, setTraspasando]   = useState(false);
   const [openingRescision, setOpeningRescision] = useState(false);
+  const [editando, setEditando] = useState(false);
 
   const [reimprimiendo, setReimprimiendo] = useState<string | null>(null);
 
@@ -232,6 +241,55 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const fullName    = `${contrato.client.firstName} ${contrato.client.lastName}`;
   const loteLabel   = formatLotsLabel(contrato.lots);
 
+  // Las acciones del contrato, para el menú. Se arman aquí y no en el JSX para
+  // que las condiciones de cuándo aparece cada una se lean de corrido.
+  const accionesDelContrato: AccionMenu[] = [
+    esAdmin && {
+      label: 'Corregir datos del contrato',
+      icono: <Pencil size={16} />,
+      onClick: () => setEditando(true),
+    },
+    contrato.status !== 'ACTIVE' && puedeRescindir(contrato.status) && {
+      label: 'Activar contrato',
+      icono: <CheckCircle2 size={16} />,
+      onClick: handleActivate,
+      disabled: activating,
+      cargando: activating ? 'Activando…' : undefined,
+    },
+    contrato.status === 'DRAFT' && {
+      label: 'Subir contrato firmado',
+      icono: <Upload size={16} />,
+      onClick: () => fileInputRef.current?.click(),
+      disabled: uploading,
+      cargando: uploading ? 'Subiendo…' : undefined,
+    },
+    contrato.status !== 'DRAFT' && (contrato as any).contractFileUrl && {
+      label: 'Ver contrato firmado',
+      icono: <ExternalLink size={16} />,
+      onClick: handleVerFirmado,
+      disabled: openingSigned,
+      cargando: openingSigned ? 'Abriendo…' : undefined,
+    },
+    contrato.status === 'RESCISSION' && (contrato as any).rescissionFileUrl && {
+      label: 'Ver documento de rescisión',
+      icono: <ExternalLink size={16} />,
+      onClick: handleVerRescision,
+      disabled: openingRescision,
+      cargando: openingRescision ? 'Abriendo…' : undefined,
+    },
+    puedeRescindir(contrato.status) && {
+      label: 'Traspasar contrato',
+      icono: <ArrowRightLeft size={16} />,
+      onClick: () => setTraspasando(true),
+    },
+    puedeRescindir(contrato.status) && {
+      label: 'Rescindir contrato',
+      icono: <XCircle size={16} />,
+      onClick: () => setRescindiendo(true),
+      peligrosa: true,
+    },
+  ].filter(Boolean) as AccionMenu[];
+
   const CUOTAS_INITIAL = 12;
   const cuotasToShow   = showAllCuotas ? cuotas : cuotas.slice(0, CUOTAS_INITIAL);
 
@@ -254,6 +312,31 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             setRescindiendo(false);
             await queryClient.invalidateQueries({ queryKey: ['contratos', id] });
             await queryClient.invalidateQueries({ queryKey: ['cuotas', id] });
+          }}
+        />
+      )}
+
+      {editando && contrato && (
+        <EditarDatosContratoModal
+          contratoId={id}
+          etiqueta={contrato.codigoLegado ?? contrato.contractNumber}
+          projectId={contrato.project.id}
+          actual={{
+            totalPrice: contrato.totalPrice ?? 0,
+            installmentAmount: contrato.installmentAmount ?? null,
+            installmentCount: contrato.installmentCount ?? null,
+            startDate: (contrato as any).startDate ?? null,
+            lotIds: (contrato.lots ?? []).map((l: any) => l.lot.id),
+          }}
+          // Lo pagado sale de sus pagos confirmados, no del balance: el balance
+          // puede venir arrastrado, los pagos son hechos.
+          pagado={pagos.filter((p: any) => p.status === 'CONFIRMED').reduce((s: number, p: any) => s + p.amount, 0)}
+          onClose={() => setEditando(false)}
+          onDone={async () => {
+            setEditando(false);
+            await queryClient.invalidateQueries({ queryKey: ['contratos'] });
+            await queryClient.invalidateQueries({ queryKey: ['cuotas', id] });
+            await queryClient.invalidateQueries({ queryKey: ['contratos', id, 'cambios'] });
           }}
         />
       )}
@@ -328,146 +411,50 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             onChange={handleUploadSigned}
           />
 
-          {/* Rescindir / cancelar — solo contratos vigentes */}
-          {puedeRescindir(contrato.status) && (
-            <button
-              onClick={() => setRescindiendo(true)}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}
+          {/* Las acciones viven en un menú: antes eran diez botones en fila y
+              ahogaban la información que la secretaria necesita de un golpe.
+              Los dos PDF se quedan fuera porque PDFDownloadLink necesita
+              montarse para generar el archivo. */}
+          <div className="hidden sm:flex items-center gap-2">
+            <PDFDownloadLink
+              document={<EstadoDeCuenta contrato={contrato as any} cuotas={cuotas} pagos={pagos} />}
+              fileName={`estado-cuenta-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
             >
-              <XCircle size={16} />
-              Rescindir contrato
-            </button>
-          )}
+              {({ loading }) => (
+                <button
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                  style={{
+                    backgroundColor: 'var(--surface)', color: 'var(--accent)',
+                    border: '1px solid var(--accent)',
+                    opacity: loading ? 0.7 : 1, cursor: loading ? 'wait' : 'pointer',
+                  }}
+                >
+                  <FileDown size={16} />
+                  {loading ? 'Generando…' : 'Estado de cuenta'}
+                </button>
+              )}
+            </PDFDownloadLink>
 
-          {/* Traspasar — mismas condiciones que rescindir: solo vigentes */}
-          {puedeRescindir(contrato.status) && (
-            <button
-              onClick={() => setTraspasando(true)}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}
+            <PDFDownloadLink
+              document={<ContratoCompraventa contrato={contrato as any} cuotas={cuotas} showWatermark={contrato.status !== 'ACTIVE'} />}
+              fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
             >
-              <ArrowRightLeft size={16} />
-              Traspasar
-            </button>
-          )}
+              {({ loading }) => (
+                <button
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                  style={{
+                    backgroundColor: 'var(--accent)', color: 'white',
+                    opacity: loading ? 0.7 : 1, cursor: loading ? 'wait' : 'pointer',
+                  }}
+                >
+                  <FileDown size={16} />
+                  {loading ? 'Generando…' : 'Contrato'}
+                </button>
+              )}
+            </PDFDownloadLink>
+          </div>
 
-          {/* Documento de cancelación firmado (evidencia) */}
-          {contrato.status === 'RESCISSION' && (contrato as any).rescissionFileUrl && (
-            <button
-              onClick={handleVerRescision}
-              disabled={openingRescision}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
-              style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}
-            >
-              <ExternalLink size={16} />
-              {openingRescision ? 'Abriendo…' : 'Ver documento de rescisión'}
-            </button>
-          )}
-
-          {/* Botón activar contrato manualmente — visible mientras no esté ACTIVE ni rescindido */}
-          {contrato.status !== 'ACTIVE' && puedeRescindir(contrato.status) && (
-            <button
-              onClick={handleActivate}
-              disabled={activating}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={{
-                backgroundColor: 'var(--success-bg)',
-                color: 'var(--success)',
-                opacity: activating ? 0.7 : 1,
-                cursor: activating ? 'wait' : 'pointer',
-              }}
-            >
-              <CheckCircle2 size={16} />
-              {activating ? 'Activando...' : 'Activar contrato'}
-            </button>
-          )}
-
-          {/* Botón subir contrato firmado — solo en DRAFT */}
-          {contrato.status === 'DRAFT' && (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={{
-                backgroundColor: 'var(--accent)',
-                color: 'white',
-                opacity: uploading ? 0.7 : 1,
-                cursor: uploading ? 'wait' : 'pointer',
-              }}
-            >
-              <Upload size={16} />
-              {uploading ? 'Subiendo...' : 'Subir contrato firmado'}
-            </button>
-          )}
-
-          {/* Botón ver contrato firmado — servido con RBAC desde storage privado */}
-          {contrato.status !== 'DRAFT' && (contrato as any).contractFileUrl && (
-            <button
-              onClick={handleVerFirmado}
-              disabled={openingSigned}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
-              style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success)' }}
-            >
-              <ExternalLink size={16} />
-              {openingSigned ? 'Abriendo…' : 'Ver contrato firmado'}
-            </button>
-          )}
-
-          {/* PDF Estado de Cuenta */}
-          <PDFDownloadLink
-            document={
-              <EstadoDeCuenta
-                contrato={contrato as any}
-                cuotas={cuotas}
-                pagos={pagos}
-              />
-            }
-            fileName={`estado-cuenta-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
-          >
-            {({ loading }) => (
-              <button
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                style={{
-                  backgroundColor: 'var(--surface)',
-                  color: 'var(--accent)',
-                  border: '1px solid var(--accent)',
-                  opacity: loading ? 0.7 : 1,
-                  cursor: loading ? 'wait' : 'pointer',
-                }}
-              >
-                <FileDown size={16} />
-                {loading ? 'Generando...' : 'Descargar Estado de Cuenta'}
-              </button>
-            )}
-          </PDFDownloadLink>
-
-          {/* PDF Contrato */}
-          <PDFDownloadLink
-            document={
-              <ContratoCompraventa
-                contrato={contrato as any}
-                cuotas={cuotas}
-                showWatermark={contrato.status !== 'ACTIVE'}
-              />
-            }
-            fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
-          >
-            {({ loading }) => (
-              <button
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                style={{
-                  backgroundColor: 'var(--accent)',
-                  color: 'white',
-                  opacity: loading ? 0.7 : 1,
-                  cursor: loading ? 'wait' : 'pointer',
-                }}
-              >
-                <FileDown size={16} />
-                {loading ? 'Generando...' : 'Descargar Contrato PDF'}
-              </button>
-            )}
-          </PDFDownloadLink>
+          <MenuAcciones acciones={accionesDelContrato} />
         </div>
 
         {/* SECCIÓN 2 — Resumen financiero */}
@@ -524,6 +511,43 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               />
             </div>
           </div>
+        </div>
+
+
+        {/* SECCIÓN 2B — Datos del contrato (editables por ADMIN) */}
+        <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
+          <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Datos del contrato</h3>
+            </div>
+            {esAdmin && (
+              <button
+                onClick={() => setEditando(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-80"
+                style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}
+              >
+                <Pencil size={14} /> Corregir
+              </button>
+            )}
+          </div>
+          <dl className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+            {[
+              ['Manzana y lote', loteLabel],
+              ['Precio total', formatCurrency(totalPrice)],
+              ['Mensualidad', contrato.installmentAmount ? formatCurrency(contrato.installmentAmount) : '—'],
+              ['Plazo', contrato.installmentCount ? `${contrato.installmentCount} meses` : '—'],
+              ['Enganche', formatCurrency(contrato.downPayment ?? 0)],
+              ['Primera mensualidad', cuotas[0]?.mes ?? '—'],
+              ['Fecha de contrato', contrato.contractDate ? formatDate(contrato.contractDate) : '—'],
+              ['Proyecto', contrato.project.name],
+            ].map(([k, v]) => (
+              <div key={k as string}>
+                <dt className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{k}</dt>
+                <dd className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>{v}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
         {/* SECCIÓN 3 — Tabla de cuotas */}
@@ -712,6 +736,36 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             </div>
           )}
         </div>
+
+
+        {/* SECCIÓN 6 — Historial de cambios */}
+        {cambios.length > 0 && (
+          <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
+            <div className="px-6 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <History className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Historial de cambios
+                <span className="font-normal ml-1" style={{ color: 'var(--text-tertiary)' }}>({cambios.length})</span>
+              </h3>
+            </div>
+            <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
+              {cambios.map(c => (
+                <li key={c.id} className="px-6 py-3">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{nombreDeCampo(c.campo)}</span>
+                    <span style={{ color: 'var(--text-tertiary)' }}>{valorLegible(c.campo, c.valorAnterior)}</span>
+                    <span style={{ color: 'var(--text-tertiary)' }}>&rarr;</span>
+                    <span className="font-medium" style={{ color: 'var(--accent)' }}>{valorLegible(c.campo, c.valorNuevo)}</span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{c.motivo}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                    {c.user.firstName} {c.user.lastName} &middot; {formatDate(c.createdAt)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* SECCIÓN 5 — Botón PDF (móvil) */}
         <div className="sm:hidden">

@@ -45,7 +45,7 @@ describe('Contract.agentId — integridad referencial forzada por Postgres', () 
       data: { globalCode: `TEST-FK-${Date.now()}`, firstName: 'Test', lastName: 'FK', phone: '0000000000' },
     });
     const project = await prisma.project.create({
-      data: { code: `TESTFK${Date.now()}`, name: 'Test FK Project', location: 'Test', city: 'Test', state: 'Test', totalLots: 1 },
+      data: { code: `TESTFK${Date.now()}`, name: 'Test FK Project', location: 'Test', city: 'Test', state: 'Test' },
     });
 
     try {

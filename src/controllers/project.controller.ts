@@ -3,6 +3,48 @@ import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { whereProyectoVisible } from '../services/lib/proyectosOcultos';
 import { componerTotales } from '../services/lib/totalesProyecto';
+import { CONTRATOS_VIVOS, resumirLotes } from '../services/lib/conteosProyecto';
+
+/**
+ * Cifras de un proyecto: contratos vivos, lotes por estado y finanzas.
+ *
+ * Una sola función para el listado y para el detalle. Cuando esto vivía
+ * duplicado en los dos endpoints, arreglar un total en uno dejaba el otro
+ * mintiendo — ya pasó con los otros ingresos.
+ */
+async function cifrasDelProyecto(projectId: string) {
+  const [contratosVivos, lotesPorEstado, pagos, egresos, otros] = await Promise.all([
+    prisma.contract.count({ where: { projectId, status: { in: CONTRATOS_VIVOS } } }),
+    prisma.lot.groupBy({ by: ['status'], where: { projectId }, _count: true }),
+    prisma.payment.aggregate({
+      where: { contract: { projectId }, status: 'CONFIRMED' },
+      _sum: { amount: true },
+    }),
+    prisma.expense.aggregate({ where: { projectId }, _sum: { amount: true } }),
+    // Dinero que entró al proyecto sin venir de un cliente (aportaciones del
+    // dueño para cubrir gastos). Suma a los ingresos: si no, el gasto que
+    // cubrió aparece sin su contraparte y la diferencia sale en rojo.
+    prisma.otroIngreso.aggregate({ where: { projectId }, _sum: { monto: true } }),
+  ]);
+
+  const lotes = resumirLotes(lotesPorEstado as Array<{ status: any; _count: number }>);
+
+  return {
+    totalContratos:      contratosVivos,
+    // El total sale de contar los lotes reales, no del campo capturado que
+    // nadie mantuvo: decía 50 en JSA 1 cuando ya había 113 lotes cargados.
+    totalLotes:          lotes.total,
+    lotesVendidos:       lotes.vendidos,
+    lotesDisponibles:    lotes.disponibles,
+    lotesReservados:     lotes.reservados,
+    lotesNoDisponibles:  lotes.noDisponibles,
+    ...componerTotales({
+      pagos:   pagos._sum.amount,
+      otros:   otros._sum.monto,
+      egresos: egresos._sum.amount as unknown as string,
+    }),
+  };
+}
 
 export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
   // Los proyectos ocultos no salen en el selector ni en el listado. Un ADMIN
@@ -12,40 +54,10 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
   const projects = await prisma.project.findMany({
     where: whereProyectoVisible(undefined, { incluirOcultos }),
     orderBy: { createdAt: 'desc' },
-    include: {
-      _count: { select: { contracts: true } },
-    },
   });
 
   const enriched = await Promise.all(
-    projects.map(async (p) => {
-      const [lotesVendidos, lotesDisponibles, totalIngresos, totalEgresos, otrosIngresos] = await Promise.all([
-        prisma.lot.count({ where: { projectId: p.id, status: 'SOLD' } }),
-        prisma.lot.count({ where: { projectId: p.id, status: 'AVAILABLE' } }),
-        prisma.payment.aggregate({
-          where: { contract: { projectId: p.id }, status: 'CONFIRMED' },
-          _sum: { amount: true },
-        }),
-        prisma.expense.aggregate({ where: { projectId: p.id }, _sum: { amount: true } }),
-        // Dinero que entró al proyecto sin venir de un cliente (aportaciones
-        // del dueño para cubrir gastos). Suma a los ingresos: si no, el gasto
-        // que cubrió aparece sin su contraparte y la diferencia sale en rojo.
-        prisma.otroIngreso.aggregate({ where: { projectId: p.id }, _sum: { monto: true } }),
-      ]);
-
-      const { _count, ...project } = p;
-      return {
-        ...project,
-        totalContratos:   _count.contracts,
-        lotesVendidos,
-        lotesDisponibles,
-        ...componerTotales({
-          pagos: totalIngresos._sum.amount,
-          otros: otrosIngresos._sum.monto,
-          egresos: totalEgresos._sum.amount as unknown as string,
-        }),
-      };
-    })
+    projects.map(async (p) => ({ ...p, ...(await cifrasDelProyecto(p.id)) })),
   );
 
   res.status(200).json({
@@ -57,40 +69,13 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
 export const getProjectById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const project = await prisma.project.findUnique({
-    where: { id },
-    include: {
-      _count: { select: { contracts: true } },
-    },
-  });
+  const project = await prisma.project.findUnique({ where: { id } });
 
   if (!project) {
     throw new ApiError(404, 'Project not found');
   }
 
-  const [lotesVendidos, lotesDisponibles, totalIngresos, totalEgresos, otrosIngresos] = await Promise.all([
-    prisma.lot.count({ where: { projectId: id, status: 'SOLD' } }),
-    prisma.lot.count({ where: { projectId: id, status: 'AVAILABLE' } }),
-    prisma.payment.aggregate({
-      where: { contract: { projectId: id }, status: 'CONFIRMED' },
-      _sum: { amount: true },
-    }),
-    prisma.expense.aggregate({ where: { projectId: id }, _sum: { amount: true } }),
-    prisma.otroIngreso.aggregate({ where: { projectId: id }, _sum: { monto: true } }),
-  ]);
-
-  const { _count, ...rest } = project;
-  const enriched = {
-    ...rest,
-    totalContratos:   _count.contracts,
-    lotesVendidos,
-    lotesDisponibles,
-    ...componerTotales({
-      pagos: totalIngresos._sum.amount,
-      otros: otrosIngresos._sum.monto,
-      egresos: totalEgresos._sum.amount as unknown as string,
-    }),
-  };
+  const enriched = { ...project, ...(await cifrasDelProyecto(id)) };
 
   res.status(200).json({
     status: 'success',
@@ -99,7 +84,7 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const createProject = asyncHandler(async (req: Request, res: Response) => {
-  const { code, name, description, location, city, state, totalLots } = req.body;
+  const { code, name, description, location, city, state } = req.body;
 
   const existingProject = await prisma.project.findUnique({ where: { code } });
   if (existingProject) {
@@ -114,7 +99,6 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       location,
       city,
       state,
-      totalLots,
       status: 'ACTIVE',
     },
   });

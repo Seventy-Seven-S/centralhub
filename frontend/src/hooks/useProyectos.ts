@@ -10,15 +10,19 @@ export interface Proyecto {
   location:         string;
   city:             string;
   state:            string;
-  totalLots:        number;
   startDate:        string | null;
   completionDate:   string | null;
   commissionType:   string;
   commissionValue:  number | null;
   createdAt:        string;
-  totalContratos:   number;
-  lotesVendidos:    number;
-  lotesDisponibles: number;
+  /** Contratos vivos: no cuenta cancelados, rescindidos ni borradores. */
+  totalContratos:      number;
+  /** Se cuenta de los lotes reales del proyecto, no de un campo capturado. */
+  totalLotes:          number;
+  lotesVendidos:       number;
+  lotesDisponibles:    number;
+  lotesReservados:     number;
+  lotesNoDisponibles:  number;
   totalIngresos:    number;
   totalEgresos:     number;
 }

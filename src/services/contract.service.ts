@@ -540,14 +540,24 @@ export class ContractService {
       throw new Error('Contrato no encontrado');
     }
 
-    // Mapear campos del DTO a campos del schema
+    // Este update NO toca dinero. Aceptaba precio, enganche, plazo, mensualidad
+    // y hasta el balance directo, sin recalcular una sola cuota y sin dejar
+    // rastro: el balance quedaba mintiendo sobre los pagos reales. Eso ahora va
+    // por PATCH /contracts/:id/datos (solo ADMIN), que rehace el calendario,
+    // reaplica los pagos y escribe en la bitácora.
+    const CAMPOS_DE_DINERO = [
+      'totalPrice', 'downPayment', 'financedAmount', 'termMonths',
+      'monthlyPayment', 'balance', 'interestRate',
+    ] as const;
+    const intentados = CAMPOS_DE_DINERO.filter(c => (data as any)[c] !== undefined);
+    if (intentados.length > 0) {
+      throw new Error(
+        `Estos campos no se editan por aquí porque cambian el calendario de cuotas: ${intentados.join(', ')}. ` +
+        'Usa la edición de datos del contrato (solo ADMIN), que recalcula todo y deja registro.',
+      );
+    }
+
     const updateData: any = {};
-    if (data.downPayment !== undefined) updateData.downPayment = data.downPayment;
-    if (data.financedAmount !== undefined) updateData.financingAmount = data.financedAmount;
-    if (data.interestRate !== undefined) updateData.interestRate = data.interestRate;
-    if (data.termMonths !== undefined) updateData.installmentCount = data.termMonths;
-    if (data.monthlyPayment !== undefined) updateData.installmentAmount = data.monthlyPayment;
-    if (data.balance !== undefined) updateData.balance = data.balance;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.moraMonthsCount !== undefined) updateData.moraMonthsCount = data.moraMonthsCount;
     if (data.notes !== undefined) updateData.notes = data.notes;

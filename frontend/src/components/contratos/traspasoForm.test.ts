@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validarFormularioTraspaso, resumenDinero } from './traspasoForm';
+import { validarFormularioTraspaso, resumenDinero, listaDe } from './traspasoForm';
 
 const base = {
   clienteNuevoId: 'cli2', lotIdsDestino: ['l1'], projectIdDestino: 'p1',
@@ -44,5 +44,21 @@ describe('resumenDinero — lo que la secretaria ve mientras captura', () => {
 
   it('tolera que escriban el monto con comas y signo de pesos', () => {
     expect(resumenDinero(40000, '$10,000')).toMatchObject({ respetado: 10000 });
+  });
+});
+
+describe('listaDe', () => {
+  it('saca el arreglo cuando la respuesta lo envuelve con nombre', () => {
+    const cuerpo = { status: 'success', data: { projects: [{ id: 'p1' }] } };
+    expect(listaDe(cuerpo.data, 'projects')).toEqual([{ id: 'p1' }]);
+  });
+
+  it('saca el arreglo cuando la respuesta ya viene plana', () => {
+    expect(listaDe([{ id: 'c1' }], 'clients')).toEqual([{ id: 'c1' }]);
+  });
+
+  it('devuelve vacío si no hay nada que listar', () => {
+    expect(listaDe(undefined, 'projects')).toEqual([]);
+    expect(listaDe({ otra: 1 }, 'projects')).toEqual([]);
   });
 });

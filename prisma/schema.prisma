@@ -64,6 +64,7 @@ model User {
   otrosIngresos      OtroIngreso[]  @relation("OtroIngresoCreatedBy")
 
   @@map("users")
+  cambiosContrato   CambioContrato[]
 }
 
 model RefreshToken {
@@ -148,7 +149,6 @@ model Project {
   city              String
   state             String
   totalAreaM2       Float?
-  totalLots         Int
   startDate         DateTime?
   completionDate    DateTime?
   
@@ -364,6 +364,7 @@ model Contract {
   commissions         Commission[]
   coOwners            CoOwner[]
   cuotas              Cuota[]
+  cambios             CambioContrato[]
   estadoCuentaLogs    EstadoCuentaLog[]
 
   @@map("contracts")
@@ -994,4 +995,28 @@ model RateLimitBucket {
 
   @@index([resetTime])
   @@map("rate_limit_buckets")
+}
+
+// Bitácora de cambios a los datos de un contrato hechos por un ADMIN.
+// Antes de esto no existía ninguna auditoría en el sistema: se podía cambiar
+// el precio o el balance de un contrato sin dejar rastro de quién ni por qué.
+// Una fila POR CAMPO, no por edición, para poder responder "¿por qué cambió la
+// mensualidad?" sin desenterrar un blob.
+model CambioContrato {
+  id            String   @id @default(uuid())
+  contractId    String   @map("contract_id")
+  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id])
+
+  campo         String
+  valorAnterior String?  @map("valor_anterior")
+  valorNuevo    String?  @map("valor_nuevo")
+  // Obligatorio: editar dinero sin explicar por qué es lo que nos trajo aquí.
+  motivo        String
+
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([contractId])
+  @@map("cambios_contrato")
 }

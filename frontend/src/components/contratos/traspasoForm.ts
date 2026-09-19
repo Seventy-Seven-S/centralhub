@@ -34,3 +34,18 @@ export function validarFormularioTraspaso(f: FormTraspaso): string | null {
   if (hayDiferencia && !f.nota.trim()) return 'No se respeta todo lo abonado: escribe una nota explicando por qué';
   return null;
 }
+
+/**
+ * Los listados del API responden `{ status, data: { projects: [...] } }`, pero
+ * algunos endpoints devuelven el arreglo directo. El modal leía `data.data` a
+ * secas y recibía el objeto envoltorio, así que `proyectos.map` reventaba y se
+ * caía la pantalla completa del contrato.
+ */
+export function listaDe<T>(cuerpo: unknown, clave: string): T[] {
+  if (Array.isArray(cuerpo)) return cuerpo as T[];
+  if (cuerpo && typeof cuerpo === 'object') {
+    const dentro = (cuerpo as Record<string, unknown>)[clave];
+    if (Array.isArray(dentro)) return dentro as T[];
+  }
+  return [];
+}

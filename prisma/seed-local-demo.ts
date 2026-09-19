@@ -22,7 +22,6 @@ async function main() {
       location: 'Calle de Prueba 123',
       city: 'Heroica Matamoros',
       state: 'Tamaulipas',
-      totalLots: 5,
       status: 'ACTIVE',
       commissionType: 'PERCENTAGE',
       commissionValue: 5,

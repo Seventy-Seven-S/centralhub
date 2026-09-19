@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import contractService from '../services/contract.service';
+import { editarDatosDelContrato, historialDeCambios } from '../services/contratoEdicion.service';
 import { logger } from '../utils/logger';
 import { TotalUpfrontExceedsPriceError, InvalidFileSignatureError } from '../utils/errors';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
@@ -283,6 +284,48 @@ export class ContractController {
       res.send(buffer);
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message || 'Error al obtener el contrato firmado' });
+    }
+  }
+  // PATCH /api/v1/contracts/:id/datos  — solo ADMIN
+  //
+  // Corrige los datos de dinero del contrato y rehace todo lo que depende de
+  // ellos. El PUT genérico ya no acepta estos campos: cambiarlos sin recalcular
+  // el calendario deja el balance mintiendo.
+  async editarDatos(req: Request, res: Response) {
+    try {
+      const { totalPrice, installmentAmount, installmentCount, mesInicioCalendario, lotIds, motivo } = req.body ?? {};
+      const num = (v: any) => (v === undefined || v === null || v === '' ? undefined : Number(v));
+
+      const resultado = await editarDatosDelContrato(
+        req.params.id,
+        {
+          totalPrice: num(totalPrice),
+          installmentAmount: num(installmentAmount),
+          installmentCount: num(installmentCount),
+          mesInicioCalendario: mesInicioCalendario || undefined,
+          lotIds: Array.isArray(lotIds) ? lotIds : undefined,
+          motivo,
+        },
+        req.user!.userId,
+      );
+
+      logger.info(
+        `[edicion-contrato] user=${req.user!.userId} contrato=${req.params.id} ` +
+        `campos=${resultado.cambios.map(c => c.campo).join(',')} motivo="${motivo}"`,
+      );
+
+      res.json({ success: true, message: 'Datos del contrato actualizados', data: resultado });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
+    }
+  }
+
+  // GET /api/v1/contracts/:id/cambios — bitácora de quién editó qué y por qué
+  async cambios(req: Request, res: Response) {
+    try {
+      res.json({ success: true, data: await historialDeCambios(req.params.id) });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
     }
   }
 }
