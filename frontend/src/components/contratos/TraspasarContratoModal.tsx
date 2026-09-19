@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatCurrency, normalizeForSearch, todayLocalISO } from '@/lib/utils';
 import { useLotes } from '@/hooks/useLotes';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 import { validarFormularioTraspaso, resumenDinero, listaDe } from './traspasoForm';
 
 interface Props {
@@ -219,18 +220,18 @@ export function TraspasarContratoModal({
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Precio</label>
-                <input inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)}
-                       className="w-full px-3 py-2 text-sm rounded-lg outline-none" style={inputStyle} />
+                <InputMoneda valor={precio} onValorChange={setPrecio}
+                             className="w-full px-3 py-2 text-sm rounded-lg outline-none" style={inputStyle} />
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Enganche</label>
-                <input inputMode="decimal" value={enganche} onChange={e => setEnganche(e.target.value)}
-                       className="w-full px-3 py-2 text-sm rounded-lg outline-none" style={inputStyle} />
+                <InputMoneda valor={enganche} onValorChange={setEnganche}
+                             className="w-full px-3 py-2 text-sm rounded-lg outline-none" style={inputStyle} />
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Mensualidad</label>
-                <input inputMode="decimal" value={mensualidad} onChange={e => setMensualidad(e.target.value)}
-                       className="w-full px-3 py-2 text-sm rounded-lg outline-none" style={inputStyle} />
+                <InputMoneda valor={mensualidad} onValorChange={setMensualidad}
+                             className="w-full px-3 py-2 text-sm rounded-lg outline-none" style={inputStyle} />
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Plazo (meses)</label>
@@ -248,9 +249,8 @@ export function TraspasarContratoModal({
             <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>
               {clienteActual} lleva abonados <strong style={{ color: 'var(--text-primary)' }}>{formatCurrency(abonado)}</strong>.
             </p>
-            <input inputMode="decimal" value={montoRespetado} disabled={saving}
-                   onChange={e => setMontoRespetado(e.target.value)}
-                   className="w-full px-3 py-2.5 text-sm rounded-xl outline-none tabular-nums" style={inputStyle} />
+            <InputMoneda valor={montoRespetado} onValorChange={setMontoRespetado} disabled={saving}
+                         className="w-full px-3 py-2.5 text-sm rounded-xl outline-none tabular-nums" style={inputStyle} />
           </div>
 
           {dinero.hayDiferencia && (

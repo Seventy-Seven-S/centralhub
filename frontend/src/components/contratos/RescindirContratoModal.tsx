@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Upload, AlertTriangle } from 'lucide-react';
 import { validarRescision, type RescisionForm } from '@/lib/rescision';
 import { todayLocalISO } from '@/lib/utils';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 
 interface Props {
   contratoId: string;
@@ -88,8 +89,8 @@ export function RescindirContratoModal({ contratoId, etiqueta, onClose, onDone }
             </div>
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Devolución al cliente (opcional)</label>
-              <input type="number" min={0} step="0.01" inputMode="decimal" value={form.devolucion} placeholder="0"
-                onChange={e => setForm(f => ({ ...f, devolucion: e.target.value }))}
+              <InputMoneda valor={form.devolucion} placeholder="0"
+                onValorChange={v => setForm(f => ({ ...f, devolucion: v }))}
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} />
             </div>
           </div>

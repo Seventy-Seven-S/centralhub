@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 import { Banknote, Landmark, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useMiDia, useCerrarCorte } from '@/hooks/useCorteDiario';
 import { formatCurrency } from '@/lib/utils';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 
 const METODO: Record<string, string> = { CASH: 'Efectivo', TRANSFER: 'Transferencia', CHECK: 'Cheque', CARD: 'Tarjeta' };
 
@@ -158,10 +159,9 @@ export default function MiCortePage() {
               <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>
                 Cuenta el dinero y escribe lo que realmente traes. Si no coincide, se registra la diferencia.
               </p>
-              <input
-                inputMode="decimal"
-                value={declarado}
-                onChange={e => setDeclarado(e.target.value)}
+              <InputMoneda
+                valor={declarado}
+                onValorChange={setDeclarado}
                 placeholder={String(resumen.totalEfectivo)}
                 className="w-full px-4 py-3 text-xl font-semibold rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 tabular-nums"
                 style={inputStyle}

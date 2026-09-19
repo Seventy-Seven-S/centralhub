@@ -5,6 +5,7 @@ import { X, Pencil, Loader2, AlertTriangle } from 'lucide-react';
 import api from '@/lib/api';
 import { useLotes } from '@/hooks/useLotes';
 import { formatCurrency } from '@/lib/utils';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 import {
   cambiosDelFormulario, validarFormulario, mesDeFecha,
   DatosContrato, FormEdicion,
@@ -97,16 +98,16 @@ export function EditarDatosContratoModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={etiquetaCampo} style={{ color: 'var(--text-secondary)' }}>Precio total</label>
-              <input value={form.totalPrice} onChange={set('totalPrice')} disabled={saving}
-                     inputMode="decimal" className={campo} style={inputStyle} />
+              <InputMoneda valor={form.totalPrice} onValorChange={v => setForm(f => ({ ...f, totalPrice: v }))}
+                           disabled={saving} className={campo} style={inputStyle} />
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                 Lleva pagado {formatCurrency(pagado)}
               </p>
             </div>
             <div>
               <label className={etiquetaCampo} style={{ color: 'var(--text-secondary)' }}>Mensualidad</label>
-              <input value={form.installmentAmount} onChange={set('installmentAmount')} disabled={saving}
-                     inputMode="decimal" className={campo} style={inputStyle} />
+              <InputMoneda valor={form.installmentAmount} onValorChange={v => setForm(f => ({ ...f, installmentAmount: v }))}
+                           disabled={saving} className={campo} style={inputStyle} />
             </div>
             <div>
               <label className={etiquetaCampo} style={{ color: 'var(--text-secondary)' }}>Plazo (meses)</label>

@@ -16,6 +16,7 @@ import {
   ExpenseFilters,
 } from '@/hooks/useGastos';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 
 const PAGE_SIZE = 20;
 
@@ -183,12 +184,9 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Monto (MXN)</label>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              <InputMoneda
+                valor={form.amount}
+                onValorChange={v => setForm(f => ({ ...f, amount: v }))}
                 placeholder="0.00"
                 className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
                 style={inputStyle}

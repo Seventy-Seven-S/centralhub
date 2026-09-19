@@ -33,13 +33,42 @@ export function reciboPropsDesdeLog(log: ReciboLogSnapshot): ReciboReimpresionPr
 
 interface PagoLike { id: string; amount: number; paymentDate: string; concept: string; balanceAfter: number | null }
 interface CuotaLike { numeroCuota: number; mes: string; fechaPago?: string | null }
+interface ContratoLike { totalPrice: number }
+
+/**
+ * Saldo que quedaba justo después de un pago.
+ *
+ * Los pagos migrados del sistema anterior no traen `balanceAfter`, y leerlo
+ * como cero hacía que el recibo le dijera al cliente que ya no debe nada.
+ * Cuando falta, se deriva del invariante del sistema: el saldo es el precio
+ * menos todo lo pagado hasta ese momento, incluido el pago que se imprime.
+ */
+export function saldoTrasPago(pago: PagoLike, contrato: ContratoLike, pagos: PagoLike[]): number {
+  if (pago.balanceAfter !== null && pago.balanceAfter !== undefined) return pago.balanceAfter;
+
+  const orden = [...pagos].sort((a, b) =>
+    a.paymentDate === b.paymentDate ? a.id.localeCompare(b.id) : a.paymentDate.localeCompare(b.paymentDate));
+  const hasta = orden.findIndex(p => p.id === pago.id);
+  const acumulado = orden
+    .slice(0, hasta === -1 ? orden.length : hasta + 1)
+    .reduce((s, p) => s + p.amount, 0);
+
+  // Nunca negativo: un contrato sobrepagado se lee como saldado, no como deuda
+  // al revés.
+  return Math.max(0, Math.round((contrato.totalPrice - acumulado) * 100) / 100);
+}
 
 /**
  * Fallback para pagos sin recibo emitido (migrados o cuyo log falló):
  * número de cuota desde el concepto ("Mensualidad #14 …"), o la primera
  * cuota pagada en esa misma fecha; si no hay forma de saberlo, 0.
  */
-export function reciboPropsDesdePago(pago: PagoLike, cuotas: CuotaLike[]): ReciboReimpresionProps {
+export function reciboPropsDesdePago(
+  pago: PagoLike,
+  cuotas: CuotaLike[],
+  contrato: ContratoLike,
+  pagos: PagoLike[],
+): ReciboReimpresionProps {
   const m = /#\s*(\d+)/.exec(pago.concept ?? '');
   let cuota: CuotaLike | undefined;
   if (m) cuota = cuotas.find(c => c.numeroCuota === Number(m[1])) ?? { numeroCuota: Number(m[1]), mes: '' };
@@ -50,6 +79,6 @@ export function reciboPropsDesdePago(pago: PagoLike, cuotas: CuotaLike[]): Recib
   return {
     cuota: { numeroCuota: cuota?.numeroCuota ?? 0, mes: cuota?.mes ?? '' },
     pago: { montoPagado: pago.amount, fechaPago: pago.paymentDate, concepto: pago.concept },
-    balanceDespues: pago.balanceAfter ?? 0,
+    balanceDespues: saldoTrasPago(pago, contrato, pagos),
   };
 }

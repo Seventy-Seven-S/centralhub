@@ -11,6 +11,7 @@ import { useProyectos } from '@/hooks/useProyectos';
 import { useCortes, usePendientesCorte, fetchCorte, type PagoCorte } from '@/hooks/useCortes';
 import { resumenReparto, validarCorte, type Egresos } from '@/lib/corte';
 import { ComprobanteCorte } from '@/components/pdf/ComprobanteCorte';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 
 interface Categoria { id: string; name: string }
 const CAT_DUENO = 'Dueño del terreno';
@@ -110,7 +111,7 @@ function GenerarCorteModal({ projectId, projectCode, onClose, onDone }: { projec
                 <input value={dueno} onChange={e => setDueno(e.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>
               {catsEgreso.map(c => (
                 <div key={c.id}><label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>{c.name}</label>
-                  <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0" value={egresos[c.id] ?? ''} onChange={e => setEgresos(x => ({ ...x, [c.id]: e.target.value }))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>
+                  <InputMoneda placeholder="0" valor={egresos[c.id] ?? ''} onValorChange={v => setEgresos(x => ({ ...x, [c.id]: v }))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>
               ))}
               <div className="col-span-2 sm:col-span-3"><label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Notas (opcional)</label>
                 <input value={notas} onChange={e => setNotas(e.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>

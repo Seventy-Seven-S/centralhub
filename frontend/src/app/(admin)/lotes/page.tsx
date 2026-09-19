@@ -11,6 +11,8 @@ import { formatCurrency } from '@/lib/utils';
 import { resumenLote } from '@/lib/resumenLote';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { InputMoneda } from '@/components/ui/InputMoneda';
+import { aNumero } from '@/lib/formatoMoneda';
 
 const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const INE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -53,9 +55,10 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [clientName,  setClientName]  = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
-  const [deposit,     setDeposit]     = useState(0);
+  // Un solo estado para el anticipo: el texto que se teclea. El número se
+  // deriva. Antes eran tres estados en paralelo para el mismo dato.
   const [depositText, setDepositText] = useState('');
-  const [depositFocused, setDepositFocused] = useState(false);
+  const deposit = aNumero(depositText);
   const [agentId,     setAgentId]     = useState('');
   const [error,       setError]       = useState('');
   const [ineFile,     setIneFile]     = useState<File | null>(null);
@@ -323,12 +326,9 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Precio base (MXN)
               </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={editBase}
-                onChange={e => setEditBase(e.target.value)}
+              <InputMoneda
+                valor={editBase}
+                onValorChange={setEditBase}
                 placeholder="0.00"
                 style={inputStyle}
               />
@@ -338,12 +338,9 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Precio actual (MXN)
               </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={editCurrent}
-                onChange={e => setEditCurrent(e.target.value)}
+              <InputMoneda
+                valor={editCurrent}
+                onValorChange={setEditCurrent}
                 placeholder="0.00"
                 style={inputStyle}
               />
@@ -439,33 +436,10 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
               <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Anticipo
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={
-                  depositFocused
-                    ? depositText
-                    : deposit > 0
-                      ? deposit.toLocaleString('es-MX', {
-                          style: 'currency',
-                          currency: 'MXN',
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : ''
-                }
+              <InputMoneda
+                valor={depositText}
+                onValorChange={setDepositText}
                 placeholder="$0.00 = sin anticipo"
-                onFocus={() => {
-                  setDepositText(deposit > 0 ? String(deposit) : '');
-                  setDepositFocused(true);
-                }}
-                onChange={e => {
-                  // Solo dígitos y un punto decimal; deposit (número) es la fuente de verdad.
-                  const raw = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
-                  setDepositText(raw);
-                  setDeposit(Number(raw) || 0);
-                }}
-                onBlur={() => setDepositFocused(false)}
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: deposit > 0 ? 'var(--accent)' : 'var(--text-tertiary)' }}>

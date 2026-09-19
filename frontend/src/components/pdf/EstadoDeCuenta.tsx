@@ -5,58 +5,66 @@ import { formatLotsLabel } from '@/lib/utils';
 import { PIE_EMPRESA } from './reciboHelpers';
 
 // ── Paleta (idéntica a ReciboContrato) ───────────────────────────────────────
-const C = { navy: '#0F1F3D', gold: '#C9972C', gray: '#6B7280', lightGray: '#F3F4F6', border: '#E5E7EB' };
+import { C, marca } from './marcaPdf';
 
+// Estados de una cuota. Verde para lo pagado, rojo solo para lo de verdad
+// vencido: si todo lo pendiente se pinta de alarma, nada destaca.
 const CUOTA_STATUS_CFG: Record<string, { bg: string; color: string; label: string }> = {
-  PAGADA:    { bg: '#F0F9F4', color: '#166534', label: 'Pagada'    },
-  PENDIENTE: { bg: '#F3F4F6', color: '#374151', label: 'Pendiente' },
-  MORA:      { bg: '#FFF7ED', color: '#9A3412', label: 'En mora'   },
-  VENCIDA:   { bg: '#FEF2F2', color: '#991B1B', label: 'Vencida'   },
+  PAGADA:    { bg: C.successPaleBg, color: C.green,         label: 'Pagada'    },
+  PENDIENTE: { bg: C.sectionAlt,    color: C.textSecondary, label: 'Pendiente' },
+  MORA:      { bg: C.dangerPaleBg,  color: C.danger,        label: 'En mora'   },
+  VENCIDA:   { bg: C.dangerPaleBg,  color: C.danger,        label: 'Vencida'   },
 };
 
-// ── Estilos ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  page:            { padding: 48, fontSize: 9, fontFamily: 'Helvetica', color: '#1F2937', backgroundColor: '#fff' },
-  // Header
-  header:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 14, marginBottom: 16, borderBottomWidth: 2, borderBottomColor: C.navy },
-  edcTitle:        { fontSize: 22, fontFamily: 'Helvetica-Bold', color: C.navy, letterSpacing: 2 },
-  edcNum:          { fontSize: 8, color: C.gray, marginTop: 4 },
-  companyName:     { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.navy, textAlign: 'right' },
-  companyTagline:  { fontSize: 8, color: C.gray, textAlign: 'right', marginTop: 2 },
-  goldBar:         { width: 40, height: 3, backgroundColor: C.gold, marginTop: 4, alignSelf: 'flex-end' },
-  // Info boxes
-  infoRow:         { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  infoBox:         { flex: 1, backgroundColor: C.lightGray, borderRadius: 4, padding: 10 },
-  infoLabel:       { fontSize: 7, color: C.gray, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
-  infoValue:       { fontSize: 9, color: '#111827', fontFamily: 'Helvetica-Bold' },
-  infoValueSub:    { fontSize: 8, color: '#374151', marginTop: 2 },
-  // Resumen financiero
-  summaryRow:      { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  summaryBox:      { flex: 1, borderLeftWidth: 3, borderLeftColor: C.navy, paddingLeft: 10, paddingVertical: 8, backgroundColor: C.lightGray, borderRadius: 4 },
-  summaryLabel:    { fontSize: 7, color: C.gray, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
-  summaryValue:    { fontSize: 12, fontFamily: 'Helvetica-Bold', color: C.navy },
-  // Tabla
-  sectionTitle:    { fontSize: 10, fontFamily: 'Helvetica-Bold', color: C.navy, marginBottom: 8 },
-  contLabel:       { fontSize: 8, color: C.gray, marginBottom: 8 },
-  table:           { borderWidth: 1, borderColor: C.border, borderRadius: 4, marginBottom: 12 },
-  tableHeaderRow:  { flexDirection: 'row', backgroundColor: C.navy, padding: 8, borderRadius: 3 },
-  tableHeaderCell: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 8 },
-  tableRow:        { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 7, borderTopWidth: 1, borderTopColor: C.border },
+  page:            marca.page,
+  card:            marca.card,
+
+  header:          marca.header,
+  edcTitle:        marca.docTitle,
+  companyTagline:  marca.companyTagline,
+  folioBadge:      marca.folioBadge,
+  folioLabel:      marca.folioLabel,
+  folioValue:      marca.folioValue,
+  headerSub:       { fontSize: 7.5, color: C.greenPale, marginTop: 6 },
+
+  infoRow:         marca.infoRow,
+  infoBox:         marca.infoBox,
+  infoLabel:       marca.infoLabel,
+  infoValue:       marca.infoValue,
+  infoValueSub:    marca.infoValueSub,
+
+  // Las tres cifras que el cliente busca primero.
+  summaryRow:      { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 14 },
+  summaryBox:      { flex: 1, backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10 },
+  summaryLabel:    { fontSize: 6.5, color: C.textSecondary, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
+  summaryValue:    { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.ink },
+  saldoBox:        { flex: 1, backgroundColor: C.forest, borderRadius: 8, padding: 10 },
+  saldoLabel:      { fontSize: 6.5, color: C.greenPale, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
+  saldoValue:      { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.white },
+
+  sectionTitle:    marca.sectionLabel,
+  contLabel:       { fontSize: 7.5, color: C.textSecondary, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica-Bold', marginHorizontal: 20, marginTop: 16, marginBottom: 8 },
+
+  table:           { marginHorizontal: 20, borderWidth: 1, borderColor: C.border, borderRadius: 8, overflow: 'hidden', marginBottom: 14 },
+  tableHeaderRow:  marca.tableHeaderRow,
+  tableHeaderCell: marca.tableHeaderCell,
+  tableRow:        marca.tableRow,
   colNum:          { flex: 0.5 },
   colVencimiento:  { flex: 2 },
   colMonto:        { flex: 1.5, alignItems: 'flex-end', paddingRight: 8 },
   colFechaPago:    { flex: 2, paddingLeft: 4 },
   colStatus:       { flex: 1.5 },
-  // Resumen final
-  finalBox:        { borderWidth: 1, borderColor: C.border, borderRadius: 4, padding: 12, marginBottom: 14 },
-  finalTitle:      { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.navy, marginBottom: 8 },
+
+  finalBox:        { marginHorizontal: 20, backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12, marginBottom: 14 },
+  finalTitle:      { fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.ink, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
   finalRow:        { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-  finalLabel:      { fontSize: 8, color: C.gray },
-  finalValue:      { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#111827' },
-  // Footer
-  footer:          { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  footerText:      { fontSize: 7.5, color: C.gray, flex: 1 },
-  footerBrand:     { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.navy, textAlign: 'right' },
+  finalLabel:      { fontSize: 8, color: C.textSecondary },
+  finalValue:      { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.ink },
+
+  footer:          { marginTop: 'auto', marginHorizontal: 20, marginBottom: 16, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  footerText:      { fontSize: 7, color: C.textSecondary, flex: 1 },
+  footerBrand:     { fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.ink, textAlign: 'right' },
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,13 +108,13 @@ function CuotaRows({ rows }: { rows: Cuota[] }) {
   return (
     <>
       {rows.map((c, i) => (
-        <View key={c.id} style={[s.tableRow, { backgroundColor: i % 2 === 0 ? '#fff' : C.lightGray }]}>
-          <Text style={[{ fontSize: 8, color: C.gray }, s.colNum]}>{c.numeroCuota}</Text>
+        <View key={c.id} style={[s.tableRow, { backgroundColor: i % 2 === 0 ? '#fff' : C.sectionAlt }]}>
+          <Text style={[{ fontSize: 8, color: C.textSecondary }, s.colNum]}>{c.numeroCuota}</Text>
           <Text style={[{ fontSize: 8 }, s.colVencimiento]}>{fmtDateShort(c.fechaVencimiento)}</Text>
           <View style={s.colMonto}>
             <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>{fmt(c.montoEsperado)}</Text>
           </View>
-          <Text style={[{ fontSize: 8, color: C.gray }, s.colFechaPago]}>
+          <Text style={[{ fontSize: 8, color: C.textSecondary }, s.colFechaPago]}>
             {c.fechaPago ? fmtDateShort(c.fechaPago) : '—'}
           </Text>
           <View style={s.colStatus}>
@@ -126,14 +134,14 @@ function ResumenFinal({ cuotas, cuotasPagadas, cuotasVencidas, proximaCuota }: {
 }) {
   return (
     <View style={s.finalBox}>
-      <Text style={s.finalTitle}>RESUMEN</Text>
+      <Text style={s.finalTitle}>Resumen</Text>
       <View style={s.finalRow}>
         <Text style={s.finalLabel}>Total cuotas pagadas</Text>
         <Text style={s.finalValue}>{cuotasPagadas} de {cuotas.length}</Text>
       </View>
       <View style={s.finalRow}>
         <Text style={s.finalLabel}>Cuotas vencidas</Text>
-        <Text style={[s.finalValue, { color: cuotasVencidas > 0 ? '#DC2626' : '#111827' }]}>
+        <Text style={[s.finalValue, cuotasVencidas > 0 ? { color: C.danger } : {}]}>
           {cuotasVencidas}
         </Text>
       </View>
@@ -154,7 +162,7 @@ function Footer({ folio }: { folio?: string }) {
     <View style={s.footer}>
       <View style={s.footerText}>
         <Text>{PIE_EMPRESA}</Text>
-        <Text style={{ fontSize: 7, color: C.gray, marginTop: 2 }}>
+        <Text style={{ fontSize: 7, color: C.textSecondary, marginTop: 2 }}>
           Verifica en: centralinmob.com/verificar/{folio ?? '—'}
         </Text>
       </View>
@@ -209,40 +217,40 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
 
       {/* ── Página 1: header + info + resumen + primera tabla ── */}
       <Page size="A4" style={s.page}>
+        <View style={s.card}>
 
-        {/* HEADER */}
+        {/* HEADER — mismo lenguaje que el recibo: franja verde y placa dorada */}
         <View style={s.header}>
           <View>
             <Text style={s.edcTitle}>ESTADO DE CUENTA</Text>
-            <Text style={s.edcNum}>Contrato: {codigo}</Text>
-            <Text style={s.edcNum}>Folio: {folio ?? '—'}</Text>
+            <Text style={s.companyTagline}>Central Inmobiliaria</Text>
+            <Text style={s.headerSub}>Contrato {codigo}</Text>
           </View>
-          <View>
-            <Text style={s.companyName}>Central Inmobiliaria</Text>
-            <Text style={s.companyTagline}>Gestión Inmobiliaria de Confianza</Text>
-            <View style={s.goldBar} />
+          <View style={s.folioBadge}>
+            <Text style={s.folioLabel}>Folio</Text>
+            <Text style={s.folioValue}>{folio ?? '—'}</Text>
           </View>
         </View>
 
         {/* INFO BOXES */}
         <View style={s.infoRow}>
           <View style={s.infoBox}>
-            <Text style={s.infoLabel}>CLIENTE</Text>
+            <Text style={s.infoLabel}>Cliente</Text>
             <Text style={s.infoValue}>{clienteNombre}</Text>
             <Text style={s.infoValueSub}>Código: {codigo}</Text>
           </View>
           <View style={s.infoBox}>
-            <Text style={s.infoLabel}>PROYECTO</Text>
+            <Text style={s.infoLabel}>Proyecto</Text>
             <Text style={s.infoValue}>{contrato.project.name}</Text>
             <Text style={s.infoValueSub}>{contrato.project.code}</Text>
           </View>
           <View style={s.infoBox}>
-            <Text style={s.infoLabel}>LOTE</Text>
+            <Text style={s.infoLabel}>Lote</Text>
             <Text style={s.infoValue}>{loteLabel}</Text>
             <Text style={s.infoValueSub}>{loteArea}</Text>
           </View>
           <View style={s.infoBox}>
-            <Text style={s.infoLabel}>FECHA DE EMISIÓN</Text>
+            <Text style={s.infoLabel}>Fecha de emisión</Text>
             <Text style={s.infoValue}>{fmtDate(new Date().toISOString())}</Text>
             <Text style={s.infoValueSub}>Válido al día de hoy</Text>
           </View>
@@ -251,23 +259,21 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
         {/* RESUMEN DEL CONTRATO */}
         <View style={s.summaryRow}>
           <View style={s.summaryBox}>
-            <Text style={s.summaryLabel}>PRECIO TOTAL</Text>
+            <Text style={s.summaryLabel}>Precio total</Text>
             <Text style={s.summaryValue}>{fmt(contrato.totalPrice)}</Text>
           </View>
           <View style={s.summaryBox}>
-            <Text style={s.summaryLabel}>TOTAL PAGADO</Text>
+            <Text style={s.summaryLabel}>Total pagado</Text>
             <Text style={s.summaryValue}>{fmt(totalPagado)}</Text>
           </View>
-          <View style={[s.summaryBox, { borderLeftColor: saldo > 0 ? '#DC2626' : '#16A34A' }]}>
-            <Text style={s.summaryLabel}>SALDO PENDIENTE</Text>
-            <Text style={[s.summaryValue, { color: saldo > 0 ? '#DC2626' : '#16A34A' }]}>
-              {fmt(saldo)}
-            </Text>
+          <View style={s.saldoBox}>
+            <Text style={s.saldoLabel}>{saldo > 0 ? 'Saldo pendiente' : 'Estado'}</Text>
+            <Text style={s.saldoValue}>{saldo > 0 ? fmt(saldo) : 'Liquidado'}</Text>
           </View>
         </View>
 
         {/* TABLA — primer bloque */}
-        <Text style={s.sectionTitle}>Plan de Pagos</Text>
+        <Text style={s.sectionTitle}>Plan de pagos</Text>
         <View style={s.table}>
           <TableHeader />
           <CuotaRows rows={chunks[0]} />
@@ -283,6 +289,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
         )}
 
         {chunks.length === 1 && <Footer folio={folio} />}
+        </View>
       </Page>
 
       {/* ── Páginas adicionales ── */}
@@ -290,6 +297,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
         const isLast = pageIdx === chunks.length - 2;
         return (
           <Page key={pageIdx} size="A4" style={s.page}>
+            <View style={s.card}>
             <Text style={s.contLabel}>Estado de Cuenta — {codigo} (continuación)</Text>
             <View style={s.table}>
               <TableHeader />
@@ -304,6 +312,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
               />
             )}
             {isLast && <Footer folio={folio} />}
+            </View>
           </Page>
         );
       })}

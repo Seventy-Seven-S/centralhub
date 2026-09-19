@@ -118,6 +118,31 @@ function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrand
         </p>
       </div>
 
+      {/* Valor total — la suma del precio inicial de todos los lotes. Va arriba
+          del desglose porque es la escala del proyecto: encuadra lo que sigue. */}
+      {(proyecto.valorTotal > 0 || proyecto.pendientePorEntregar > 0) && (
+        <div className="pt-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
+          {proyecto.valorTotal > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Valor total del proyecto</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                {formatCurrency(proyecto.valorTotal)}
+              </span>
+            </div>
+          )}
+          {/* Dinero ya cobrado que todavía no se le reporta al dueño. Es lo
+              mismo que sumaría el botón de generar corte. */}
+          {proyecto.pendientePorEntregar > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Pendiente por entregar</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--gold)' }}>
+                {formatCurrency(proyecto.pendientePorEntregar)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Finanzas */}
       {!hideIngresos && (proyecto.totalIngresos > 0 || proyecto.totalEgresos > 0) && (
         <div className="pt-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>

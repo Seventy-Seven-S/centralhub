@@ -2,6 +2,7 @@ import { formatDateUTC } from '@/lib/utils';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { ContratoDetalle, Cuota } from '@/hooks/useContratos';
 import { formatMoney, buildReciboFolio, PIE_EMPRESA, buildDescripcion, getLoteInfo } from './reciboHelpers';
+import { C } from './marcaPdf';
 
 // Misma identidad visual del correo de bienvenida (email.service.ts —
 // sendWelcomeEmail): header verde bosque, acento dorado. Fondo de página
@@ -9,24 +10,6 @@ import { formatMoney, buildReciboFolio, PIE_EMPRESA, buildDescripcion, getLoteIn
 // impresoras b/n. react-pdf no soporta linear-gradient ni box-shadow en
 // style — el gradiente del header se aproxima con el tono sólido
 // intermedio, y la elevación de las tarjetas se aproxima con un borde sutil.
-const C = {
-  forest:       '#0D2818',
-  forestMid:    '#1A3A2A',
-  green:        '#2D6A4F',
-  greenPale:    '#A8C5B0',
-  gold:         '#C9972C',
-  goldLight:    '#E8B84B',
-  goldPaleBg:   'rgba(201,151,44,0.15)',
-  white:        '#FFFFFF',
-  ink:          '#0D2818',
-  textSecondary:'#6B7C74',
-  sectionAlt:   '#F7F9F7',
-  border:       '#E5EDE5',
-  // Fondo de página ahora blanco (menos tinta al imprimir en b/n) — la
-  // tarjeta ya no contrasta contra un beige, así que su borde exterior
-  // usa un tono más marcado que C.border para seguir delimitándose.
-  cardBorder:   '#CBDBCE',
-};
 
 const s = StyleSheet.create({
   page:             { padding: 22, fontSize: 9, fontFamily: 'Helvetica', color: C.ink, backgroundColor: C.white },

@@ -11,7 +11,9 @@ describe('parseMoneyDigits — limpia lo que el usuario teclea mientras edita (s
   });
 
   it('colapsa un segundo punto decimal (no dos puntos válidos)', () => {
-    expect(parseMoneyDigits('13.400.50')).toBe('13.40050');
+    // Se recorta a dos decimales: en pesos no existe un tercer decimal y
+    // dejarlo pasar mandaba montos inválidos al backend.
+    expect(parseMoneyDigits('13.400.50')).toBe('13.40');
   });
 
   it('string vacío se queda vacío', () => {

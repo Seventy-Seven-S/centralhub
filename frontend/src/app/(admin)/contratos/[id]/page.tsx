@@ -131,7 +131,14 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         qrDataUri = await buildQrDataUri(buildValidacionUrl(data.data.id));
       } catch (err: any) {
         if (err?.response?.status !== 404) throw err;
-        props = reciboPropsDesdePago(pago, cuotas);
+        // Los pagos migrados no traen balanceAfter; el saldo se deriva de
+        // los pagos confirmados del contrato en vez de salir en cero.
+        props = reciboPropsDesdePago(
+          pago,
+          cuotas,
+          { totalPrice: contrato.totalPrice ?? 0 },
+          pagos.filter((p: any) => p.status === 'CONFIRMED'),
+        );
       }
       const cuotaBase = cuotas.find(c => c.numeroCuota === props.cuota.numeroCuota);
       const blob = await pdf(

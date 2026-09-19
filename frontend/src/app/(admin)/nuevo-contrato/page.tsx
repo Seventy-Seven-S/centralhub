@@ -8,6 +8,7 @@ import { useLotes } from '@/hooks/useLotes';
 import { useVendedores } from '@/hooks/useVendedores';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
 import api from '@/lib/api';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 
 function formatDate(d: string | Date | null | undefined): string {
   if (!d) return '—';
@@ -428,23 +429,10 @@ export default function NuevoContratoPage() {
             )}
 
             <Field label="Enganche al firmar">
-              <input
+              <InputMoneda
                 style={inputStyle}
-                type="text"
-                value={
-                  downPayment === 0
-                    ? ''
-                    : new Intl.NumberFormat('es-MX', {
-                        style: 'currency',
-                        currency: 'MXN',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      }).format(downPayment)
-                }
-                onChange={e => {
-                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                  setDownPayment(raw ? Number(raw) : 0);
-                }}
+                valor={downPayment === 0 ? '' : String(downPayment)}
+                onValorChange={v => setDownPayment(Number(v) || 0)}
                 placeholder="Monto que cobrarás al firmar"
               />
             </Field>

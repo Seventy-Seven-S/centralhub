@@ -19,6 +19,10 @@ export interface Proyecto {
   totalContratos:      number;
   /** Se cuenta de los lotes reales del proyecto, no de un campo capturado. */
   totalLotes:          number;
+  /** Suma del precio inicial de todos sus lotes. */
+  valorTotal:          number;
+  /** Cobrado que aún no se reporta en ningún corte: lo que sumaría generar uno. */
+  pendientePorEntregar: number;
   lotesVendidos:       number;
   lotesDisponibles:    number;
   lotesReservados:     number;

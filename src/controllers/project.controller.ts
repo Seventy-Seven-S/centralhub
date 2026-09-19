@@ -4,6 +4,8 @@ import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { whereProyectoVisible } from '../services/lib/proyectosOcultos';
 import { componerTotales } from '../services/lib/totalesProyecto';
 import { CONTRATOS_VIVOS, resumirLotes } from '../services/lib/conteosProyecto';
+import { round2 } from '../utils/money';
+import { wherePendienteDeCorte } from '../services/lib/cortePendiente';
 
 /**
  * Cifras de un proyecto: contratos vivos, lotes por estado y finanzas.
@@ -13,13 +15,19 @@ import { CONTRATOS_VIVOS, resumirLotes } from '../services/lib/conteosProyecto';
  * mintiendo — ya pasó con los otros ingresos.
  */
 async function cifrasDelProyecto(projectId: string) {
-  const [contratosVivos, lotesPorEstado, pagos, egresos, otros] = await Promise.all([
+  const [contratosVivos, lotesPorEstado, valorLotes, pagos, porEntregar, egresos, otros] = await Promise.all([
     prisma.contract.count({ where: { projectId, status: { in: CONTRATOS_VIVOS } } }),
     prisma.lot.groupBy({ by: ['status'], where: { projectId }, _count: true }),
+    // Valor total del proyecto: la suma del precio inicial de todos sus lotes.
+    // Se deriva de los lotes reales, nunca de un número capturado aparte.
+    prisma.lot.aggregate({ where: { projectId }, _sum: { basePrice: true } }),
     prisma.payment.aggregate({
       where: { contract: { projectId }, status: 'CONFIRMED' },
       _sum: { amount: true },
     }),
+    // Dinero cobrado que todavía no se le reporta al dueño: es justo lo que
+    // sumaría el botón de generar corte.
+    prisma.payment.aggregate({ where: wherePendienteDeCorte(projectId), _sum: { amount: true } }),
     prisma.expense.aggregate({ where: { projectId }, _sum: { amount: true } }),
     // Dinero que entró al proyecto sin venir de un cliente (aportaciones del
     // dueño para cubrir gastos). Suma a los ingresos: si no, el gasto que
@@ -31,6 +39,8 @@ async function cifrasDelProyecto(projectId: string) {
 
   return {
     totalContratos:      contratosVivos,
+    valorTotal:          round2(valorLotes._sum.basePrice ?? 0),
+    pendientePorEntregar: round2(porEntregar._sum.amount ?? 0),
     // El total sale de contar los lotes reales, no del campo capturado que
     // nadie mantuvo: decía 50 en JSA 1 cuando ya había 113 lotes cargados.
     totalLotes:          lotes.total,

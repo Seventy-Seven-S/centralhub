@@ -3,6 +3,7 @@
 // propone mientras no tenga corte, y una vez ligado no vuelve a aparecer.
 import { PrismaClient, PaymentStatus } from '@prisma/client';
 import { round2 } from '../utils/money';
+import { wherePendienteDeCorte } from './lib/cortePendiente';
 
 const prisma = new PrismaClient();
 
@@ -36,7 +37,7 @@ export const corteService = {
   /** Pagos confirmados del proyecto que aún no se han reportado en ningún corte. */
   async pendientes(projectId: string) {
     const pagos = await prisma.payment.findMany({
-      where: { status: PaymentStatus.CONFIRMED, corteId: null, contract: { projectId } },
+      where: wherePendienteDeCorte(projectId),
       select: PAGO_SELECT,
       orderBy: { paymentDate: 'asc' },
     });

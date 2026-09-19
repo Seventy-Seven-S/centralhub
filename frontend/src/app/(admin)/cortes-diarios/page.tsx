@@ -11,6 +11,7 @@ import { Banknote, AlertCircle, CheckCircle2, Clock, X, Loader2 } from 'lucide-r
 import { useCortesDiarios, useRecibirCorte, useCorteDiario, useResumenDiario, CorteDiario } from '@/hooks/useCorteDiario';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency, formatDateUTC } from '@/lib/utils';
+import { InputMoneda } from '@/components/ui/InputMoneda';
 
 function Badge({ status }: { status: CorteDiario['status'] }) {
   const recibido = status === 'RECIBIDO';
@@ -92,9 +93,9 @@ function RecibirModal({ corte, onClose }: { corte: CorteDiario; onClose: () => v
 
           <div>
             <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>¿Cuánto contaste?</label>
-            <input
-              inputMode="decimal" autoFocus
-              value={monto} onChange={e => setMonto(e.target.value)}
+            <InputMoneda
+              autoFocus
+              valor={monto} onValorChange={setMonto}
               placeholder={String(corte.declarado)}
               className="w-full px-4 py-3 text-xl font-semibold rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 tabular-nums"
               style={inputStyle}
