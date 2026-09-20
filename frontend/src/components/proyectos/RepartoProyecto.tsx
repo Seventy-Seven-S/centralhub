@@ -76,19 +76,8 @@ export function RepartoProyecto({ reparto }: { reparto: Reparto }) {
         ))}
       </div>
 
-      {/* Solo se menciona si de verdad hay diferencia: un desbalance de cero no
-          necesita una línea que diga que todo está bien. */}
-      {reparto.desbalance >= 1 && (
-        <p className="text-xs pt-2" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border)' }}>
-          El reparto va {formatCurrency(reparto.desbalance)} fuera de la proporción pactada.
-        </p>
-      )}
-
-      {reparto.nota && (
-        <p className="text-xs pt-2" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border)' }}>
-          {reparto.nota}
-        </p>
-      )}
+      {/* El desbalance y la nota del acuerdo siguen en la API y en la base, pero
+          no se pintan: el bloque se lee mejor cerrando con las dos barras. */}
     </div>
   );
 }
