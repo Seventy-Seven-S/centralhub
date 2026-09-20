@@ -7,12 +7,20 @@ import {
   createProject,
   updateProject,
   deleteProject,
+  getReparto,
+  putReparto,
 } from '../controllers/project.controller';
 
 const router = Router();
 
 router.get('/', authenticate, getAllProjects);
 router.get('/:id', authenticate, getProjectById);
+
+// Acuerdo de reparto con el dueño del terreno. Leerlo lo puede cualquiera que
+// vea el proyecto; pactarlo o cambiarlo es del ADMIN — es el trato, no un dato
+// operativo. Van ANTES de /:id genéricas por el orden de rutas de Express.
+router.get('/:id/reparto', authenticate, getReparto);
+router.put('/:id/reparto', authenticate, authorize('ADMIN'), putReparto);
 
 router.post(
   '/',

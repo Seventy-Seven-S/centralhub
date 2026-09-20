@@ -8,6 +8,7 @@ import { useProyectoById } from '@/hooks/useProyectos';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
+import { RepartoProyecto } from '@/components/proyectos/RepartoProyecto';
 
 const PAGE_SIZE = 20;
 
@@ -169,6 +170,9 @@ export default function ProyectoDetallePage({ params }: { params: Promise<{ id: 
           <span>{proyecto.lotesDisponibles} disponibles · {totalReal} totales en sistema</span>
         </div>
       </div>
+
+      {/* ── SECCIÓN 3B: Acuerdo de reparto (solo si el proyecto tiene) ── */}
+      {proyecto.reparto && <RepartoProyecto reparto={proyecto.reparto} />}
 
       {/* ── SECCIÓN 4: Contratos ── */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">

@@ -6,6 +6,7 @@ import { componerTotales } from '../services/lib/totalesProyecto';
 import { CONTRATOS_VIVOS, resumirLotes } from '../services/lib/conteosProyecto';
 import { round2 } from '../utils/money';
 import { wherePendienteDeCorte } from '../services/lib/cortePendiente';
+import { repartoDelProyecto, guardarAcuerdo } from '../services/reparto.service';
 
 /**
  * Cifras de un proyecto: contratos vivos, lotes por estado y finanzas.
@@ -85,7 +86,10 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
     throw new ApiError(404, 'Project not found');
   }
 
-  const enriched = { ...project, ...(await cifrasDelProyecto(id)) };
+  const enriched = {
+    ...project,
+    ...(await cifrasDelProyecto(id)),
+  };
 
   res.status(200).json({
     status: 'success',
@@ -142,4 +146,21 @@ export const deleteProject = asyncHandler(async (req: Request, res: Response) =>
   });
 
   res.status(204).send();
+});
+
+// GET /api/v1/projects/:id/reparto
+export const getReparto = asyncHandler(async (req: Request, res: Response) => {
+  res.status(200).json({ status: 'success', data: { reparto: await repartoDelProyecto(req.params.id) } });
+});
+
+// PUT /api/v1/projects/:id/reparto — solo ADMIN
+export const putReparto = asyncHandler(async (req: Request, res: Response) => {
+  const { porcentajeDueno, porcentajeCentral, valorBase, nota } = req.body ?? {};
+  const acuerdo = await guardarAcuerdo(req.params.id, {
+    porcentajeDueno: Number(porcentajeDueno),
+    porcentajeCentral: Number(porcentajeCentral),
+    valorBase: valorBase === undefined || valorBase === null || valorBase === '' ? undefined : Number(valorBase),
+    nota,
+  });
+  res.status(200).json({ status: 'success', data: { acuerdo, reparto: await repartoDelProyecto(req.params.id) } });
 });

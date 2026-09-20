@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import type { Reparto } from '@/components/proyectos/RepartoProyecto';
 
 export interface Proyecto {
   id:               string;
@@ -23,6 +24,9 @@ export interface Proyecto {
   valorTotal:          number;
   /** Cobrado que aún no se reporta en ningún corte: lo que sumaría generar uno. */
   pendientePorEntregar: number;
+  /** Reparto pactado con el dueño del terreno. Solo viene en el detalle, no
+   *  en el listado: la tarjeta no lo muestra. */
+  reparto?:            Reparto | null;
   lotesVendidos:       number;
   lotesDisponibles:    number;
   lotesReservados:     number;
