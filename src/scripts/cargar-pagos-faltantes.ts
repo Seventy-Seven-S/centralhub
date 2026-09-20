@@ -16,6 +16,18 @@
  * Uso:
  *   npx tsx src/scripts/cargar-pagos-faltantes.ts <archivo.xlsx> SAN            # dry-run
  *   npx tsx src/scripts/cargar-pagos-faltantes.ts <archivo.xlsx> SAN --confirm
+ *
+ * `--hoja <nombre>`: no todos los archivos llaman "Ingresos" a su hoja buena.
+ * En JSA 3 la autoritativa es "Capturas"; la hoja "Ingresos" de ese archivo
+ * está incompleta y usarla daría números absurdos.
+ *
+ * `--desde AAAA-MM-DD` / `--hasta AAAA-MM-DD`: acota la ventana, para revisar
+ * un periodo concreto sin arrastrar huecos viejos que son otra conversación.
+ *
+ * Los MONTOS NEGATIVOS nunca se cargan. En las hojas viejas un negativo es un
+ * ajuste contable, no dinero que entró: en JSA 3 hay uno de −$96,000 que es la
+ * reversa de cuando el contrato B019 se dividió y uno de sus lotes pasó al
+ * B062. Crearlo como pago le restaría ese dinero al cliente.
  */
 import { PrismaClient, PaymentType, PaymentMethod, PaymentStatus, CuotaStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
@@ -26,15 +38,25 @@ const prisma = new PrismaClient();
 const ARCHIVO = process.argv[2];
 const PROYECTO = process.argv[3];
 const CONFIRM = process.argv.includes('--confirm');
+const iHoja = process.argv.indexOf('--hoja');
+const HOJA = iHoja >= 0 ? process.argv[iHoja + 1] : 'Ingresos';
+const arg = (nombre: string) => {
+  const i = process.argv.indexOf(nombre);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+};
+const DESDE = arg('--desde') ? new Date(`${arg('--desde')}T00:00:00Z`) : undefined;
+const HASTA = arg('--hasta') ? new Date(`${arg('--hasta')}T23:59:59Z`) : undefined;
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const fechaDeSerial = (s: number) => new Date(Date.UTC(1899, 11, 30) + Math.round(s * 86400000));
 
 interface PagoArchivo { codigo: string; fecha: Date; tipo: string; concepto: string; monto: number }
 
-function leerIngresos(ruta: string): PagoArchivo[] {
+function leerIngresos(ruta: string, hoja = HOJA): PagoArchivo[] {
   const wb = XLSX.readFile(ruta);
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets['Ingresos'], { header: 1, defval: null }) as any[][];
+  const ws = wb.Sheets[hoja];
+  if (!ws) throw new Error(`El archivo no tiene una hoja "${hoja}". Tiene: ${wb.SheetNames.join(', ')}`);
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as any[][];
   const out: PagoArchivo[] = [];
   for (let i = 2; i < rows.length; i++) {
     const r = rows[i] ?? [];
@@ -53,7 +75,23 @@ function leerIngresos(ruta: string): PagoArchivo[] {
 async function main() {
   if (!ARCHIVO || !PROYECTO) throw new Error('Uso: cargar-pagos-faltantes.ts <archivo.xlsx> <CODIGO_PROYECTO> [--confirm]');
 
-  const pagosArchivo = leerIngresos(ARCHIVO);
+  const todos = leerIngresos(ARCHIVO);
+
+  // Un negativo en estas hojas es un ajuste contable, no un ingreso. Se reporta
+  // y se deja fuera: convertirlo en pago le restaría dinero al cliente.
+  const negativos = todos.filter(p => p.monto < 0);
+  if (negativos.length) {
+    console.log(`\n⚠️  ${negativos.length} renglón(es) con monto NEGATIVO — no se cargan, son ajustes:`);
+    for (const n of negativos) {
+      console.log(`      ${n.codigo}  ${n.fecha.toISOString().slice(0, 10)}  ${money(n.monto)}  ${n.concepto.slice(0, 40)}`);
+    }
+  }
+
+  const pagosArchivo = todos.filter(p =>
+    p.monto > 0 && (!DESDE || p.fecha >= DESDE) && (!HASTA || p.fecha <= HASTA));
+  if (DESDE || HASTA) {
+    console.log(`\nVentana: ${DESDE ? DESDE.toISOString().slice(0, 10) : 'inicio'} a ${HASTA ? HASTA.toISOString().slice(0, 10) : 'hoy'} — ${pagosArchivo.length} renglones del archivo`);
+  }
   const contratos = await prisma.contract.findMany({
     where: { project: { code: PROYECTO } },
     select: {
@@ -83,7 +121,7 @@ async function main() {
     }
   }
 
-  console.log(`\n${CONFIRM ? '🔴 MODO ESCRITURA' : '🔍 DRY-RUN (usa --confirm para escribir)'}\n`);
+  console.log(`\n${CONFIRM ? '🔴 MODO ESCRITURA' : '🔍 DRY-RUN (usa --confirm para escribir)'}  ·  hoja "${HOJA}"\n`);
   console.log(`Pagos a cargar: ${faltantes.length} · ${money(round2(faltantes.reduce((s, f) => s + f.p.monto, 0)))}\n`);
 
   for (const { c, p } of faltantes) {
@@ -93,12 +131,30 @@ async function main() {
 
   if (!CONFIRM) { console.log('\nNada escrito. Repite con --confirm.\n'); return; }
 
+  // Cuántos pagos idénticos (mismo contrato, monto y día) espera el archivo.
+  // La comprobación anti-duplicado no puede preguntar "¿existe uno?": un
+  // cliente puede pagar dos veces $3,000 el mismo día, y con esa pregunta el
+  // segundo nunca se cargaba. Pregunta "¿ya están TODOS los que el archivo
+  // espera?" — caso real de B057 en JSA 3.
+  const claveIdentica = (contratoId: string, monto: number, fecha: Date) =>
+    `${contratoId}|${monto}|${fecha.toISOString().slice(0, 10)}`;
+  // Se cuenta sobre TODO el archivo, no sobre los faltantes: si uno de los dos
+  // ya se cargó en una corrida anterior, la lista de faltantes trae uno solo y
+  // el conteo diría "ya está" para el que aún falta.
+  const esperados = new Map<string, number>();
+  for (const pa of pagosArchivo) {
+    const c = porCodigo.get(pa.codigo);
+    if (!c) continue;
+    const k = claveIdentica(c.id, pa.monto, pa.fecha);
+    esperados.set(k, (esperados.get(k) ?? 0) + 1);
+  }
+
   let ok = 0;
   for (const { c, p } of faltantes) {
     await prisma.$transaction(async tx => {
       // Se relee dentro: si alguien lo capturó a mano entre el dry-run y esto,
       // no se duplica.
-      const yaExiste = await tx.payment.findFirst({
+      const yaHay = await tx.payment.count({
         where: {
           contractId: c.id, status: PaymentStatus.CONFIRMED,
           amount: { gte: p.monto - 0.5, lte: p.monto + 0.5 },
@@ -108,7 +164,11 @@ async function main() {
           },
         },
       });
-      if (yaExiste) { console.log(`  ⏭  ${c.codigoLegado}: ya existía, se omite`); return; }
+      const cuantosEspera = esperados.get(claveIdentica(c.id, p.monto, p.fecha)) ?? 1;
+      if (yaHay >= cuantosEspera) {
+        console.log(`  ⏭  ${c.codigoLegado}: ya están los ${cuantosEspera} que espera el archivo, se omite`);
+        return;
+      }
 
       const esEnganche = /enganche/i.test(p.tipo);
 
