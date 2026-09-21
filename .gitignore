@@ -49,3 +49,15 @@ backups/
 data/
 *.dump
 *.xlsx
+
+# ── Fuera del repo ───────────────────────────────────────────────────────────
+# Caché de herramientas de indexado: se regenera sola.
+.codegraph/
+
+# Scripts y documentos sueltos de sesiones pasadas. No los usa el código; se
+# guardan por si sirven de referencia, no como parte del proyecto.
+scratch/
+
+# Credenciales y documentos internos. Nunca a git.
+*.rtf
+*.docx
