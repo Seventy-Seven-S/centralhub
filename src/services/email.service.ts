@@ -140,6 +140,20 @@ export async function sendVerificationCode(email: string, firstName: string, cod
   }
 }
 
+/**
+ * El portal de clientes está APAGADO por instrucción del arquitecto
+ * (2026-09-22): por ahora los clientes no tendrán acceso a esa plataforma.
+ *
+ * Mientras esté en false, el correo de bienvenida no menciona el portal, no
+ * muestra la contraseña temporal y no trae el botón de acceso. Ponerlo en true
+ * devuelve todo eso tal como estaba.
+ *
+ * Ojo: esto solo afecta al CORREO. La cuenta del portal se sigue creando en
+ * contract.service (ver la creación de clientUser) — apagar eso es otra
+ * decisión.
+ */
+const PORTAL_DE_CLIENTES_ACTIVO = false;
+
 export async function sendWelcomeEmail(
   email: string,
   firstName: string,
@@ -243,8 +257,8 @@ export async function sendWelcomeEmail(
                   <div style="width:28px;height:28px;background:#2D6A4F;border-radius:50%;text-align:center;line-height:28px;color:#ffffff;font-size:13px;font-weight:700;">1</div>
                 </td>
                 <td>
-                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">Accede a tu portal</p>
-                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">Ingresa con tu email y contraseña para ver tu cuenta</p>
+                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Accede a tu portal' : 'Guarda tu número de contrato'}</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Ingresa con tu email y contraseña para ver tu cuenta' : 'Te lo pedirán para cualquier aclaración o trámite'}</p>
                 </td>
               </tr>
             </table>
@@ -258,8 +272,8 @@ export async function sendWelcomeEmail(
                   <div style="width:28px;height:28px;background:#2D6A4F;border-radius:50%;text-align:center;line-height:28px;color:#ffffff;font-size:13px;font-weight:700;">2</div>
                 </td>
                 <td>
-                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">Descarga tu estado de cuenta</p>
-                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">Disponible en PDF desde tu portal en cualquier momento</p>
+                  <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Descarga tu estado de cuenta' : 'Recibe tu comprobante en cada pago'}</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Disponible en PDF desde tu portal en cualquier momento' : 'Te llega por correo cada vez que realizas una mensualidad'}</p>
                 </td>
               </tr>
             </table>
@@ -274,7 +288,7 @@ export async function sendWelcomeEmail(
                 </td>
                 <td>
                   <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">Consulta tu plan de pagos completo</p>
-                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">Revisa fechas de vencimiento y montos de cada cuota</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Revisa fechas de vencimiento y montos de cada cuota' : 'Solicita tu estado de cuenta a tu asesor cuando lo necesites'}</p>
                 </td>
               </tr>
             </table>
@@ -284,7 +298,7 @@ export async function sendWelcomeEmail(
     </td>
   </tr>
 
-  ${tempPassword ? `
+  ${PORTAL_DE_CLIENTES_ACTIVO && tempPassword ? `
   <!-- CREDENCIALES -->
   <tr>
     <td style="padding:0 48px 32px;">
@@ -310,12 +324,18 @@ export async function sendWelcomeEmail(
   </tr>
   ` : ''}
 
+  ${/* Sin portal, el botón se sustituye por el espacio que dejaba: un comentario
+       HTML aquí viajaría dentro del correo del cliente. */ ''}
+  ${PORTAL_DE_CLIENTES_ACTIVO ? `
   <!-- CTA -->
   <tr>
     <td style="padding:0 48px 40px;text-align:center;">
       <a href="${portalUrl}" style="display:inline-block;background:linear-gradient(135deg,#1A3A2A,#2D6A4F);color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:0.02em;box-shadow:0 4px 12px rgba(26,58,42,0.3);">Acceder a mi portal →</a>
     </td>
   </tr>
+  ` : `
+  <tr><td style="padding:0 48px 24px;"></td></tr>
+  `}
 
   <!-- FOOTER -->
   <tr>
