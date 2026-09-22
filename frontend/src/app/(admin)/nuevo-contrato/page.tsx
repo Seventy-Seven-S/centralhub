@@ -9,6 +9,7 @@ import { useVendedores } from '@/hooks/useVendedores';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
 import api from '@/lib/api';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import { validarDatosDelCliente } from '@/lib/datosCliente';
 
 function formatDate(d: string | Date | null | undefined): string {
   if (!d) return '—';
@@ -204,15 +205,8 @@ export default function NuevoContratoPage() {
   // ── Navegación entre pasos
   function goNext() {
     if (step === 1) {
-      if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) {
-        setStep1Error('Nombre, apellidos, teléfono y email son obligatorios. El email es necesario para crear el acceso del cliente al portal.');
-        return;
-      }
-      // Validación básica de formato de email (algo@algo.dominio)
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        setStep1Error('El email no tiene un formato válido (ej: nombre@dominio.com).');
-        return;
-      }
+      const problema = validarDatosDelCliente({ firstName, lastName, phone, email });
+      if (problema) { setStep1Error(problema); return; }
       setStep1Error('');
     }
     setStep(s => s + 1);
@@ -315,9 +309,14 @@ export default function NuevoContratoPage() {
               <input style={inputStyle} type="tel" value={phone}
                 onChange={e => setPhone(e.target.value)} placeholder="8681234567" />
             </Field>
-            <Field label="Email" required>
+            <Field label="Email">
               <input style={inputStyle} type="email" value={email}
                 onChange={e => setEmail(e.target.value)} placeholder="correo@ejemplo.com" />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                {email.trim()
+                  ? 'Recibirá su comprobante por correo en cada pago'
+                  : 'Opcional. Sin correo no se le podrán enviar sus comprobantes de pago'}
+              </p>
             </Field>
             <Field label="INE">
               <input style={inputStyle} type="text" value={ine}
