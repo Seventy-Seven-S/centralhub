@@ -6,6 +6,8 @@ import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { sendVerificationCode } from '../services/email.service';
 import { EmailSendError } from '../utils/errors';
 import { normalizeEmail } from '../utils/normalizeEmail';
+import { logger } from '../utils/logger';
+import { decidirRotacion } from '../services/lib/rotacionRefresh';
 
 function persistRefreshToken(userId: string, token: string) {
   return prisma.refreshToken.create({
@@ -161,11 +163,21 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
-  if (!stored || stored.expiresAt < new Date()) {
+  const decision = decidirRotacion(stored, new Date());
+  if (!decision.aceptar) {
+    logger.warn(`[refresh] rechazado (${decision.motivo}) para usuario ${payload.userId}`);
     throw new ApiError(401, 'Invalid or expired refresh token');
   }
 
-  await prisma.refreshToken.delete({ where: { token: refreshToken } });
+  // No se borra: se MARCA como rotado y se sigue aceptando unos segundos. Con
+  // dos pestañas abiertas las dos renuevan casi a la vez, y borrarlo de golpe
+  // sacaba del sistema a quien llegara segunda.
+  if (decision.rotar) {
+    await prisma.refreshToken.update({
+      where: { token: refreshToken },
+      data: { rotatedAt: new Date() },
+    });
+  }
 
   const newPayload = { userId: payload.userId, email: payload.email, role: payload.role };
   const accessToken = generateAccessToken(newPayload);

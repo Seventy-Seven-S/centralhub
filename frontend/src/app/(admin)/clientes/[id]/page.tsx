@@ -6,6 +6,7 @@ import { ArrowLeft, Mail, Phone, User, FileText, AlertCircle, ExternalLink, Penc
 import { useClienteById, useContratosByCliente, useUpdateCliente, type Cliente, type ClienteEditable } from '@/hooks/useClientes';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
+import { esNoEncontrado } from '@/lib/sesionExpirada';
 
 const STATUS_OPTIONS: Array<{ value: Cliente['status']; label: string }> = [
   { value: 'LEAD',     label: 'Lead' },
@@ -199,20 +200,40 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ id: s
   const router  = useRouter();
   const [editing, setEditing] = useState(false);
 
-  const { data: cliente, isLoading: loadingCliente, isError: errorCliente } = useClienteById(id);
+  const { data: cliente, isLoading: loadingCliente, isError: errorCliente, error: fallaCliente, refetch } = useClienteById(id);
   const { data: contratos = [], isLoading: loadingContratos } = useContratosByCliente(id);
 
   if (loadingCliente || loadingContratos) return <SkeletonDetalle />;
 
   if (errorCliente || !cliente) {
+    // "No encontrado" solo si el servidor lo dijo. Antes cualquier fallo —una
+    // caída de red, el backend reiniciándose— se mostraba igual, y la
+    // secretaria concluía que el cliente se había borrado.
+    const noExiste = esNoEncontrado(fallaCliente);
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <AlertCircle className="w-10 h-10 text-red-400" />
-        <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Cliente no encontrado</p>
-        <button onClick={() => router.back()}
-                className="text-sm text-blue-600 hover:underline">
-          Volver
-        </button>
+      <div className="flex flex-col items-center justify-center h-64 gap-3 px-6 text-center">
+        <AlertCircle className="w-10 h-10" style={{ color: noExiste ? 'var(--text-tertiary)' : 'var(--danger)' }} />
+        <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+          {noExiste ? 'Este cliente ya no existe' : 'No se pudo cargar el cliente'}
+        </p>
+        {!noExiste && (
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+            Revisa tu conexión. El cliente sigue ahí; solo no se pudo consultar.
+          </p>
+        )}
+        <div className="flex gap-3">
+          {!noExiste && (
+            <button onClick={() => refetch()}
+                    className="text-sm font-semibold px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'var(--accent)', color: 'white' }}>
+              Reintentar
+            </button>
+          )}
+          <button onClick={() => router.back()}
+                  className="text-sm text-blue-600 hover:underline">
+            Volver
+          </button>
+        </div>
       </div>
     );
   }

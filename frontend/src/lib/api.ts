@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { refreshOnce } from './tokenRefreshLock';
+import { laSesionDeVerdadExpiro } from './sesionExpirada';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -68,8 +69,12 @@ api.interceptors.response.use(
         const newAccessToken = await refreshOnce(doRefresh);
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
-      } catch {
-        forceLogout();
+      } catch (fallaDelRefresh) {
+        // Solo se cierra la sesión si el servidor RESPONDIÓ que el token ya no
+        // sirve. Un parpadeo de internet o un reinicio del backend no son una
+        // sesión vencida: cerrarla ahí era lo que sacaba a las secretarias
+        // varias veces al día en plena captura.
+        if (laSesionDeVerdadExpiro(fallaDelRefresh)) forceLogout();
         return Promise.reject(error);
       }
     }

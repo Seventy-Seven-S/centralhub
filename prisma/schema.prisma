@@ -74,7 +74,13 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  // Cuándo se usó para renovar la sesión. Antes el token se BORRABA al usarse,
+  // y con dos pestañas abiertas la segunda llegaba con un token ya gastado y
+  // sacaba a la persona del sistema. Ahora se marca y se acepta unos segundos
+  // más (ver services/lib/rotacionRefresh).
+  rotatedAt DateTime? @map("rotated_at")
 
+  @@index([userId])
   @@map("refresh_tokens")
 }
 

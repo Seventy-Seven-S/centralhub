@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 
 const mocks = vi.hoisted(() => {
   const prisma = {
-    refreshToken: { findUnique: vi.fn(), delete: vi.fn(), create: vi.fn() },
+    refreshToken: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
   };
   const jwt = {
     verifyRefreshToken: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock('../../config/jwt', async (importOriginal) => {
 import { refresh } from '../auth.controller';
 
 const PAYLOAD = { userId: 'user-1', email: 'agente@centralinmob.com', role: 'AGENT', type: 'refresh', authType: 'internal' };
-const DB_ROW = { id: 'rt-1', token: 'old-refresh-token', userId: 'user-1', expiresAt: new Date(Date.now() + 60 * 60 * 1000) };
+const DB_ROW = { id: 'rt-1', token: 'old-refresh-token', userId: 'user-1', expiresAt: new Date(Date.now() + 60 * 60 * 1000), rotatedAt: null };
 
 function runRefresh(body: any) {
   const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() } as unknown as Response;
@@ -44,17 +44,24 @@ beforeEach(() => {
   mocks.jwt.verifyRefreshToken.mockReturnValue(PAYLOAD);
   mocks.prisma.refreshToken.findUnique.mockResolvedValue(DB_ROW);
   mocks.prisma.refreshToken.delete.mockResolvedValue(DB_ROW);
+  mocks.prisma.refreshToken.update.mockResolvedValue(DB_ROW);
   mocks.jwt.generateAccessToken.mockReturnValue('new-access-token');
   mocks.jwt.generateRefreshToken.mockReturnValue('new-refresh-token');
   mocks.prisma.refreshToken.create.mockResolvedValue({});
 });
 
-describe('POST /auth/refresh — rota el refresh token, nunca lo deja reusable', () => {
-  it('refresh válido (JWT ok + fila vigente en BD): borra la fila vieja, crea una nueva, devuelve tokens nuevos', async () => {
+describe('POST /auth/refresh — rota el token con una gracia corta', () => {
+  it('refresh válido: marca el token como rotado, crea uno nuevo y devuelve tokens nuevos', async () => {
     const { res } = runRefresh({ refreshToken: 'old-refresh-token' });
     await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
 
-    expect(mocks.prisma.refreshToken.delete).toHaveBeenCalledWith({ where: { token: 'old-refresh-token' } });
+    // Ya NO se borra: se marca. Borrarlo de golpe sacaba del sistema a quien
+    // tuviera una segunda pestaña renovando casi al mismo tiempo.
+    expect(mocks.prisma.refreshToken.delete).not.toHaveBeenCalled();
+    expect(mocks.prisma.refreshToken.update).toHaveBeenCalledWith({
+      where: { token: 'old-refresh-token' },
+      data: { rotatedAt: expect.any(Date) },
+    });
     expect(mocks.prisma.refreshToken.create).toHaveBeenCalledWith({
       data: { token: 'new-refresh-token', userId: 'user-1', expiresAt: expect.any(Date) },
     });
@@ -104,5 +111,32 @@ describe('POST /auth/refresh — rota el refresh token, nunca lo deja reusable',
 
     expect(next.mock.calls[0][0].statusCode).toBe(400);
     expect(mocks.jwt.verifyRefreshToken).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /auth/refresh — la gracia de la segunda pestaña', () => {
+  it('acepta un token que se rotó hace segundos, sin volver a marcarlo', async () => {
+    mocks.prisma.refreshToken.findUnique.mockResolvedValue({
+      ...DB_ROW, rotatedAt: new Date(Date.now() - 5_000),
+    });
+
+    const { res } = runRefresh({ refreshToken: 'old-refresh-token' });
+    await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    // No se re-marca: si no, la ventana se alargaría sola con cada reintento.
+    expect(mocks.prisma.refreshToken.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.refreshToken.create).toHaveBeenCalled();
+  });
+
+  it('rechaza un token rotado hace rato — ahí sí huele a token robado', async () => {
+    mocks.prisma.refreshToken.findUnique.mockResolvedValue({
+      ...DB_ROW, rotatedAt: new Date(Date.now() - 10 * 60_000),
+    });
+
+    const { next } = runRefresh({ refreshToken: 'old-refresh-token' });
+    await vi.waitFor(() => expect(next).toHaveBeenCalled());
+    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 401 });
+    expect(mocks.prisma.refreshToken.create).not.toHaveBeenCalled();
   });
 });
