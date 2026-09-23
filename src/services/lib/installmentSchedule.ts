@@ -23,7 +23,18 @@ export function computeInstallmentSchedule(
   }
 
   const financed = round2(financingAmount);
-  const base = round2(financed / termMonths);
+  // La mensualidad va en PESOS REDONDOS: así es como se cobra en ventanilla y
+  // como se le dice al cliente. $256,000 a 60 meses son $4,267, no $4,266.67.
+  // La ÚLTIMA cuota absorbe el residuo para que la suma cierre exacto contra
+  // lo financiado; si no, al cliente le sobrarían o le faltarían pesos al
+  // final y el saldo nunca llegaría a cero.
+  // Se redondea al peso más cercano, salvo cuando eso dejaría la última cuota
+  // en cero o negativa: con montos muy chicos para un plazo largo, medio peso
+  // de más multiplicado por todas las cuotas se come la última. Ahí se
+  // redondea hacia abajo y la última queda como la mayor.
+  const exacta = financed / termMonths;
+  let base = Math.round(exacta);
+  if (round2(financed - base * (termMonths - 1)) <= 0) base = Math.floor(exacta);
 
   const cuotaAmounts = new Array(termMonths).fill(base);
   const last = round2(financed - base * (termMonths - 1));

@@ -94,8 +94,10 @@ describe('createContract — cálculo financiero en backend (RF1.3)', () => {
     expect(mocks.prisma.cuota.createMany).toHaveBeenCalledOnce();
     const cuotasData = mocks.prisma.cuota.createMany.mock.calls[0][0].data as any[];
     expect(cuotasData).toHaveLength(60);
-    // financiado = totalPrice (100000) - totalUpfront (0) = 100000; 100000/60 = 1666.67 base
-    expect(cuotasData[0].montoEsperado).toBe(1666.67);
+    // financiado = totalPrice (100000) - totalUpfront (0) = 100000.
+    // 100000/60 = 1666.67, que se cobra como $1,667: la mensualidad va en
+    // pesos redondos y la última cuota absorbe el residuo.
+    expect(cuotasData[0].montoEsperado).toBe(1667);
     expect(cuotasData[0].montoEsperado).not.toBe(999999.99);
   });
 

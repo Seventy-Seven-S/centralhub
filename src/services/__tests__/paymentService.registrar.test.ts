@@ -181,10 +181,12 @@ describe('registrarPagoMensualidad — contrato sin calendario de cuotas', () =>
       return cb(tx);
     });
 
-    const result = await paymentService.registrarPagoMensualidad(baseInput({ amount: 4166.67 }));
+    // 250000/60 = 4166.67, que se cobra como $4,167: la mensualidad va en
+    // pesos redondos y la última cuota absorbe el residuo.
+    const result = await paymentService.registrarPagoMensualidad(baseInput({ amount: 4167 }));
 
     expect(createManyArg.data).toHaveLength(60);
-    expect(createManyArg.data[0].montoEsperado).toBe(4166.67);
+    expect(createManyArg.data[0].montoEsperado).toBe(4167);
     expect(createManyArg.data[0].numeroCuota).toBe(1);
     expect(result.cuotasAfectadas).toEqual([1]);
     expect(updateArgs).toHaveLength(1);
@@ -193,7 +195,8 @@ describe('registrarPagoMensualidad — contrato sin calendario de cuotas', () =>
   });
 
   it('0 cuotas con pagos históricos (balance < financiamiento) → el calendario nace con lo ya pagado aplicado y el pago nuevo sigue desde ahí', async () => {
-    // Historial: 250000 - 241600 = 8400 ya pagados → cuotas 1 y 2 (4166.67 c/u) PAGADAS, 66.66 abonados a la 3.
+    // Historial: 250000 - 241600 = 8400 ya pagados → cuotas 1 y 2 ($4,167 c/u,
+    // en pesos redondos) PAGADAS, y los $66 restantes abonados a la 3.
     mocks.prisma.contract.findUnique.mockResolvedValue({ ...CONTRACT_SIN_CALENDARIO, balance: 241600 });
     mocks.prisma.cuota.findMany.mockResolvedValue([]);
     let createManyArg: any;
@@ -217,7 +220,7 @@ describe('registrarPagoMensualidad — contrato sin calendario de cuotas', () =>
     expect(rows[0].status).toBe('PAGADA');
     expect(rows[1].status).toBe('PAGADA');
     expect(rows[2].status).toBe('PENDIENTE');
-    expect(rows[2].montoPagado).toBeCloseTo(66.66, 2);
+    expect(rows[2].montoPagado).toBeCloseTo(66, 2);
     expect(rows[3].montoPagado).toBe(0);
     // El pago nuevo cierra la 3 y abona el resto a la 4.
     expect(result.cuotasAfectadas).toEqual([3, 4]);

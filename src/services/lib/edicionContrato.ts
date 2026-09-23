@@ -118,7 +118,9 @@ export function camposQueCambian(actual: DatosActuales, e: Edicion): CampoCambia
 export function montosDeCuotas(financiado: number, plazo: number, mensualidad?: number): number[] {
   if (plazo <= 0) return [];
 
-  const base = mensualidad && mensualidad > 0 ? round2(mensualidad) : round2(financiado / plazo);
+  // Sin mensualidad capturada se reparte en PESOS REDONDOS, igual que al crear
+  // el contrato (installmentSchedule): un solo criterio para las dos rutas.
+  const base = mensualidad && mensualidad > 0 ? round2(mensualidad) : Math.round(financiado / plazo);
   const ultima = round2(financiado - base * (plazo - 1));
   if (ultima <= 0) {
     throw new Error(
