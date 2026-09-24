@@ -30,6 +30,7 @@ import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import { reciboPropsDesdeLog, reciboPropsDesdePago } from '@/lib/reimpresion';
+import { resumenPagado } from '@/lib/resumenPagado';
 
 // ── Status maps ───────────────────────────────────────────────────────────────
 const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -243,8 +244,11 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
 
   const totalPrice  = contrato.totalPrice ?? 0;
   const balance     = contrato.balance ?? 0;
-  const pagado      = totalPrice - balance;
-  const pctPagado   = totalPrice > 0 ? Math.round((pagado / totalPrice) * 100) : 0;
+  // Lo pagado sale de los PAGOS, no de restar el balance: al rescindir, el
+  // balance se pone en cero porque ya no se debe nada, y esa resta concluía
+  // que el cliente había pagado el terreno completo.
+  const { pagado, pct: pctPagado, contratoTerminado } =
+    resumenPagado({ totalPrice, balance, status: contrato.status }, pagos as any[]);
   const fullName    = `${contrato.client.firstName} ${contrato.client.lastName}`;
   const loteLabel   = formatLotsLabel(contrato.lots);
 
@@ -481,11 +485,16 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               </p>
             </div>
 
-            {/* Balance pendiente */}
+            {/* Balance pendiente. En un contrato rescindido o cancelado el cero
+                significa que se anuló, no que se liquidó: pintarlo de verde lo
+                haría parecer un contrato pagado. */}
             <div className="p-4 rounded-xl"
-                 style={{ backgroundColor: balance > 0 ? 'var(--danger-pale)' : 'var(--accent-pale)' }}>
-              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>Balance pendiente</p>
-              <p className="text-xl font-bold" style={{ color: balance > 0 ? 'var(--danger)' : 'var(--accent)' }}>
+                 style={{ backgroundColor: contratoTerminado ? 'var(--bg-secondary)' : balance > 0 ? 'var(--danger-pale)' : 'var(--accent-pale)' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                {contratoTerminado && balance === 0 ? 'Ya no se cobra' : 'Balance pendiente'}
+              </p>
+              <p className="text-xl font-bold"
+                 style={{ color: contratoTerminado ? 'var(--text-secondary)' : balance > 0 ? 'var(--danger)' : 'var(--accent)' }}>
                 {formatCurrency(balance)}
               </p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -505,16 +514,22 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             </div>
           </div>
 
-          {/* Barra de progreso */}
+          {/* Barra de progreso. En un contrato terminado no es avance hacia
+              nada: es cuánto alcanzó a cubrir el cliente antes de cerrarse. */}
           <div>
             <div className="flex justify-between text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-              <span>{pctPagado}% pagado</span>
+              <span>{contratoTerminado ? `Alcanzó a pagar ${pctPagado}%` : `${pctPagado}% pagado`}</span>
               <span>{formatCurrency(pagado)} de {formatCurrency(totalPrice)}</span>
             </div>
             <div className="w-full rounded-full h-2.5" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
               <div
                 className="h-2.5 rounded-full transition-all duration-500"
-                style={{ width: `${pctPagado}%`, backgroundColor: pctPagado >= 100 ? 'var(--accent)' : 'var(--gold)' }}
+                style={{
+                  width: `${pctPagado}%`,
+                  backgroundColor: contratoTerminado
+                    ? 'var(--text-tertiary)'
+                    : pctPagado >= 100 ? 'var(--accent)' : 'var(--gold)',
+                }}
               />
             </div>
           </div>
