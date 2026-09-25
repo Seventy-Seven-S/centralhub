@@ -24,6 +24,12 @@
  * `--desde AAAA-MM-DD` / `--hasta AAAA-MM-DD`: acota la ventana, para revisar
  * un periodo concreto sin arrastrar huecos viejos que son otra conversación.
  *
+ * `--excluir V005,V018`: códigos que NO se tocan. Hace falta porque el archivo
+ * del sistema viejo sigue trayendo pagos que aquí se borraron o se movieron a
+ * propósito: el de Teresa (V005) que no existió, y el de Guadalupe (V018) que
+ * se reacreditó a Guillermo. Sin esto, cada nueva corrida de migración
+ * desharía esas correcciones en silencio.
+ *
  * Los MONTOS NEGATIVOS nunca se cargan. En las hojas viejas un negativo es un
  * ajuste contable, no dinero que entró: en JSA 3 hay uno de −$96,000 que es la
  * reversa de cuando el contrato B019 se dividió y uno de sus lotes pasó al
@@ -46,6 +52,9 @@ const arg = (nombre: string) => {
 };
 const DESDE = arg('--desde') ? new Date(`${arg('--desde')}T00:00:00Z`) : undefined;
 const HASTA = arg('--hasta') ? new Date(`${arg('--hasta')}T23:59:59Z`) : undefined;
+const EXCLUIDOS = new Set(
+  (arg('--excluir') ?? '').split(',').map(x => x.trim().toUpperCase()).filter(Boolean),
+);
 
 const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const fechaDeSerial = (s: number) => new Date(Date.UTC(1899, 11, 30) + Math.round(s * 86400000));
@@ -107,6 +116,10 @@ async function main() {
   for (const p of pagosArchivo) (porCod.get(p.codigo) ?? porCod.set(p.codigo, []).get(p.codigo)!).push(p);
 
   for (const [cod, pagos] of porCod) {
+    if (EXCLUIDOS.has(cod)) {
+      console.log(`  ⏭  ${cod}: excluido a mano — sus diferencias con el archivo son correcciones deliberadas`);
+      continue;
+    }
     const c = porCodigo.get(cod);
     if (!c) continue;
     const enApp = [...c.payments];
@@ -216,11 +229,29 @@ async function main() {
         where: { contractId: c.id, status: PaymentStatus.CONFIRMED },
         _sum: { amount: true },
       });
-      const contrato = await tx.contract.findUnique({ where: { id: c.id }, select: { totalPrice: true } });
+      const contrato = await tx.contract.findUnique({
+        where: { id: c.id },
+        select: { totalPrice: true, status: true },
+      });
+      const balance = round2((contrato?.totalPrice ?? 0) - (agg._sum.amount ?? 0));
+
+      // Un pago migrado puede ser el que liquida el contrato. Sin esto el
+      // contrato se quedaba en ACTIVE con saldo cero y nadie se enteraba de
+      // que el cliente ya terminó de pagar — pasó con D052 de JSA 4.
+      const pendientes = await tx.cuota.count({
+        where: { contractId: c.id, status: CuotaStatus.PENDIENTE },
+      });
+      const liquidado = balance <= 0.01 && pendientes === 0;
+      const reevaluable = contrato?.status === 'ACTIVE' || contrato?.status === 'IN_MORA';
+
       await tx.contract.update({
         where: { id: c.id },
-        data: { balance: round2((contrato?.totalPrice ?? 0) - (agg._sum.amount ?? 0)) },
+        data: {
+          balance,
+          ...(liquidado && reevaluable ? { status: 'COMPLETED', moraMonthsCount: 0 } : {}),
+        },
       });
+      if (liquidado && reevaluable) console.log(`  🎉 ${c.codigoLegado}: liquidado con este pago`);
       ok++;
     });
   }
