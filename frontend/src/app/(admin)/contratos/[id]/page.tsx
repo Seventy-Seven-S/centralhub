@@ -18,6 +18,7 @@ import { RescindirContratoModal } from '@/components/contratos/RescindirContrato
 import { TraspasarContratoModal } from '@/components/contratos/TraspasarContratoModal';
 import { EditarDatosContratoModal } from '@/components/contratos/EditarDatosContratoModal';
 import { SepararLoteModal } from '@/components/contratos/SepararLoteModal';
+import { HistorialTraspasos } from '@/components/contratos/HistorialTraspasos';
 import { MenuAcciones, AccionMenu } from '@/components/ui/MenuAcciones';
 import { useRole } from '@/hooks/useRole';
 import { useCambiosContrato } from '@/hooks/useCambiosContrato';
@@ -488,6 +489,16 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
 
           <MenuAcciones acciones={accionesDelContrato} />
         </div>
+
+        {/* De quién viene este contrato. Va arriba del dinero a propósito:
+            si el cliente llegó por un traspaso, eso cambia cómo se leen sus
+            cifras y es lo primero que preguntan en ventanilla. */}
+        <HistorialTraspasos
+          traspasos={[
+            ...((contrato as any).traspasosOrigen ?? []),
+            ...((contrato as any).traspasosDestino ?? []),
+          ]}
+        />
 
         {/* SECCIÓN 2 — Resumen financiero */}
         <div className="rounded-2xl p-6 shadow-sm space-y-5" style={{ backgroundColor: 'var(--surface)' }}>

@@ -517,6 +517,29 @@ export class ContractService {
           },
         },
         coOwners: true,
+        // Los traspasos que tocan a este contrato, como origen o como destino.
+        // Sin esto, un contrato que cambió de manos se veía idéntico a uno que
+        // siempre fue del mismo cliente: no había forma de saber de quién venía.
+        traspasosOrigen: {
+          select: {
+            numero: true, fecha: true, tipo: true, montoRespetado: true, montoAbonado: true,
+            motivo: true, nota: true,
+            clienteAnterior: { select: { firstName: true, lastName: true } },
+            clienteNuevo: { select: { firstName: true, lastName: true } },
+            contratoDestino: { select: { codigoLegado: true, contractNumber: true } },
+          },
+          orderBy: { fecha: 'desc' },
+        },
+        traspasosDestino: {
+          select: {
+            numero: true, fecha: true, tipo: true, montoRespetado: true, montoAbonado: true,
+            motivo: true, nota: true,
+            clienteAnterior: { select: { firstName: true, lastName: true } },
+            clienteNuevo: { select: { firstName: true, lastName: true } },
+            contratoOrigen: { select: { codigoLegado: true, contractNumber: true } },
+          },
+          orderBy: { fecha: 'desc' },
+        },
       },
     });
 
