@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { formatCurrency, normalizeForSearch, todayLocalISO } from '@/lib/utils';
 import { useLotes } from '@/hooks/useLotes';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import { ClienteNuevoEnTraspaso } from './ClienteNuevoEnTraspaso';
 import { validarFormularioTraspaso, resumenDinero, listaDe } from './traspasoForm';
 
 interface Props {
@@ -36,6 +37,10 @@ export function TraspasarContratoModal({
 }: Props) {
   const [clienteNuevoId, setClienteNuevoId] = useState('');
   const [buscaCliente, setBuscaCliente] = useState('');
+  // El cliente recién dado de alta aquí: todavía no está en la lista que se
+  // trajo al abrir el modal, así que se guarda aparte para poder mostrarlo.
+  const [clienteRecienCreado, setClienteRecienCreado] = useState<ClienteBusqueda | null>(null);
+  const [dandoDeAlta, setDandoDeAlta] = useState(false);
   const [projectIdDestino, setProjectIdDestino] = useState(projectIdActual);
   const [lotIdsDestino, setLotIdsDestino] = useState<string[]>(lotIdsActuales);
   const [montoRespetado, setMontoRespetado] = useState(String(abonado));
@@ -158,8 +163,11 @@ export function TraspasarContratoModal({
             {clienteNuevoId ? (
               <div className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm"
                    style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--text-primary)' }}>
-                <span>{clientes.find(c => c.id === clienteNuevoId)?.firstName} {clientes.find(c => c.id === clienteNuevoId)?.lastName}</span>
-                <button type="button" onClick={() => { setClienteNuevoId(''); setBuscaCliente(''); }}
+                <span>{(() => {
+                  const c = clienteRecienCreado ?? clientes.find(x => x.id === clienteNuevoId);
+                  return c ? `${c.firstName} ${c.lastName}` : '';
+                })()}</span>
+                <button type="button" onClick={() => { setClienteNuevoId(''); setBuscaCliente(''); setClienteRecienCreado(null); }}
                         className="text-xs underline" style={{ color: 'var(--accent)' }}>cambiar</button>
               </div>
             ) : (
@@ -167,7 +175,7 @@ export function TraspasarContratoModal({
                 <input value={buscaCliente} onChange={e => setBuscaCliente(e.target.value)}
                        placeholder="Busca por nombre…"
                        className="w-full px-3 py-2.5 text-sm rounded-xl outline-none" style={inputStyle} />
-                {clientesFiltrados.length > 0 && (
+                {clientesFiltrados.length > 0 && !dandoDeAlta && (
                   <div className="mt-1 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                     {clientesFiltrados.map(c => (
                       <button key={c.id} type="button"
@@ -178,6 +186,29 @@ export function TraspasarContratoModal({
                       </button>
                     ))}
                   </div>
+                )}
+
+                {/* Si no aparece, es que es cliente nuevo. Antes el traspaso se
+                    quedaba atorado aquí sin decir qué hacer. */}
+                {buscaCliente.trim().length >= 3 && clientesFiltrados.length === 0 && !dandoDeAlta && (
+                  <button type="button" onClick={() => setDandoDeAlta(true)}
+                          className="mt-1.5 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left"
+                          style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}>
+                    No aparece. Dar de alta a &ldquo;{buscaCliente.trim()}&rdquo; como cliente nuevo
+                  </button>
+                )}
+
+                {dandoDeAlta && (
+                  <ClienteNuevoEnTraspaso
+                    nombreTecleado={buscaCliente}
+                    onCancelar={() => setDandoDeAlta(false)}
+                    onCreado={(c) => {
+                      setClienteRecienCreado(c);
+                      setClienteNuevoId(c.id);
+                      setBuscaCliente('');
+                      setDandoDeAlta(false);
+                    }}
+                  />
                 )}
               </>
             )}

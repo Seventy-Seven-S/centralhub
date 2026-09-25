@@ -10,6 +10,8 @@ import { formatCurrency, todayLocalISO } from '@/lib/utils';
 import api from '@/lib/api';
 import { InputMoneda } from '@/components/ui/InputMoneda';
 import { validarDatosDelCliente } from '@/lib/datosCliente';
+import { PLAZOS_COMUNES, validarPlazo, etiquetaPlazo } from '@/lib/plazoContrato';
+import { mesSiguienteA, fechaInicioDesdeMes } from '@/lib/mesPrimeraMensualidad';
 
 function formatDate(d: string | Date | null | undefined): string {
   if (!d) return '—';
@@ -151,13 +153,19 @@ export default function NuevoContratoPage() {
   const [city,            setCity]            = useState('');
   const [state,           setState]           = useState('');
   const [step1Error,      setStep1Error]      = useState('');
+  const [step2Error,      setStep2Error]      = useState('');
 
   // ── Paso 2: datos del contrato
   const [projectId,    setProjectId]    = useState('');
   const [lotId,        setLotId]        = useState('');
   const [downPayment,  setDownPayment]  = useState(0);
-  const [plazo,        setPlazo]        = useState(60);
-  const [fechaInicio,  setFechaInicio]  = useState(() => todayLocalISO());
+  const [plazoTexto,   setPlazoTexto]   = useState('60');
+  const plazo = Number(plazoTexto) || 0;
+  // El calendario ancla en startDate y la cuota 1 vence un mes después. La
+  // secretaria captura el MES de la primera mensualidad, que es como lo piensa,
+  // y de ahí se deriva la fecha de inicio.
+  const [mesPrimeraMensualidad, setMesPrimeraMensualidad] = useState(() => mesSiguienteA(todayLocalISO()));
+  const fechaInicio = fechaInicioDesdeMes(mesPrimeraMensualidad, todayLocalISO());
   const [precioEditado, setPrecioEditado] = useState<number>(0);
   const [agentId,      setAgentId]      = useState('');
   const [commissionPct, setCommissionPct] = useState(0);
@@ -208,6 +216,12 @@ export default function NuevoContratoPage() {
       const problema = validarDatosDelCliente({ firstName, lastName, phone, email });
       if (problema) { setStep1Error(problema); return; }
       setStep1Error('');
+    }
+    if (step === 2) {
+      // El plazo dejó de ser un menú cerrado, así que ahora hay que validarlo.
+      const problema = validarPlazo(plazoTexto);
+      if (problema) { setStep2Error(problema); return; }
+      setStep2Error('');
     }
     setStep(s => s + 1);
   }
@@ -436,21 +450,49 @@ export default function NuevoContratoPage() {
               />
             </Field>
 
-            <Field label="Plazo">
-              <select style={inputStyle} value={plazo} onChange={e => setPlazo(Number(e.target.value))}>
-                <option value={60}>60 meses (5 años)</option>
-                <option value={72}>72 meses (6 años)</option>
-                <option value={84}>84 meses (7 años)</option>
-              </select>
-            </Field>
-
-            <Field label="Fecha de inicio">
+            {/* El plazo se escribe: el menú cerrado de 60/72/84 no cabía la
+                realidad (JSA 1 vende a 2 y a 4 años) y forzaba capturas malas. */}
+            <Field label="Plazo (meses)" required>
               <input
                 style={inputStyle}
-                type="date"
-                value={fechaInicio}
-                onChange={e => setFechaInicio(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={plazoTexto}
+                onChange={e => setPlazoTexto(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="Ej: 24"
               />
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {PLAZOS_COMUNES.map(m => (
+                  <button key={m} type="button" onClick={() => setPlazoTexto(String(m))}
+                          className="px-2 py-1 text-xs rounded-lg transition"
+                          style={{
+                            border: '1px solid var(--border)',
+                            backgroundColor: plazo === m ? 'var(--accent-pale)' : 'transparent',
+                            color: plazo === m ? 'var(--accent)' : 'var(--text-secondary)',
+                          }}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+              {plazo > 0 && (
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{etiquetaPlazo(plazo)}</p>
+              )}
+            </Field>
+
+            {/* Lo que la secretaria piensa es "¿en qué mes le toca su primera
+                mensualidad?", no una fecha de inicio: la cuota 1 cae un mes
+                DESPUÉS de esa fecha y nadie lo veía. Después del día 20 le dan
+                al cliente la opción de arrancar el mes siguiente. */}
+            <Field label="Mes de la primera mensualidad" required>
+              <input
+                style={inputStyle}
+                type="month"
+                value={mesPrimeraMensualidad}
+                onChange={e => setMesPrimeraMensualidad(e.target.value)}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                Su cuota 1 quedará en este mes
+              </p>
             </Field>
           </div>
 
@@ -548,6 +590,13 @@ export default function NuevoContratoPage() {
             )}
           </div>
 
+          {step2Error && (
+            <p className="mt-4 text-sm px-4 py-2.5 rounded-xl"
+               style={{ backgroundColor: 'var(--danger-pale)', color: 'var(--danger)' }}>
+              {step2Error}
+            </p>
+          )}
+
           <div className="flex justify-between mt-6">
             <button
               onClick={goBack}
@@ -599,9 +648,11 @@ export default function NuevoContratoPage() {
               rows={[
                 { label: 'Enganche al firmar', value: formatCurrency(downPayment) },
                 { label: 'Saldo',              value: formatCurrency(saldoFinanciado) },
-                { label: 'Plazo',              value: `${plazo} meses` },
+                { label: 'Plazo',              value: etiquetaPlazo(plazo) },
                 { label: 'Mensualidad',        value: formatCurrency(mensualidad) },
-                { label: 'Fecha inicio',       value: new Date(fechaInicio + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) },
+                // Ojo: el mes es el de la PRIMERA CUOTA, no el de fechaInicio,
+                // que va un mes antes por cómo se arma el calendario.
+                { label: 'Primera mensualidad', value: new Date(mesPrimeraMensualidad + '-01T12:00:00').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase()) },
                 ...(agentId && comisionMonto > 0
                   ? [{ label: `Comisión (${commissionPct}%)`, value: formatCurrency(comisionMonto) }]
                   : []),
