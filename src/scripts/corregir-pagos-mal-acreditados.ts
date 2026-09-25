@@ -33,6 +33,12 @@ const CORRECCIONES: Correccion[] = [
     pagoId: 'e03c47b8-ef6b-4689-b8cf-f59d949976bb',        // $4,000 del 31-ago-2026
     porque: 'V005 Teresa Loredo: el pago no existió; su balance correcto es $181,600',
   },
+  {
+    tipo: 'borrar',
+    pagoId: 'db8c0e9a-5d77-4619-b5f1-632d0a8ac4fe',        // $6,000 del 28-ago-2026
+    porque: 'B022 Martha Nieto: junio y julio quedaron capturados dos veces. El bueno es el del '
+      + '24-jul (migrado el 25-ago con los otros 30); este se capturó aparte el 1-sep. Balance correcto $34,000',
+  },
 ];
 
 // Los tipos que alimentan el calendario. El enganche queda fuera: las cuotas
@@ -133,6 +139,14 @@ async function main() {
     console.log(`\n${c.tipo.toUpperCase()} ${pago.paymentNumber} — ${pesos(pago.amount)} del ${pago.paymentDate.toISOString().slice(0, 10)}`);
     console.log(`  origen: ${pago.contract.contractNumber} (${pago.client.firstName} ${pago.client.lastName})`);
     console.log(`  motivo: ${c.porque}`);
+
+    // Mover NO es idempotente por sí solo: si el pago ya está en el destino,
+    // volver a correrlo lo sumaría otra vez y le bajaría el saldo al cliente
+    // sin que nadie hubiera pagado nada.
+    if (c.tipo === 'mover' && pago.contractId === c.haciaContrato) {
+      console.log('  ⏭  ya está en el contrato destino — nada que hacer');
+      continue;
+    }
 
     const planes: PlanContrato[] = [];
     const quitar = new Set([pago.id]);
