@@ -38,6 +38,11 @@ router.patch('/:id/activate', adminOrManager, contractController.activate);
 router.patch('/:id/datos',  authorize('ADMIN'), contractController.editarDatos);
 router.get('/:id/cambios',  adminOrManager,     contractController.cambios);
 
+// Separar un lote de un contrato con varios. Reparte precio y pagos entre los
+// dos contratos resultantes, así que se trata como el resto del dinero.
+router.get('/:id/division',  adminOrManager, contractController.vistaPreviaDivision);
+router.post('/:id/division', adminOrManager, contractController.dividir);
+
 // Co-titulares
 router.post('/:id/coowners', adminOrManager, contractController.addCoOwner);
 

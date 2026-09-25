@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import contractService from '../services/contract.service';
 import { editarDatosDelContrato, historialDeCambios } from '../services/contratoEdicion.service';
+import { vistaPreviaDivision, dividirContrato } from '../services/divisionContrato.service';
 import { logger } from '../utils/logger';
 import { TotalUpfrontExceedsPriceError, InvalidFileSignatureError } from '../utils/errors';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
@@ -324,6 +325,35 @@ export class ContractController {
   async cambios(req: Request, res: Response) {
     try {
       res.json({ success: true, data: await historialDeCambios(req.params.id) });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
+    }
+  }
+
+  // GET /api/v1/contracts/:id/division?lotId=... — qué pasaría si se separa
+  async vistaPreviaDivision(req: Request, res: Response) {
+    try {
+      const lotId = String(req.query.lotId ?? '');
+      if (!lotId) { res.status(400).json({ success: false, message: 'Falta el lote a separar' }); return; }
+      res.json({ success: true, data: await vistaPreviaDivision(req.params.id, lotId) });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
+    }
+  }
+
+  // POST /api/v1/contracts/:id/division — separa el lote en su propio contrato
+  async dividir(req: Request, res: Response) {
+    try {
+      const { lotId, precioQueSeVa, montoQueSeVa, motivo } = req.body ?? {};
+      const r = await dividirContrato(req.params.id, {
+        lotId,
+        precioQueSeVa: Number(precioQueSeVa),
+        montoQueSeVa: Number(montoQueSeVa),
+        motivo,
+      }, req.user!.userId);
+
+      logger.info(`[division-contrato] user=${req.user!.userId} contrato=${req.params.id} -> ${r.codigoNuevo} motivo="${motivo}"`);
+      res.status(201).json({ success: true, message: `Lote separado en el contrato ${r.codigoNuevo}`, data: r });
     } catch (e: any) {
       res.status(400).json({ success: false, message: e.message });
     }

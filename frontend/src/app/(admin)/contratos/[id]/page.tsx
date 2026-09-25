@@ -7,7 +7,7 @@ import {
   ArrowLeft, AlertCircle, FileText, DollarSign,
   Calendar, CheckCircle2, Clock, XCircle, FileDown,
   Upload, ExternalLink, CreditCard, ChevronDown, ChevronUp,
-  ArrowRightLeft, Pencil, History,
+  ArrowRightLeft, Pencil, History, Split,
 } from 'lucide-react';
 import {
   useContratoById, useCuotasByContrato, usePagosByContrato,
@@ -17,6 +17,7 @@ import { PagarCuotaModal } from '@/components/contratos/PagarCuotaModal';
 import { RescindirContratoModal } from '@/components/contratos/RescindirContratoModal';
 import { TraspasarContratoModal } from '@/components/contratos/TraspasarContratoModal';
 import { EditarDatosContratoModal } from '@/components/contratos/EditarDatosContratoModal';
+import { SepararLoteModal } from '@/components/contratos/SepararLoteModal';
 import { MenuAcciones, AccionMenu } from '@/components/ui/MenuAcciones';
 import { useRole } from '@/hooks/useRole';
 import { useCambiosContrato } from '@/hooks/useCambiosContrato';
@@ -115,6 +116,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const [traspasando, setTraspasando]   = useState(false);
   const [openingRescision, setOpeningRescision] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [separando, setSeparando] = useState(false);
 
   const [reimprimiendo, setReimprimiendo] = useState<string | null>(null);
 
@@ -288,6 +290,11 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
       disabled: openingRescision,
       cargando: openingRescision ? 'Abriendo…' : undefined,
     },
+    puedeRescindir(contrato.status) && (contrato.lots ?? []).length > 1 && {
+      label: 'Separar un lote',
+      icono: <Split size={16} />,
+      onClick: () => setSeparando(true),
+    },
     puedeRescindir(contrato.status) && {
       label: 'Traspasar contrato',
       icono: <ArrowRightLeft size={16} />,
@@ -323,6 +330,20 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             setRescindiendo(false);
             await queryClient.invalidateQueries({ queryKey: ['contratos', id] });
             await queryClient.invalidateQueries({ queryKey: ['cuotas', id] });
+          }}
+        />
+      )}
+
+      {separando && contrato && (
+        <SepararLoteModal
+          contratoId={id}
+          etiqueta={contrato.codigoLegado ?? contrato.contractNumber}
+          onClose={() => setSeparando(false)}
+          onDone={async () => {
+            setSeparando(false);
+            await queryClient.invalidateQueries({ queryKey: ['contratos'] });
+            await queryClient.invalidateQueries({ queryKey: ['cuotas', id] });
+            await queryClient.invalidateQueries({ queryKey: ['pagos', id] });
           }}
         />
       )}

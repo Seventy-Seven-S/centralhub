@@ -724,7 +724,10 @@ export class ContractService {
   // (máximo numérico del prefijo dominante), no "K" hardcodeado ni el último
   // por createdAt — eso generaba colisiones de codigo_legado (unique global)
   // en cualquier proyecto migrado. Verifica unicidad global por si acaso.
-  private async generateContractNumber(projectId: string): Promise<string> {
+  //
+  // Público porque la división de contratos también necesita un código de la
+  // misma serie, y duplicar esta lógica garantizaría que se separen.
+  async generateContractNumber(projectId: string): Promise<string> {
     const [project, contracts] = await Promise.all([
       prisma.project.findUnique({ where: { id: projectId }, select: { code: true } }),
       prisma.contract.findMany({
