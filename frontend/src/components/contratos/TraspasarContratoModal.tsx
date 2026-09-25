@@ -188,13 +188,18 @@ export function TraspasarContratoModal({
                   </div>
                 )}
 
-                {/* Si no aparece, es que es cliente nuevo. Antes el traspaso se
-                    quedaba atorado aquí sin decir qué hacer. */}
-                {buscaCliente.trim().length >= 3 && clientesFiltrados.length === 0 && !dandoDeAlta && (
+                {/* La opción de dar de alta va SIEMPRE que se esté buscando, no
+                    solo cuando la búsqueda no encuentra nada: hay cinco clientas
+                    llamadas Vanessa, así que al teclear ese nombre salían
+                    coincidencias y la opción desaparecía, dejando el traspaso
+                    atorado igual que antes. */}
+                {buscaCliente.trim().length >= 3 && !dandoDeAlta && (
                   <button type="button" onClick={() => setDandoDeAlta(true)}
                           className="mt-1.5 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left"
                           style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}>
-                    No aparece. Dar de alta a &ldquo;{buscaCliente.trim()}&rdquo; como cliente nuevo
+                    {clientesFiltrados.length > 0
+                      ? `Ninguno es. Dar de alta a “${buscaCliente.trim()}” como cliente nuevo`
+                      : `No aparece. Dar de alta a “${buscaCliente.trim()}” como cliente nuevo`}
                   </button>
                 )}
 
