@@ -6,6 +6,7 @@ import { componerTotales } from '../services/lib/totalesProyecto';
 import { CONTRATOS_VIVOS, resumirLotes } from '../services/lib/conteosProyecto';
 import { round2 } from '../utils/money';
 import { wherePendienteDeCorte } from '../services/lib/cortePendiente';
+import { whereIngresoReal } from '../services/lib/ingresoReal';
 import { repartoDelProyecto, guardarAcuerdo } from '../services/reparto.service';
 
 /**
@@ -23,7 +24,7 @@ async function cifrasDelProyecto(projectId: string) {
     // Se deriva de los lotes reales, nunca de un número capturado aparte.
     prisma.lot.aggregate({ where: { projectId }, _sum: { basePrice: true } }),
     prisma.payment.aggregate({
-      where: { contract: { projectId }, status: 'CONFIRMED' },
+      where: { contract: { projectId }, status: 'CONFIRMED', ...whereIngresoReal() },
       _sum: { amount: true },
     }),
     // Dinero cobrado que todavía no se le reporta al dueño: es justo lo que

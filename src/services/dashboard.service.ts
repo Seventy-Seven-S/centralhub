@@ -5,6 +5,7 @@ import { rangoDelDiaOperativo } from './lib/diaOperativo';
 import { construirSerieMensual } from './lib/serieIngresosMensuales';
 import { componerTotales } from './lib/totalesProyecto';
 import { whereContratoVisible, whereLoteVisible, wherePagoVisible, whereGastoVisible } from './lib/proyectosOcultos';
+import { whereIngresoReal } from './lib/ingresoReal';
 
 const prisma = new PrismaClient();
 
@@ -28,7 +29,7 @@ export class DashboardService {
     // diferencia del proyecto sale en rojo por dinero que sí entró.
     const [pagos, otros] = await Promise.all([
       prisma.payment.aggregate({
-        where: { status: 'CONFIRMED', ...wherePagoVisible(projectId) },
+        where: { status: 'CONFIRMED', ...wherePagoVisible(projectId), ...whereIngresoReal() },
         _sum: { amount: true },
         _count: true,
       }),

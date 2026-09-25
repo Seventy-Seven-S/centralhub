@@ -3,11 +3,18 @@ import { wherePendienteDeCorte } from '../cortePendiente';
 
 describe('wherePendienteDeCorte', () => {
   it('son los pagos confirmados del proyecto que no están en ningún corte', () => {
-    expect(wherePendienteDeCorte('proy-1')).toEqual({
+    expect(wherePendienteDeCorte('proy-1')).toMatchObject({
       status: 'CONFIRMED',
       corteId: null,
       contract: { projectId: 'proy-1' },
     });
+  });
+
+  it('deja fuera el abono que viaja en un traspaso', () => {
+    // Ese dinero ya se le entregó al dueño cuando el cliente lo pagó; volver a
+    // meterlo en un corte lo entregaría dos veces.
+    expect(wherePendienteDeCorte('proy-1').paymentType)
+      .toEqual({ notIn: ['TRASPASO_ENTRADA'] });
   });
 
   it('un pago cancelado o pendiente no cuenta como por entregar', () => {

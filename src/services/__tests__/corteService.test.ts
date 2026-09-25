@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('@prisma/client', () => ({
   PrismaClient: vi.fn(function () { return mocks.prisma; }),
   PaymentStatus: { CONFIRMED: 'CONFIRMED', PENDING: 'PENDING' },
+  PaymentType: { INSTALLMENT: 'INSTALLMENT', DOWN_PAYMENT: 'DOWN_PAYMENT', EXTRA_PAYMENT: 'EXTRA_PAYMENT', TRASPASO_ENTRADA: 'TRASPASO_ENTRADA', RESCISSION_REFUND: 'RESCISSION_REFUND', ADJUSTMENT: 'ADJUSTMENT' },
 }));
 
 import { calcularReparto, corteService } from '../corte.service';
