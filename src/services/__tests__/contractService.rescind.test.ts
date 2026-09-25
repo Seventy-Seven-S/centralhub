@@ -53,7 +53,7 @@ beforeEach(() => {
 });
 
 describe('rescindContract', () => {
-  it('rescinde: contrato RESCISSION con motivo/fecha/usuario, balance 0, lote liberado, cuotas pendientes borradas, pagos intactos', async () => {
+  it('rescinde: contrato RESCISSION con motivo/fecha/usuario, balance 0, lote liberado SIN perder el vínculo, cuotas pendientes borradas, pagos intactos', async () => {
     const result = await contractService.rescindContract('c-1', input({ fileKey: 'contracts/c-1/rescision.pdf' }));
 
     expect(result.status).toBe('RESCISSION');
@@ -61,7 +61,10 @@ describe('rescindContract', () => {
     expect(data).toMatchObject({ status: 'RESCISSION', balance: 0, moraMonthsCount: 0, rescissionReason: 'Cliente firmó carta de cancelación', rescindedById: 'u-1', rescissionFileUrl: 'contracts/c-1/rescision.pdf' });
     expect(data.rescindedAt).toEqual(new Date('2026-09-05'));
 
-    expect(mocks.tx.contractLot.deleteMany).toHaveBeenCalledWith({ where: { contractId: 'c-1' } });
+    // El vínculo con el lote se CONSERVA: es el único registro de qué lote
+    // tenía el cliente. El lote se libera dejándolo AVAILABLE, y las consultas
+    // de "quién tiene este lote" ya descartan los contratos rescindidos.
+    expect(mocks.tx.contractLot.deleteMany).not.toHaveBeenCalled();
     expect(mocks.tx.lot.update).toHaveBeenCalledWith({ where: { id: 'lot-1' }, data: { status: 'AVAILABLE' } });
     expect(mocks.tx.cuota.deleteMany).toHaveBeenCalledWith({ where: { contractId: 'c-1', status: 'PENDIENTE' } });
     expect(mocks.tx.payment.create).not.toHaveBeenCalled();
@@ -75,13 +78,22 @@ describe('rescindContract', () => {
     expect(data).toMatchObject({ contractId: 'c-1', clientId: 'cl-1', paymentType: 'RESCISSION_REFUND', amount: -25000, status: 'CONFIRMED' });
   });
 
-  it('un lote compartido con otro contrato vigente NO se libera (solo se desvincula)', async () => {
+  it('un lote compartido con otro contrato vigente NO se libera', async () => {
     mocks.tx.contractLot.findMany.mockResolvedValue([
       { id: 'cx-1', lotId: 'lot-1', lot: { id: 'lot-1', contracts: [{ contractId: 'c-1' }, { contractId: 'c-otro' }] } },
     ]);
     await contractService.rescindContract('c-1', input());
-    expect(mocks.tx.contractLot.deleteMany).toHaveBeenCalledOnce();
+    expect(mocks.tx.contractLot.deleteMany).not.toHaveBeenCalled();
     expect(mocks.tx.lot.update).not.toHaveBeenCalled();
+  });
+
+  it('el lote rescindido conserva su vínculo para que quede el historial', async () => {
+    await contractService.rescindContract('c-1', input());
+    // Lo que responde "¿qué lote tenía este cliente?" después de rescindir.
+    expect(mocks.tx.contractLot.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.tx.contractLot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { contractId: 'c-1' } }),
+    );
   });
 
   it('rechaza si ya está rescindido o cancelado, sin abrir transacción', async () => {

@@ -632,7 +632,15 @@ export class ContractService {
         where: { contractId: id },
         include: { lot: { include: { contracts: { where: { contract: { status: { notIn: [ContractStatus.CANCELED, ContractStatus.RESCISSION] } } }, select: { contractId: true } } } } },
       });
-      await tx.contractLot.deleteMany({ where: { contractId: id } });
+      // El vínculo con el lote NO se borra: es el único registro de qué lote
+      // tenía el cliente, y borrarlo dejaba la pregunta "¿cuál era su lote?"
+      // sin respuesta. 34 de los 41 contratos rescindidos o cancelados ya
+      // habían perdido ese dato.
+      //
+      // Liberar el lote no necesita borrar nada: basta con dejarlo AVAILABLE.
+      // Las consultas que resuelven quién tiene un lote ya descartan los
+      // contratos rescindidos y cancelados (ver lot.service), así que el lote
+      // queda libre para venderse de nuevo y conserva su historia.
       for (const v of vinculos) {
         const otrosVigentes = v.lot.contracts.some(c => c.contractId !== id);
         if (!otrosVigentes) {
