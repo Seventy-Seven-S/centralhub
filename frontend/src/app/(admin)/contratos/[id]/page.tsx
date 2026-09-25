@@ -490,16 +490,6 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
           <MenuAcciones acciones={accionesDelContrato} />
         </div>
 
-        {/* De quién viene este contrato. Va arriba del dinero a propósito:
-            si el cliente llegó por un traspaso, eso cambia cómo se leen sus
-            cifras y es lo primero que preguntan en ventanilla. */}
-        <HistorialTraspasos
-          traspasos={[
-            ...((contrato as any).traspasosOrigen ?? []),
-            ...((contrato as any).traspasosDestino ?? []),
-          ]}
-        />
-
         {/* SECCIÓN 2 — Resumen financiero */}
         <div className="rounded-2xl p-6 shadow-sm space-y-5" style={{ backgroundColor: 'var(--surface)' }}>
           <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
@@ -791,6 +781,15 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
           )}
         </div>
 
+
+        {/* De quién viene este contrato, junto al historial de cambios:
+            las dos cosas responden a "qué le ha pasado a este contrato". */}
+        <HistorialTraspasos
+          traspasos={[
+            ...((contrato as any).traspasosOrigen ?? []),
+            ...((contrato as any).traspasosDestino ?? []),
+          ]}
+        />
 
         {/* SECCIÓN 6 — Historial de cambios */}
         {cambios.length > 0 && (
