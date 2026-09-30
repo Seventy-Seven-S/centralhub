@@ -160,6 +160,12 @@ model Project {
   
   commissionType    CommissionConfigType  @default(PERCENTAGE)
   commissionValue   Float?
+
+  // Quién firma de recibido en los cortes de este proyecto. Vivía como un mapa
+  // fijo en el código del frontend, y JSA 4 estaba mal escrito ahí: el sistema
+  // prellenaba "Antonio Isassi" cuando son Carlos y Marilina. Como dato se
+  // corrige sin desplegar y no depende de que alguien lo teclee bien cada vez.
+  duenoTerreno      String?  @map("dueno_terreno")
   
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

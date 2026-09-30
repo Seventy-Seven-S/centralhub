@@ -15,7 +15,6 @@ import { InputMoneda } from '@/components/ui/InputMoneda';
 
 interface Categoria { id: string; name: string }
 const CAT_DUENO = 'Dueño del terreno';
-const DUENO_POR_PROYECTO: Record<string, string> = { JSA1: 'Jesús y Maribel', JSA2: 'Antonio Isassi', JSA3: 'Antonio Isassi', JSA4: 'Antonio Isassi' };
 
 async function abrirComprobante(id: string) {
   const corte = await fetchCorte(id);
@@ -24,13 +23,15 @@ async function abrirComprobante(id: string) {
 }
 
 // ── Asistente: Generar corte ──────────────────────────────────────────────────
-function GenerarCorteModal({ projectId, projectCode, onClose, onDone }: { projectId: string; projectCode: string; onClose: () => void; onDone: (id: string) => void }) {
+function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, onDone }: { projectId: string; projectCode: string; duenoDelProyecto: string | null; onClose: () => void; onDone: (id: string) => void }) {
   const { data: pendientes, isLoading } = usePendientesCorte(projectId);
   const { data: categorias = [] } = useQuery<Categoria[]>({ queryKey: ['expense-categories'], queryFn: async () => (await api.get('/expenses/categories')).data.data });
   const [seleccion, setSeleccion] = useState<Record<string, boolean>>({});
   const [egresos, setEgresos] = useState<Egresos>({});
   const [fecha, setFecha] = useState(todayLocalISO());
-  const [dueno, setDueno] = useState(DUENO_POR_PROYECTO[projectCode] ?? '');
+  // El dueño viene del proyecto, no de un mapa en el código: ahí es donde
+  // estaba mal escrito el de JSA 4 y el sistema lo prellenaba equivocado.
+  const [dueno, setDueno] = useState(duenoDelProyecto ?? '');
   const [notas, setNotas] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -108,7 +109,17 @@ function GenerarCorteModal({ projectId, projectCode, onClose, onDone }: { projec
               <div><label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Fecha del corte</label>
                 <input type="date" value={fecha} max={todayLocalISO()} onChange={e => setFecha(e.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>
               <div><label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Recibe (dueño)</label>
-                <input value={dueno} onChange={e => setDueno(e.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>
+                <input value={dueno} onChange={e => setDueno(e.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} />
+                {!duenoDelProyecto && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--gold)' }}>
+                    Este proyecto no tiene dueño registrado. El nombre que escribas aquí se usará solo en este corte.
+                  </p>
+                )}
+                {duenoDelProyecto && dueno.trim() !== duenoDelProyecto && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--gold)' }}>
+                    Distinto al dueño del proyecto ({duenoDelProyecto}). Revisa que sea correcto.
+                  </p>
+                )}</div>
               {catsEgreso.map(c => (
                 <div key={c.id}><label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>{c.name}</label>
                   <InputMoneda placeholder="0" valor={egresos[c.id] ?? ''} onValorChange={v => setEgresos(x => ({ ...x, [c.id]: v }))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} /></div>
@@ -156,7 +167,7 @@ export default function CortesPage() {
   return (
     <div className="space-y-5">
       {abierto && selectedProjectId && (
-        <GenerarCorteModal projectId={selectedProjectId} projectCode={proyecto?.code ?? ''} onClose={() => setAbierto(false)}
+        <GenerarCorteModal projectId={selectedProjectId} projectCode={proyecto?.code ?? ''} duenoDelProyecto={proyecto?.duenoTerreno ?? null} onClose={() => setAbierto(false)}
           onDone={async (id) => { setAbierto(false); await qc.invalidateQueries({ queryKey: ['cortes'] }); await qc.invalidateQueries({ queryKey: ['ingresos'] }); await qc.invalidateQueries({ queryKey: ['dashboard'] }); verComprobante(id); }} />
       )}
 

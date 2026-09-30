@@ -15,6 +15,8 @@ export interface Proyecto {
   completionDate:   string | null;
   commissionType:   string;
   commissionValue:  number | null;
+  /** Quién firma de recibido en los cortes de este proyecto. */
+  duenoTerreno:     string | null;
   createdAt:        string;
   /** Contratos vivos: no cuenta cancelados, rescindidos ni borradores. */
   totalContratos:      number;

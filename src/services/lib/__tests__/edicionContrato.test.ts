@@ -81,3 +81,25 @@ describe('inicioDesdeMes', () => {
     expect(inicio.getMonth()).toBe(2); // marzo: la cuota 1 cae en abril
   });
 });
+
+describe('validarEdicion — el mes del primer pago se lee en UTC', () => {
+  const actual = {
+    totalPrice: 250000, downPayment: 10000, installmentAmount: 4000,
+    installmentCount: 60, startDate: new Date('2022-04-29T00:00:00Z'), lotIds: ['l'],
+  };
+
+  it('acepta arrancar el mismo mes en que el cliente hizo su primer pago', () => {
+    // Las fechas de pago se guardan a medianoche UTC. Leídas en hora local
+    // (México, UTC-6) un pago del día 1 cae en el mes anterior, y la
+    // validación rechazaba correcciones buenas: caso real de C070.
+    const pagoPrimeroDeJunio = new Date('2022-06-01T00:00:00Z');
+    expect(validarEdicion(actual, { mesInicioCalendario: '2022-06' },
+      { pagado: 40000, primerPago: pagoPrimeroDeJunio, lotesOcupadosPorOtros: [] })).toBeNull();
+  });
+
+  it('sigue rechazando arrancar de verdad después del primer pago', () => {
+    const pago = new Date('2022-06-01T00:00:00Z');
+    expect(validarEdicion(actual, { mesInicioCalendario: '2022-08' },
+      { pagado: 40000, primerPago: pago, lotesOcupadosPorOtros: [] })).toMatch(/primer pago/i);
+  });
+});

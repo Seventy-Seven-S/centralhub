@@ -67,11 +67,11 @@ export function validarEdicion(actual: DatosActuales, e: Edicion, ctx: Contexto)
   if (e.mesInicioCalendario !== undefined) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.mesInicioCalendario)) return 'El mes de inicio debe venir como AAAA-MM';
     if (ctx.primerPago) {
-      // La cuota 1 vence un mes después del ancla.
-      const primeraCuota = inicioDesdeMes(e.mesInicioCalendario);
-      primeraCuota.setMonth(primeraCuota.getMonth() + 1);
-      const mesPago = new Date(ctx.primerPago.getFullYear(), ctx.primerPago.getMonth(), 1);
-      if (primeraCuota > mesPago) {
+      // Las fechas de pago se guardan a medianoche UTC. Leerlas con getMonth()
+      // las corre al mes anterior cuando el pago es del día 1, porque México va
+      // detrás de UTC — eso rechazaba correcciones buenas (caso C070).
+      const mesPago = `${ctx.primerPago.getUTCFullYear()}-${String(ctx.primerPago.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (e.mesInicioCalendario > mesPago) {
         return 'El calendario no puede arrancar después del primer pago que el cliente ya hizo';
       }
     }
