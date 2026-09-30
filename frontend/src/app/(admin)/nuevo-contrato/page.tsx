@@ -12,6 +12,7 @@ import { InputMoneda } from '@/components/ui/InputMoneda';
 import { validarDatosDelCliente } from '@/lib/datosCliente';
 import { PLAZOS_COMUNES, validarPlazo, etiquetaPlazo } from '@/lib/plazoContrato';
 import { mesSiguienteA, fechaInicioDesdeMes } from '@/lib/mesPrimeraMensualidad';
+import { precioDeLotes, resumenLotes, validarCotitulares, Cotitular } from '@/lib/contratoMultiLote';
 
 function formatDate(d: string | Date | null | undefined): string {
   if (!d) return '—';
@@ -153,11 +154,17 @@ export default function NuevoContratoPage() {
   const [city,            setCity]            = useState('');
   const [state,           setState]           = useState('');
   const [step1Error,      setStep1Error]      = useState('');
+  // Cotitulares: un lote puede comprarse entre dos o más personas. El modelo y
+  // el endpoint ya existían; faltaba poder capturarlos al dar de alta.
+  const [cotitulares,     setCotitulares]     = useState<Cotitular[]>([]);
   const [step2Error,      setStep2Error]      = useState('');
 
   // ── Paso 2: datos del contrato
   const [projectId,    setProjectId]    = useState('');
-  const [lotId,        setLotId]        = useState('');
+  // Varios lotes en un mismo contrato: el backend siempre lo aceptó, el
+  // formulario era el que mandaba uno solo.
+  const [lotIds,       setLotIds]       = useState<string[]>([]);
+  const lotId = lotIds[0] ?? '';
   const [downPayment,  setDownPayment]  = useState(0);
   const [plazoTexto,   setPlazoTexto]   = useState('60');
   const plazo = Number(plazoTexto) || 0;
@@ -179,19 +186,23 @@ export default function NuevoContratoPage() {
     [todosLotes]
   );
 
-  const loteSeleccionado = useMemo(
-    () => lotesDisponibles.find(l => l.id === lotId) ?? null,
-    [lotesDisponibles, lotId]
+  const lotesSeleccionados = useMemo(
+    () => lotIds.map(id => lotesDisponibles.find(l => l.id === id)).filter(Boolean) as typeof lotesDisponibles,
+    [lotesDisponibles, lotIds]
   );
+  // El primero manda para lo que solo aplica a un lote: el depósito de apartado
+  // y el asesor que lo apartó.
+  const loteSeleccionado = lotesSeleccionados[0] ?? null;
 
   const proyectoSeleccionado = useMemo(
     () => proyectos.find(p => p.id === projectId) ?? null,
     [proyectos, projectId]
   );
 
+  // El precio propuesto es la SUMA de los lotes elegidos; sigue siendo editable.
   useEffect(() => {
-    setPrecioEditado(loteSeleccionado?.currentPrice ?? 0);
-  }, [loteSeleccionado]);
+    setPrecioEditado(precioDeLotes(lotesSeleccionados));
+  }, [lotesSeleccionados]);
 
   // Herencia visible del asesor del apartado ("yo aparto, yo cobro"): al
   // elegir/cambiar de lote, precarga el select con quien lo apartó. Si el
@@ -204,7 +215,8 @@ export default function NuevoContratoPage() {
     setAgentId(loteSeleccionado?.reservedByAgentId ?? '');
   }, [loteSeleccionado]);
 
-  const totalDeposit    = loteSeleccionado?.reservationDeposit ?? 0;
+  // Si varios lotes traían apartado, cuentan todos.
+  const totalDeposit    = lotesSeleccionados.reduce((s, l) => s + (l.reservationDeposit ?? 0), 0);
   const totalUpfront    = totalDeposit + downPayment;
   const saldoFinanciado = Math.max(0, precioEditado - totalUpfront);
   const mensualidad     = plazo > 0 ? saldoFinanciado / plazo : 0;
@@ -213,7 +225,8 @@ export default function NuevoContratoPage() {
   // ── Navegación entre pasos
   function goNext() {
     if (step === 1) {
-      const problema = validarDatosDelCliente({ firstName, lastName, phone, email });
+      const problema = validarDatosDelCliente({ firstName, lastName, phone, email })
+        ?? validarCotitulares(cotitulares);
       if (problema) { setStep1Error(problema); return; }
       setStep1Error('');
     }
@@ -257,7 +270,7 @@ export default function NuevoContratoPage() {
       const contractRes = await api.post('/contracts', {
         clientId,
         projectId,
-        lotIds:        [lotId],
+        lotIds,
         totalPrice:    precioEditado,
         downPayment,
         financedAmount: saldoFinanciado,
@@ -275,6 +288,31 @@ export default function NuevoContratoPage() {
       });
 
       const contractId = contractRes.data.data.id;
+
+      // 4. Cotitulares. Van después porque tienen su propio endpoint. Si alguno
+      // falla NO se tumba el alta: el contrato ya existe y perderlo por un
+      // cotitular sería peor — se avisa y se puede agregar desde la ficha.
+      const fallidos: string[] = [];
+      for (const c of cotitulares) {
+        try {
+          await api.post(`/contracts/${contractId}/coowners`, {
+            firstName: c.firstName.trim(),
+            lastName: c.lastName.trim(),
+            ine: c.ine.trim(),
+            estadoCivil: c.estadoCivil?.trim() || undefined,
+            lugarNacimiento: c.lugarNacimiento?.trim() || undefined,
+            isPrimary: false,
+          });
+        } catch {
+          fallidos.push(`${c.firstName} ${c.lastName}`.trim());
+        }
+      }
+      if (fallidos.length) {
+        setSubmitError(`El contrato se creó, pero no se pudieron guardar estos titulares: ${fallidos.join(', ')}. Agrégalos desde la ficha del contrato.`);
+        setLoading(false);
+        return;
+      }
+
       router.push(`/contratos/${contractId}`);
     } catch (err: any) {
       const apiError = err?.response?.data;
@@ -368,6 +406,46 @@ export default function NuevoContratoPage() {
             </Field>
           </div>
 
+          {/* Cotitulares — quienes firman el contrato junto al titular */}
+          <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Otros titulares {cotitulares.length > 0 && `(${cotitulares.length})`}
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Si el lote se compra entre dos o más personas
+                </p>
+              </div>
+              <button type="button"
+                      onClick={() => setCotitulares(c => [...c, { firstName: '', lastName: '', ine: '', estadoCivil: '', lugarNacimiento: '' }])}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg"
+                      style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}>
+                + Agregar titular
+              </button>
+            </div>
+
+            {cotitulares.map((c, i) => (
+              <div key={i} className="rounded-xl p-3 mb-2" style={{ border: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Titular {i + 2}</span>
+                  <button type="button" onClick={() => setCotitulares(cs => cs.filter((_, j) => j !== i))}
+                          className="text-xs underline" style={{ color: 'var(--danger)' }}>quitar</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {([
+                    ['Nombre(s)', 'firstName'], ['Apellidos', 'lastName'],
+                    ['INE', 'ine'], ['Estado civil', 'estadoCivil'], ['Lugar de nacimiento', 'lugarNacimiento'],
+                  ] as const).map(([etq, campo]) => (
+                    <input key={campo} style={inputStyle} type="text" placeholder={etq}
+                           value={(c as any)[campo] ?? ''}
+                           onChange={e => setCotitulares(cs => cs.map((x, j) => j === i ? { ...x, [campo]: e.target.value } : x))} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
           {step1Error && (
             <div className="flex items-center gap-2 mt-4 text-sm" style={{ color: 'var(--danger)' }}>
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -398,7 +476,7 @@ export default function NuevoContratoPage() {
               <select
                 style={inputStyle}
                 value={projectId}
-                onChange={e => { setProjectId(e.target.value); setLotId(''); }}
+                onChange={e => { setProjectId(e.target.value); setLotIds([]); }}
               >
                 <option value="">— Seleccionar proyecto —</option>
                 {proyectos.map(p => (
@@ -407,21 +485,46 @@ export default function NuevoContratoPage() {
               </select>
             </Field>
 
-            <Field label="Lote" required>
+            {/* Un contrato puede llevar varios lotes: el cliente compra dos o
+                tres juntos y se cobran como uno solo. */}
+            <Field label={lotIds.length > 1 ? `Lotes (${lotIds.length})` : 'Lote'} required>
               <select
                 style={inputStyle}
-                value={lotId}
-                onChange={e => setLotId(e.target.value)}
+                value=""
+                onChange={e => { if (e.target.value) setLotIds(ids => [...ids, e.target.value]); }}
                 disabled={!projectId}
               >
-                <option value="">— Seleccionar lote —</option>
-                {lotesDisponibles.map(l => (
+                <option value="">
+                  {lotIds.length ? '— Agregar otro lote —' : '— Seleccionar lote —'}
+                </option>
+                {lotesDisponibles.filter(l => !lotIds.includes(l.id)).map(l => (
                   <option key={l.id} value={l.id}>
                     M{l.manzana} L-{l.lotNumber} · {l.areaM2.toFixed(0)}m² · {formatCurrency(l.currentPrice)}
                     {l.status === 'RESERVED' ? ' (Apartado)' : ''}
                   </option>
                 ))}
               </select>
+
+              {lotesSeleccionados.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {lotesSeleccionados.map(l => (
+                    <div key={l.id} className="flex items-center justify-between rounded-lg px-3 py-1.5 text-sm"
+                         style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                      <span style={{ color: 'var(--text-primary)' }}>
+                        M{l.manzana} L-{l.lotNumber}
+                        <span style={{ color: 'var(--text-tertiary)' }}> · {formatCurrency(l.currentPrice)}</span>
+                      </span>
+                      <button type="button" onClick={() => setLotIds(ids => ids.filter(x => x !== l.id))}
+                              className="text-xs underline" style={{ color: 'var(--danger)' }}>quitar</button>
+                    </div>
+                  ))}
+                  {lotesSeleccionados.length > 1 && (
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      {lotesSeleccionados.length} lotes en un solo contrato · suman {formatCurrency(precioDeLotes(lotesSeleccionados))}
+                    </p>
+                  )}
+                </div>
+              )}
             </Field>
 
             {loteSeleccionado && (loteSeleccionado.reservationDeposit ?? 0) > 0 && (
@@ -628,6 +731,8 @@ export default function NuevoContratoPage() {
               title="Datos del cliente"
               rows={[
                 { label: 'Nombre completo', value: `${firstName} ${lastName}` },
+                ...(cotitulares.length ? [{ label: cotitulares.length > 1 ? 'Otros titulares' : 'Otro titular',
+                    value: cotitulares.map(c => `${c.firstName} ${c.lastName}`.trim()).join(', ') }] : []),
                 { label: 'Teléfono',        value: phone },
                 { label: 'Email',           value: email },
                 { label: 'INE',             value: ine },
@@ -638,8 +743,8 @@ export default function NuevoContratoPage() {
               title="Datos del inmueble"
               rows={[
                 { label: 'Proyecto',    value: proyectoSeleccionado ? `${proyectoSeleccionado.name} (${proyectoSeleccionado.code})` : '' },
-                { label: 'Lote',        value: loteSeleccionado ? `M${loteSeleccionado.manzana} L-${loteSeleccionado.lotNumber}` : '' },
-                { label: 'Superficie',  value: loteSeleccionado ? `${loteSeleccionado.areaM2.toFixed(2)} m²` : '' },
+                { label: lotesSeleccionados.length > 1 ? 'Lotes' : 'Lote', value: resumenLotes(lotesSeleccionados) },
+                { label: 'Superficie',  value: lotesSeleccionados.length ? `${lotesSeleccionados.reduce((a, l) => a + l.areaM2, 0).toFixed(2)} m²` : '' },
                 { label: 'Precio',      value: formatCurrency(precioEditado) },
               ]}
             />
