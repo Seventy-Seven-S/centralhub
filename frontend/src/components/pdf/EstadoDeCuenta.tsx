@@ -6,6 +6,8 @@ import { PIE_EMPRESA } from './reciboHelpers';
 
 // ── Paleta (idéntica a ReciboContrato) ───────────────────────────────────────
 import { C, marca } from './marcaPdf';
+import { desglosarPagado } from '@/lib/desglosePagado';
+import { paginarCuotas } from '@/lib/paginarCuotas';
 
 // Estados de una cuota. Verde para lo pagado, rojo solo para lo de verdad
 // vencido: si todo lo pendiente se pinta de alarma, nada destaca.
@@ -39,6 +41,7 @@ const s = StyleSheet.create({
   summaryBox:      { flex: 1, backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10 },
   summaryLabel:    { fontSize: 6.5, color: C.textSecondary, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
   summaryValue:    { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.ink },
+  summaryDesglose:  { fontSize: 6.5, color: C.textSecondary, marginTop: 2 },
   saldoBox:        { flex: 1, backgroundColor: C.forest, borderRadius: 8, padding: 10 },
   saldoLabel:      { fontSize: 6.5, color: C.greenPale, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
   saldoValue:      { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.white },
@@ -181,7 +184,9 @@ export interface EstadoDeCuentaProps {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-const PAGE_ROWS = 38;
+// Se imprime en CARTA, no en A4: era lo que lo hacía salir cortado. Cuántos
+// renglones caben por hoja vive en paginarCuotas.ts, con sus pruebas.
+const TAMANO_HOJA = 'LETTER' as const;
 
 export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: EstadoDeCuentaProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
@@ -191,9 +196,10 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
   const totalArea     = (contrato.lots ?? []).reduce((s, l) => s + (l.lot.areaM2 || 0), 0);
   const loteArea      = totalArea > 0 ? `${Math.round(totalArea * 100) / 100} m²` : '';
 
-  const totalPagado   = pagos
-    .filter(p => p.status === 'CONFIRMED')
-    .reduce((sum, p) => sum + p.amount, 0);
+  // El equipo pidió ver la división: lo primero que pregunta el cliente es
+  // cuánto dio de enganche, y antes solo salía el total.
+  const desglose      = desglosarPagado(pagos as never);
+  const totalPagado   = desglose.total;
   const saldo         = contrato.totalPrice - totalPagado;
 
   const cuotasPagadas  = cuotas.filter(c => c.status === 'PAGADA').length;
@@ -205,18 +211,15 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
   ).length;
   const proximaCuota   = cuotas.find(c => c.status === 'PENDIENTE');
 
-  // Paginar cuotas en bloques de PAGE_ROWS
-  const chunks: Cuota[][] = [];
-  for (let i = 0; i < cuotas.length; i += PAGE_ROWS) {
-    chunks.push(cuotas.slice(i, i + PAGE_ROWS));
-  }
-  if (chunks.length === 0) chunks.push([]);
+  // La primera hoja lleva menos renglones: ahí van también el encabezado y el
+  // resumen del contrato.
+  const chunks = paginarCuotas(cuotas);
 
   return (
     <Document title={`Estado de Cuenta — ${codigo}`} author="Central Inmobiliaria">
 
       {/* ── Página 1: header + info + resumen + primera tabla ── */}
-      <Page size="A4" style={s.page}>
+      <Page size={TAMANO_HOJA} style={s.page}>
         <View style={s.card}>
 
         {/* HEADER — mismo lenguaje que el recibo: franja verde y placa dorada */}
@@ -265,6 +268,8 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
           <View style={s.summaryBox}>
             <Text style={s.summaryLabel}>Total pagado</Text>
             <Text style={s.summaryValue}>{fmt(totalPagado)}</Text>
+            <Text style={s.summaryDesglose}>Enganche {fmt(desglose.enganche)}</Text>
+            <Text style={s.summaryDesglose}>Mensualidades {fmt(desglose.mensualidades)}</Text>
           </View>
           <View style={s.saldoBox}>
             <Text style={s.saldoLabel}>{saldo > 0 ? 'Saldo pendiente' : 'Estado'}</Text>
@@ -296,7 +301,7 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
       {chunks.slice(1).map((chunk, pageIdx) => {
         const isLast = pageIdx === chunks.length - 2;
         return (
-          <Page key={pageIdx} size="A4" style={s.page}>
+          <Page key={pageIdx} size={TAMANO_HOJA} style={s.page}>
             <View style={s.card}>
             <Text style={s.contLabel}>Estado de Cuenta — {codigo} (continuación)</Text>
             <View style={s.table}>

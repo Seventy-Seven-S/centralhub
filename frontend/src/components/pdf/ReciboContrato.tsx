@@ -5,9 +5,10 @@ import { formatMoney, buildReciboFolio, PIE_EMPRESA, buildDescripcion, getLoteIn
 import { C } from './marcaPdf';
 
 // Misma identidad visual del correo de bienvenida (email.service.ts —
-// sendWelcomeEmail): header verde bosque, acento dorado. Fondo de página
-// blanco (no el beige cálido del correo) para no gastar tinta/tóner en
-// impresoras b/n. react-pdf no soporta linear-gradient ni box-shadow en
+// sendWelcomeEmail), pero SIN rellenos de color: el equipo pidió quitar las
+// franjas verdes porque se imprimen a diario y vacían el tóner. El verde
+// quedó en la tinta de las letras y en los filetes, que es donde se lee la
+// marca sin gastar. Mismo criterio que el fondo blanco de la página. react-pdf no soporta linear-gradient ni box-shadow en
 // style — el gradiente del header se aproxima con el tono sólido
 // intermedio, y la elevación de las tarjetas se aproxima con un borde sutil.
 
@@ -20,9 +21,9 @@ const s = StyleSheet.create({
   spacer:           { flex: 1 },
 
   // HEADER
-  header:           { backgroundColor: C.forestMid, paddingTop: 18, paddingBottom: 16, paddingHorizontal: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  reciboTitle:      { fontSize: 21, fontFamily: 'Helvetica-Bold', color: C.white, letterSpacing: 0.3 },
-  companyTagline:   { fontSize: 8, color: C.greenPale, marginTop: 3 },
+  header:           { paddingTop: 18, paddingBottom: 14, paddingHorizontal: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderBottomWidth: 2, borderBottomColor: C.forest },
+  reciboTitle:      { fontSize: 21, fontFamily: 'Helvetica-Bold', color: C.forest, letterSpacing: 0.3 },
+  companyTagline:   { fontSize: 8, color: C.textSecondary, marginTop: 3 },
   folioBadge:       { backgroundColor: C.goldPaleBg, borderWidth: 1, borderColor: C.gold, borderRadius: 6, paddingVertical: 5, paddingHorizontal: 12 },
   folioLabel:       { fontSize: 6.5, color: C.gold, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Helvetica-Bold', textAlign: 'right' },
   folioValue:       { fontSize: 11, color: C.goldLight, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3, marginTop: 1, textAlign: 'right' },
@@ -31,14 +32,14 @@ const s = StyleSheet.create({
   // código real se agrega después. Centrado entre las cláusulas y el
   // footer.
   qrSection:        { alignItems: 'center', marginHorizontal: 24, marginTop: 2, marginBottom: 10 },
-  qrBox:            { width: 56, height: 56, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: C.sectionAlt },
+  qrBox:            { width: 56, height: 56, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   qrImage:          { width: 56, height: 56, borderRadius: 8 },
   qrBoxLabel:       { fontSize: 6.5, color: C.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
   qrCaption:        { fontSize: 6.5, color: C.textSecondary, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginTop: 5, fontFamily: 'Helvetica-Bold' },
 
   // INFO CLIENTE / PROYECTO / FECHA
   infoRow:          { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  infoBox:          { flex: 1, backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 9 },
+  infoBox:          { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 9 },
   infoLabel:        { fontSize: 6.5, color: C.textSecondary, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
   infoValue:        { fontSize: 9.5, color: C.ink, fontFamily: 'Helvetica-Bold' },
   infoValueSub:     { fontSize: 7.5, color: C.textSecondary, marginTop: 2 },
@@ -48,8 +49,8 @@ const s = StyleSheet.create({
 
   // TABLA
   tableWrap:        { marginHorizontal: 20, marginBottom: 10, borderWidth: 1, borderColor: C.border, borderRadius: 8, overflow: 'hidden' },
-  tableHeaderRow:    { flexDirection: 'row', backgroundColor: C.forest, paddingVertical: 7, paddingHorizontal: 14 },
-  tableHeaderCell:  { color: C.white, fontFamily: 'Helvetica-Bold', fontSize: 7.5, letterSpacing: 0.5, textTransform: 'uppercase' },
+  tableHeaderRow:    { flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: C.forest },
+  tableHeaderCell:  { color: C.forest, fontFamily: 'Helvetica-Bold', fontSize: 7.5, letterSpacing: 0.5, textTransform: 'uppercase' },
   tableRow:         { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 14, backgroundColor: C.white },
   colDesc:          { flex: 3 },
   colFecha:         { flex: 2 },
@@ -60,22 +61,22 @@ const s = StyleSheet.create({
   totalRow:         { flexDirection: 'row', justifyContent: 'flex-end', gap: 40, marginBottom: 3 },
   totalLabel:       { fontSize: 8, color: C.textSecondary },
   totalValue:       { fontSize: 8, color: C.ink, fontFamily: 'Helvetica-Bold', minWidth: 90, textAlign: 'right' },
-  totalFinal:       { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.forest, paddingVertical: 9, paddingHorizontal: 16, borderRadius: 8, marginTop: 4 },
-  totalFinalLabel:  { fontSize: 9, color: C.greenPale, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3, textTransform: 'uppercase' },
-  totalFinalValue:  { fontSize: 14, color: C.white, fontFamily: 'Helvetica-Bold' },
-  balanceRow:       { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 8, marginTop: 6 },
+  totalFinal:       { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1.5, borderColor: C.forest, paddingVertical: 9, paddingHorizontal: 16, borderRadius: 8, marginTop: 4 },
+  totalFinalLabel:  { fontSize: 9, color: C.forest, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3, textTransform: 'uppercase' },
+  totalFinalValue:  { fontSize: 14, color: C.forest, fontFamily: 'Helvetica-Bold' },
+  balanceRow:       { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: C.border, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 8, marginTop: 6 },
   balanceLabel:     { fontSize: 8, color: C.textSecondary },
   balanceValue:     { fontSize: 10, color: C.ink, fontFamily: 'Helvetica-Bold' },
 
   // CLÁUSULAS
-  legalBox:         { marginHorizontal: 20, marginBottom: 10, backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 11 },
+  legalBox:         { marginHorizontal: 20, marginBottom: 10, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 11 },
   legalTitle:       { fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.ink, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
   legalClause:      { fontSize: 6.5, color: C.textSecondary, marginBottom: 4, lineHeight: 1.35 },
 
   // FOOTER
-  footer:           { backgroundColor: C.forest, paddingVertical: 12, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  footerText:       { fontSize: 7.5, color: C.greenPale, flex: 1 },
-  footerBrand:      { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.white, textAlign: 'right' },
+  footer:           { paddingVertical: 11, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1.5, borderTopColor: C.forest },
+  footerText:       { fontSize: 7.5, color: C.textSecondary, flex: 1 },
+  footerBrand:      { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.forest, textAlign: 'right' },
 });
 
 function fmtDate(iso: string) {
