@@ -16,6 +16,10 @@ export interface DatosActuales {
 
 export interface Edicion {
   totalPrice?: number;
+  /** Enganche pactado. Se corrige cuando parte de lo que se registró como
+   *  enganche en realidad abona mensualidades — pasó con F080, que tenía dos
+   *  lotes, canceló uno y su enganche de $60,000 cubría los dos. */
+  downPayment?: number;
   installmentAmount?: number;
   installmentCount?: number;
   /** Mes en que debe caer la PRIMERA mensualidad, como "2025-04". */
@@ -52,6 +56,13 @@ export function validarEdicion(actual: DatosActuales, e: Edicion, ctx: Contexto)
       return `El precio total (${pesos(e.totalPrice)}) no puede ser menor a lo que el cliente ya pagó (${pesos(ctx.pagado)})`;
     }
   }
+  if (e.downPayment !== undefined) {
+    if (e.downPayment < 0) return 'El enganche no puede ser negativo';
+    const precio = e.totalPrice ?? actual.totalPrice;
+    if (round2(e.downPayment) > round2(precio)) {
+      return `El enganche (${pesos(e.downPayment)}) no puede pasar del precio total (${pesos(precio)})`;
+    }
+  }
   if (e.installmentCount !== undefined && (!Number.isInteger(e.installmentCount) || e.installmentCount <= 0)) {
     return 'El plazo debe ser un número de meses mayor a cero';
   }
@@ -86,6 +97,7 @@ export function camposQueCambian(actual: DatosActuales, e: Edicion): CampoCambia
     out.push({ campo, valorAnterior: antes === null ? null : String(antes), valorNuevo: String(nuevo) });
   };
   num('totalPrice', actual.totalPrice);
+  num('downPayment', actual.downPayment);
   num('installmentAmount', actual.installmentAmount);
   num('installmentCount', actual.installmentCount);
 

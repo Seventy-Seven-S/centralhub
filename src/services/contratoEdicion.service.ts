@@ -40,7 +40,7 @@ export async function editarDatosDelContrato(
   contractId: string,
   entrada: EntradaEdicion,
   userId: string,
-  opciones: { dryRun?: boolean } = {},
+  opciones: { dryRun?: boolean; forzarRecalculo?: boolean } = {},
 ): Promise<ResultadoEdicion> {
   if (!entrada.motivo?.trim()) throw new Error('El motivo del cambio es obligatorio');
 
@@ -90,12 +90,21 @@ export async function editarDatosDelContrato(
   if (error) throw new Error(error);
 
   const cambios = camposQueCambian(actual, entrada);
-  if (cambios.length === 0) throw new Error('No hay ningún cambio que aplicar');
+  // `forzarRecalculo` sirve para el caso en que los datos del contrato están
+  // bien pero su CALENDARIO no concuerda con ellos: H119 tenía mensualidad de
+  // $4,375 y las primeras cuatro cuotas en $4,500, así que su sobrepago se lo
+  // comía el propio calendario. Ahí no cambia ningún campo — se rearma.
+  if (cambios.length === 0 && !opciones.forzarRecalculo) {
+    throw new Error('No hay ningún cambio que aplicar');
+  }
 
   // ── Armar el calendario nuevo ──────────────────────────────────────────────
   const totalPrice = entrada.totalPrice ?? actual.totalPrice;
   const plazo = entrada.installmentCount ?? actual.installmentCount ?? 0;
-  const financiado = round2(totalPrice - actual.downPayment);
+  // El enganche puede venir corregido en la misma edición: usar el viejo hacía
+  // que las cuotas se armaran contra un financiado equivocado.
+  const enganche = entrada.downPayment ?? actual.downPayment;
+  const financiado = round2(totalPrice - enganche);
   // Si cambia el PLAZO y no se captura mensualidad, la mensualidad se deriva
   // del plazo nuevo: conservar la vieja hace que las cuotas no cierren contra
   // lo financiado y la corrección se rechaza sola.
@@ -187,6 +196,7 @@ export async function editarDatosDelContrato(
       where: { id: contractId },
       data: {
         totalPrice,
+        downPayment: enganche,
         financingAmount: financiado,
         installmentCount: plazo,
         installmentAmount: mensualidad ?? null,

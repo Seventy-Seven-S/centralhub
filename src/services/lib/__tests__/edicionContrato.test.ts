@@ -142,3 +142,36 @@ describe('cambiar el plazo sin dar mensualidad la RECALCULA', () => {
     expect(mensualidadPara(530000, 0, undefined)).toBeNull();
   });
 });
+
+describe('el enganche se puede corregir', () => {
+  const base = {
+    totalPrice: 335038, downPayment: 60000, installmentAmount: 4237,
+    installmentCount: 72, startDate: new Date('2025-06-01T00:00:00Z'), lotIds: ['l'],
+  };
+
+  it('aparece en la lista de cambios', () => {
+    // F080: tenía dos lotes, canceló uno, y su enganche de $60,000 se divide
+    // en $30,000 de enganche y $30,000 que abonan mensualidades.
+    const cambios = camposQueCambian(base, { downPayment: 30000 });
+    expect(cambios).toContainEqual({ campo: 'downPayment', valorAnterior: '60000', valorNuevo: '30000' });
+  });
+
+  it('el mismo enganche no cuenta como cambio', () => {
+    expect(camposQueCambian(base, { downPayment: 60000 })).toEqual([]);
+  });
+
+  it('un enganche negativo se rechaza', () => {
+    expect(validarEdicion(base, { downPayment: -1 },
+      { pagado: 0, primerPago: null, lotesOcupadosPorOtros: [] })).toMatch(/enganche/i);
+  });
+
+  it('un enganche que se pasa del precio se rechaza', () => {
+    expect(validarEdicion(base, { downPayment: 400000 },
+      { pagado: 0, primerPago: null, lotesOcupadosPorOtros: [] })).toMatch(/enganche/i);
+  });
+
+  it('acepta bajarlo cuando cabe en el precio', () => {
+    expect(validarEdicion(base, { downPayment: 30000 },
+      { pagado: 93948, primerPago: null, lotesOcupadosPorOtros: [] })).toBeNull();
+  });
+});
