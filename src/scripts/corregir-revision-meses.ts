@@ -14,6 +14,7 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { editarDatosDelContrato } from '../services/contratoEdicion.service';
 import { mesDesdeNombre } from '../services/lib/mesDesdeNombre';
+import { elLoteConcuerda } from '../services/lib/cruceLote';
 
 const prisma = new PrismaClient();
 const ARCHIVO = 'backups/REVISION DE MESES .xlsx';
@@ -31,6 +32,9 @@ const MESES_DE_SALTO_ACEPTABLE = 6;
 
 interface Correccion {
   hoja: string; codigo: string; cliente: string;
+  // Manzana y lote: el dato duro con el que se verifica que la fila sea de
+  // este contrato. El código a veces viene mal tecleado o repetido.
+  manzana: number | null; lote: string | null;
   mes: string | null; mensualidad: number | null; plazo: number | null;
 }
 
@@ -57,7 +61,13 @@ function leer(): Correccion[] {
       const mensualidad = typeof f[5] === 'number' && f[5] > 0 ? f[5] : null;
       const plazo = plazoDe(f[6]);
       if (!mes && !mensualidad && !plazo) continue;   // vacío = ya está bien
-      out.push({ hoja: hoja.trim(), codigo, cliente: String(f[3] ?? '').trim(), mes, mensualidad, plazo });
+      const manzana = Number(f[1]);
+      out.push({
+        hoja: hoja.trim(), codigo, cliente: String(f[3] ?? '').trim(),
+        manzana: Number.isFinite(manzana) ? manzana : null,
+        lote: f[2] !== null && f[2] !== undefined && String(f[2]).trim() !== '' ? String(f[2]).trim() : null,
+        mes, mensualidad, plazo,
+      });
     }
   }
   return out;
@@ -75,16 +85,33 @@ async function main() {
 
   const todas = leer().filter(c => !soloHoja || c.hoja.toUpperCase() === soloHoja);
 
-  let aplicados = 0, sinCambio = 0, noExiste = 0, fallidos = 0, dudosos = 0;
+  let aplicados = 0, sinCambio = 0, noExiste = 0, fallidos = 0, dudosos = 0, descuadrados = 0;
   const problemas: string[] = [];
   let moraBaja = 0, moraSube = 0;
 
   for (const c of todas) {
     const contrato = await prisma.contract.findFirst({
       where: { codigoLegado: c.codigo },
-      select: { id: true, contractDate: true, status: true },
+      select: {
+        id: true, contractDate: true, status: true,
+        lots: { select: { lot: { select: { manzana: true, lotNumber: true } } } },
+      },
     });
     if (!contrato) { noExiste++; problemas.push(`${c.codigo}: no existe en la base`); continue; }
+
+    // El código no basta: en este mismo archivo V292 venía en tres filas de
+    // tres clientes distintos, y corregir por código le escribió a uno el dato
+    // de otro. Si la manzana y el lote no concuerdan, no se toca.
+    const lotesDelContrato = contrato.lots.map(l => l.lot);
+    if (!elLoteConcuerda(lotesDelContrato, c.manzana, c.lote)) {
+      descuadrados++;
+      const tiene = lotesDelContrato.map(l => `M${l.manzana}-L${l.lotNumber}`).join(', ') || 'ninguno';
+      problemas.push(
+        `${c.codigo}: la fila dice M${c.manzana}-L${c.lote} (${c.cliente}) pero ese contrato tiene ${tiene} ` +
+        `— el código no corresponde a ese lote`,
+      );
+      continue;
+    }
 
     // El año del mes se deduce contra el PRIMER PAGO del cliente, no contra la
     // fecha del contrato: esa fecha es cuándo se registró en el sistema y en
@@ -152,6 +179,7 @@ async function main() {
   console.log(`  no existen en la base:    ${noExiste}`);
   console.log(`  no se pudieron:           ${fallidos}`);
   console.log(`  salto de año dudoso:      ${dudosos}`);
+  console.log(`  el lote no concuerda:     ${descuadrados}`);
   console.log(`\n  contratos que SALEN de mora: ${moraBaja} | que ENTRAN en mora: ${moraSube}`);
 
   if (problemas.length) {
