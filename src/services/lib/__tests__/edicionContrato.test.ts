@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validarEdicion, camposQueCambian, montosDeCuotas, inicioDesdeMes } from '../edicionContrato';
+import { validarEdicion, camposQueCambian, montosDeCuotas, inicioDesdeMes, mensualidadPara } from '../edicionContrato';
 import { round2 } from '../../../utils/money';
 
 const f = (s: string) => new Date(`${s}T00:00:00`);
@@ -24,9 +24,11 @@ describe('validarEdicion', () => {
     expect(msg).toMatch(/otro contrato/i);
   });
 
-  it('rechaza arrancar el calendario después del primer pago real', () => {
-    const msg = validarEdicion({ ...actual }, { mesInicioCalendario: '2025-06' }, { pagado: 50000, primerPago: f('2025-02-10'), lotesOcupadosPorOtros: [] });
-    expect(msg).toMatch(/primer pago/i);
+  it('deja arrancar el calendario aunque ya haya pagos: son adelantos', () => {
+    // El equipo registra adelantos con frecuencia; el dinero se aplica a la
+    // cuota 1 igual. Antes esto se rechazaba y bloqueaba correcciones buenas.
+    expect(validarEdicion({ ...actual }, { mesInicioCalendario: '2025-06' },
+      { pagado: 50000, primerPago: f('2025-02-10'), lotesOcupadosPorOtros: [] })).toBeNull();
   });
 
   it('exige que el plazo y la mensualidad sean positivos', () => {
@@ -97,9 +99,46 @@ describe('validarEdicion — el mes del primer pago se lee en UTC', () => {
       { pagado: 40000, primerPago: pagoPrimeroDeJunio, lotesOcupadosPorOtros: [] })).toBeNull();
   });
 
-  it('sigue rechazando arrancar de verdad después del primer pago', () => {
+  it('tampoco estorba cuando el arranque va meses después del primer pago', () => {
     const pago = new Date('2022-06-01T00:00:00Z');
     expect(validarEdicion(actual, { mesInicioCalendario: '2022-08' },
-      { pagado: 40000, primerPago: pago, lotesOcupadosPorOtros: [] })).toMatch(/primer pago/i);
+      { pagado: 40000, primerPago: pago, lotesOcupadosPorOtros: [] })).toBeNull();
+  });
+});
+
+describe('un pago anterior al arranque del calendario es un ADELANTO, no un error', () => {
+  const base = {
+    totalPrice: 260000, downPayment: 10000, installmentAmount: 4167,
+    installmentCount: 60, startDate: new Date('2024-05-21T00:00:00Z'), lotIds: ['l'],
+  };
+
+  it('deja arrancar el calendario después de un pago ya hecho', () => {
+    // Quien firma después del día 20 empieza a pagar un mes más tarde, pero a
+    // veces abona antes. Ese dinero se aplica a la cuota 1 igual; bloquearlo
+    // impedía corregir ~60 contratos que el equipo había revisado a mano.
+    expect(validarEdicion(base, { mesInicioCalendario: '2024-07' },
+      { pagado: 4167, primerPago: new Date('2024-06-05T00:00:00Z'), lotesOcupadosPorOtros: [] })).toBeNull();
+  });
+
+  it('sigue exigiendo que el mes venga bien escrito', () => {
+    expect(validarEdicion(base, { mesInicioCalendario: '2024-13' },
+      { pagado: 0, primerPago: null, lotesOcupadosPorOtros: [] })).toMatch(/AAAA-MM/);
+  });
+});
+
+describe('cambiar el plazo sin dar mensualidad la RECALCULA', () => {
+  it('deriva la mensualidad del financiado y el plazo nuevo', () => {
+    // V002: el equipo dice que el plazo son 50 meses. Conservar la mensualidad
+    // vieja ($11,600) hacía que 50 cuotas pasaran de lo financiado y la
+    // corrección se rechazaba sola.
+    expect(mensualidadPara(530000, 50, undefined)).toBe(10600);
+  });
+
+  it('respeta la mensualidad cuando sí la capturan', () => {
+    expect(mensualidadPara(530000, 50, 11600)).toBe(11600);
+  });
+
+  it('sin plazo no inventa nada', () => {
+    expect(mensualidadPara(530000, 0, undefined)).toBeNull();
   });
 });

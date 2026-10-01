@@ -24,6 +24,11 @@ const arg = (n: string) => {
 };
 const pesos = (n: number) => `$${n.toLocaleString('es-MX')}`;
 
+/** Qué tan lejos del PRIMER PAGO puede quedar la primera mensualidad deducida.
+ *  Un cliente puede pagar varios meses juntos o adelantar uno o dos, pero no
+ *  medio año: más que esto y lo más probable es que el año esté mal deducido. */
+const MESES_DE_SALTO_ACEPTABLE = 6;
+
 interface Correccion {
   hoja: string; codigo: string; cliente: string;
   mes: string | null; mensualidad: number | null; plazo: number | null;
@@ -70,7 +75,7 @@ async function main() {
 
   const todas = leer().filter(c => !soloHoja || c.hoja.toUpperCase() === soloHoja);
 
-  let aplicados = 0, sinCambio = 0, noExiste = 0, fallidos = 0;
+  let aplicados = 0, sinCambio = 0, noExiste = 0, fallidos = 0, dudosos = 0;
   const problemas: string[] = [];
   let moraBaja = 0, moraSube = 0;
 
@@ -81,8 +86,37 @@ async function main() {
     });
     if (!contrato) { noExiste++; problemas.push(`${c.codigo}: no existe en la base`); continue; }
 
-    const mesInicio = c.mes ? mesDesdeNombre(c.mes, contrato.contractDate) : undefined;
+    // El año del mes se deduce contra el PRIMER PAGO del cliente, no contra la
+    // fecha del contrato: esa fecha es cuándo se registró en el sistema y en
+    // varios proyectos el cliente ya venía pagando desde antes.
+    const primerPago = await prisma.payment.findFirst({
+      where: { contractId: contrato.id, status: 'CONFIRMED', paymentType: { in: ['INSTALLMENT', 'EXTRA_PAYMENT'] } },
+      orderBy: { paymentDate: 'asc' }, select: { paymentDate: true },
+    });
+    const ancla = primerPago?.paymentDate ?? contrato.contractDate;
+
+    const mesInicio = c.mes ? mesDesdeNombre(c.mes, ancla) : undefined;
     if (c.mes && !mesInicio) { fallidos++; problemas.push(`${c.codigo}: no se entiende el mes "${c.mes}"`); continue; }
+
+    // El mes viene sin año y aquí se deduce. Se compara contra el PRIMER PAGO,
+    // que es la referencia real de cuándo empezó a pagar: si la deducción cae
+    // lejos de ahí, el año probablemente está mal y lo revisa una persona en
+    // vez de moverle el calendario a ciegas.
+    if (mesInicio && primerPago) {
+      const [aN, mN] = mesInicio.split('-').map(Number);
+      const distancia = Math.abs(
+        (aN - primerPago.paymentDate.getUTCFullYear()) * 12 +
+        (mN - 1 - primerPago.paymentDate.getUTCMonth()),
+      );
+      if (distancia > MESES_DE_SALTO_ACEPTABLE) {
+        dudosos++;
+        problemas.push(
+          `${c.codigo}: el mes deducido (${mesInicio}) queda a ${distancia} meses de su primer pago ` +
+          `(${primerPago.paymentDate.toISOString().slice(0, 10)}) — confirmar el año con el equipo`,
+        );
+        continue;
+      }
+    }
 
     try {
       const r = await editarDatosDelContrato(contrato.id, {
@@ -117,6 +151,7 @@ async function main() {
   console.log(`  ya estaban bien:          ${sinCambio}`);
   console.log(`  no existen en la base:    ${noExiste}`);
   console.log(`  no se pudieron:           ${fallidos}`);
+  console.log(`  salto de año dudoso:      ${dudosos}`);
   console.log(`\n  contratos que SALEN de mora: ${moraBaja} | que ENTRAN en mora: ${moraSube}`);
 
   if (problemas.length) {

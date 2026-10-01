@@ -66,15 +66,11 @@ export function validarEdicion(actual: DatosActuales, e: Edicion, ctx: Contexto)
   }
   if (e.mesInicioCalendario !== undefined) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.mesInicioCalendario)) return 'El mes de inicio debe venir como AAAA-MM';
-    if (ctx.primerPago) {
-      // Las fechas de pago se guardan a medianoche UTC. Leerlas con getMonth()
-      // las corre al mes anterior cuando el pago es del día 1, porque México va
-      // detrás de UTC — eso rechazaba correcciones buenas (caso C070).
-      const mesPago = `${ctx.primerPago.getUTCFullYear()}-${String(ctx.primerPago.getUTCMonth() + 1).padStart(2, '0')}`;
-      if (e.mesInicioCalendario > mesPago) {
-        return 'El calendario no puede arrancar después del primer pago que el cliente ya hizo';
-      }
-    }
+    // NO se valida contra el primer pago. Un pago anterior al arranque del
+    // calendario es un ADELANTO, que es normal: quien firma después del día 20
+    // empieza a pagar un mes más tarde y a veces abona antes. El dinero se
+    // aplica igual a la cuota 1. Bloquearlo impedía corregir ~60 contratos que
+    // el equipo ya había revisado a mano.
   }
   return null;
 }
@@ -138,4 +134,23 @@ export function montosDeCuotas(financiado: number, plazo: number, mensualidad?: 
   const montos = Array.from({ length: plazo }, () => base);
   montos[plazo - 1] = ultima;
   return montos;
+}
+
+/**
+ * Mensualidad que corresponde a un financiamiento y un plazo.
+ *
+ * Cuando se corrige SOLO el plazo, la mensualidad vieja deja de cuadrar: si el
+ * equipo dice que el plazo son 50 meses, conservar los $11,600 de antes hace
+ * que 50 cuotas pasen de lo financiado y la corrección se rechaza sola. La
+ * mensualidad se deriva, salvo que la capturen explícitamente.
+ */
+export function mensualidadPara(
+  financiado: number,
+  plazo: number,
+  mensualidadCapturada: number | undefined,
+): number | null {
+  if (mensualidadCapturada && mensualidadCapturada > 0) return round2(mensualidadCapturada);
+  if (!plazo || plazo <= 0) return null;
+  // En pesos redondos, igual que al crear el contrato.
+  return Math.round(financiado / plazo);
 }

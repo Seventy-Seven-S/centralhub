@@ -9,7 +9,7 @@ import { prisma as prismaGlobal } from '../config/database';
 import { buildCuotaRows } from './lib/cuotaSchedule';
 import { recomponerCuotas, estadoDelContrato, CuotaEnCalendario } from './lib/recomponerCuotas';
 import {
-  validarEdicion, camposQueCambian, montosDeCuotas, inicioDesdeMes,
+  validarEdicion, camposQueCambian, montosDeCuotas, inicioDesdeMes, mensualidadPara,
   DatosActuales, Edicion,
 } from './lib/edicionContrato';
 import { round2 } from '../utils/money';
@@ -95,8 +95,15 @@ export async function editarDatosDelContrato(
   // ── Armar el calendario nuevo ──────────────────────────────────────────────
   const totalPrice = entrada.totalPrice ?? actual.totalPrice;
   const plazo = entrada.installmentCount ?? actual.installmentCount ?? 0;
-  const mensualidad = entrada.installmentAmount ?? actual.installmentAmount ?? undefined;
   const financiado = round2(totalPrice - actual.downPayment);
+  // Si cambia el PLAZO y no se captura mensualidad, la mensualidad se deriva
+  // del plazo nuevo: conservar la vieja hace que las cuotas no cierren contra
+  // lo financiado y la corrección se rechaza sola.
+  const cambiaPlazo = entrada.installmentCount !== undefined
+    && entrada.installmentCount !== actual.installmentCount;
+  const mensualidad = cambiaPlazo
+    ? mensualidadPara(financiado, plazo, entrada.installmentAmount) ?? undefined
+    : entrada.installmentAmount ?? actual.installmentAmount ?? undefined;
   const inicio = entrada.mesInicioCalendario ? inicioDesdeMes(entrada.mesInicioCalendario) : actual.startDate;
 
   if (plazo <= 0 || !inicio) {
