@@ -41,7 +41,10 @@ const s = StyleSheet.create({
   summaryBox:      { flex: 1, backgroundColor: C.sectionAlt, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10 },
   summaryLabel:    { fontSize: 6.5, color: C.textSecondary, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
   summaryValue:    { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.ink },
-  summaryDesglose:  { fontSize: 6.5, color: C.textSecondary, marginTop: 2 },
+  // El desglose nació a 6.5pt en gris claro y no se leía al imprimir. Va al
+  // tamaño del texto normal y en la tinta oscura, con el monto en negritas.
+  summaryDesglose:     { fontSize: 8.5, color: C.ink, marginTop: 3 },
+  summaryDesgloseDato: { fontFamily: 'Helvetica-Bold' },
   saldoBox:        { flex: 1, backgroundColor: C.forest, borderRadius: 8, padding: 10 },
   saldoLabel:      { fontSize: 6.5, color: C.greenPale, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 },
   saldoValue:      { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.white },
@@ -268,8 +271,12 @@ export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: 
           <View style={s.summaryBox}>
             <Text style={s.summaryLabel}>Total pagado</Text>
             <Text style={s.summaryValue}>{fmt(totalPagado)}</Text>
-            <Text style={s.summaryDesglose}>Enganche {fmt(desglose.enganche)}</Text>
-            <Text style={s.summaryDesglose}>Mensualidades {fmt(desglose.mensualidades)}</Text>
+            <Text style={s.summaryDesglose}>
+              Enganche <Text style={s.summaryDesgloseDato}>{fmt(desglose.enganche)}</Text>
+            </Text>
+            <Text style={s.summaryDesglose}>
+              Mensualidades <Text style={s.summaryDesgloseDato}>{fmt(desglose.mensualidades)}</Text>
+            </Text>
           </View>
           <View style={s.saldoBox}>
             <Text style={s.saldoLabel}>{saldo > 0 ? 'Saldo pendiente' : 'Estado'}</Text>
