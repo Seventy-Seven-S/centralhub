@@ -12,6 +12,7 @@ export interface PagoCorte {
   contract: {
     id: string; projectId: string; codigoLegado: string | null; contractNumber: string;
     client: { firstName: string; lastName: string };
+    lots: Array<{ lot: { manzana: number; lotNumber: string } }>;
   };
 }
 

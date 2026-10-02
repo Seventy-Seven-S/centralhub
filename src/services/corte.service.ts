@@ -30,7 +30,15 @@ export function calcularReparto(totalIngresos: number, reparto: RepartoItem[]) {
 
 const PAGO_SELECT = {
   id: true, paymentNumber: true, paymentType: true, paymentMethod: true, amount: true, paymentDate: true, concept: true,
-  contract: { select: { id: true, projectId: true, codigoLegado: true, contractNumber: true, client: { select: { firstName: true, lastName: true } } } },
+  // El lote va en el comprobante: el arquitecto revisa el corte por terreno,
+  // no por folio de pago, que para él no dice nada.
+  contract: {
+    select: {
+      id: true, projectId: true, codigoLegado: true, contractNumber: true,
+      client: { select: { firstName: true, lastName: true } },
+      lots: { select: { lot: { select: { manzana: true, lotNumber: true } } } },
+    },
+  },
 } as const;
 
 export const corteService = {

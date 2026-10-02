@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { formatDateUTC } from '@/lib/utils';
+import { formatDateUTC, formatLotsLabel } from '@/lib/utils';
 import { formatMoney } from './reciboHelpers';
 import type { CorteDetalle } from '@/hooks/useCortes';
 
@@ -20,7 +20,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: C.border },
   rowAlt: { backgroundColor: C.alt },
   th: { fontFamily: 'Helvetica-Bold', fontSize: 8, color: C.muted },
-  cFecha: { width: '13%' }, cFolio: { width: '20%' }, cCod: { width: '10%' }, cCli: { width: '37%' }, cMonto: { width: '20%', textAlign: 'right' },
+  cFecha: { width: '13%' }, cLote: { width: '17%' }, cCod: { width: '10%' }, cCli: { width: '40%' }, cMonto: { width: '20%', textAlign: 'right' },
   total: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
   totalLabel: { fontFamily: 'Helvetica-Bold', marginRight: 10 },
   totalVal: { fontFamily: 'Helvetica-Bold', width: 110, textAlign: 'right' },
@@ -53,13 +53,13 @@ export function ComprobanteCorte({ corte }: { corte: CorteDetalle }) {
 
         <Text style={s.section}>Ingresos reportados</Text>
         <View style={s.row}>
-          <Text style={[s.th, s.cFecha]}>Fecha</Text><Text style={[s.th, s.cFolio]}>Folio</Text><Text style={[s.th, s.cCod]}>Código</Text>
+          <Text style={[s.th, s.cFecha]}>Fecha</Text><Text style={[s.th, s.cLote]}>Lote</Text><Text style={[s.th, s.cCod]}>Código</Text>
           <Text style={[s.th, s.cCli]}>Cliente</Text><Text style={[s.th, s.cMonto]}>Monto</Text>
         </View>
         {corte.payments.map((p, i) => (
           <View key={p.id} style={[s.row, ...(i % 2 ? [s.rowAlt] : [])]}>
             <Text style={s.cFecha}>{formatDateUTC(p.paymentDate, 'short')}</Text>
-            <Text style={s.cFolio}>{p.paymentNumber}</Text>
+            <Text style={s.cLote}>{formatLotsLabel(p.contract.lots)}</Text>
             <Text style={s.cCod}>{p.contract.codigoLegado ?? ''}</Text>
             <Text style={s.cCli}>{p.contract.client.firstName} {p.contract.client.lastName}</Text>
             <Text style={s.cMonto}>{formatMoney(p.amount)}</Text>
