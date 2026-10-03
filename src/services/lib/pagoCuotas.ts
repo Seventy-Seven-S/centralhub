@@ -13,7 +13,8 @@ export interface CuotaLike {
 export interface CuotaUpdate {
   id: string;
   montoPagado: number;
-  fechaPago: Date;
+  /** null cuando la cuota se queda SIN crédito: ya no tiene fecha de pago. */
+  fechaPago: Date | null;
   status: 'PENDIENTE' | 'PAGADA';
 }
 
@@ -32,6 +33,12 @@ export interface AplicarPagoResult {
  * `leftover` — NUNCA se descarta silenciosamente.
  */
 export function aplicarPagoACuotas(monto: number, fechaPago: Date, cuotas: CuotaLike[]): AplicarPagoResult {
+  // Un monto negativo RETIRA crédito: pasa cuando el cliente traspasa un lote
+  // y se lleva su dinero, o cuando se le devuelve algo. Antes caía en el bucle
+  // de abajo, que solo avanza con dinero positivo, y no hacía nada — el
+  // calendario seguía mostrando cuotas pagadas con dinero que ya se fue.
+  if (monto < 0) return retirarCredito(-monto, fechaPago, cuotas);
+
   const updates: CuotaUpdate[] = [];
   const startIdx = cuotas.findIndex(c => c.status !== 'PAGADA');
   if (startIdx === -1) return { updates, leftover: round2(monto) };
@@ -53,4 +60,36 @@ export function aplicarPagoACuotas(monto: number, fechaPago: Date, cuotas: Cuota
     }
   }
   return { updates, leftover: pool };
+}
+
+/**
+ * Quita `monto` de crédito, empezando por la última cuota con dinero y yendo
+ * hacia atrás: lo que entró al final es lo primero que sale.
+ *
+ * El `leftover` sale negativo cuando se pidió retirar más crédito del que
+ * había — eso se reporta, no se absorbe en silencio.
+ */
+function retirarCredito(monto: number, fechaPago: Date, cuotas: CuotaLike[]): AplicarPagoResult {
+  const updates: CuotaUpdate[] = [];
+  let porRetirar = round2(monto);
+
+  for (let i = cuotas.length - 1; i >= 0 && porRetirar > 0; i--) {
+    const c = cuotas[i];
+    const disponible = round2(c.montoPagado);
+    if (disponible <= 0) continue;
+
+    const quita = Math.min(disponible, porRetirar);
+    const queda = round2(disponible - quita);
+    updates.push({
+      id: c.id,
+      montoPagado: queda,
+      // CuotaLike no trae la fecha de pago previa; si queda crédito se sella
+      // con la fecha del retiro, que es cuando de verdad cambió.
+      fechaPago: queda > 0 ? fechaPago : null,
+      status: queda >= round2(c.montoEsperado) ? 'PAGADA' : 'PENDIENTE',
+    });
+    porRetirar = round2(porRetirar - quita);
+  }
+
+  return { updates, leftover: round2(-porRetirar) };
 }

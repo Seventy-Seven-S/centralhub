@@ -72,3 +72,48 @@ describe('aplicarPagoACuotas', () => {
     expect(leftover).toBe(0.1);
   });
 });
+
+describe('un monto NEGATIVO retira crédito del calendario', () => {
+  // Pasa cuando el cliente traspasa un lote y se lleva su dinero, o cuando se
+  // le devuelve algo: el movimiento se registra en negativo. Antes no hacía
+  // nada — el bucle solo avanzaba mientras quedara dinero positivo — así que
+  // el calendario seguía mostrando cuotas pagadas con dinero que ya se fue.
+  // Caso real: V356 traspasó el lote 22 con $26,000 y su saldo quedó $26,000
+  // por debajo de lo que debía.
+  const calendario = () => [
+    { id: 'c1', montoEsperado: 4000, montoPagado: 4000, status: 'PAGADA' as const },
+    { id: 'c2', montoEsperado: 4000, montoPagado: 4000, status: 'PAGADA' as const },
+    { id: 'c3', montoEsperado: 4000, montoPagado: 2000, status: 'PENDIENTE' as const },
+  ];
+  const cuando = new Date('2026-01-15T12:00:00Z');
+
+  it('despaga desde la última cuota hacia atrás', () => {
+    const { updates } = aplicarPagoACuotas(-6000, cuando, calendario());
+    const porId = new Map(updates.map(u => [u.id, u]));
+    expect(porId.get('c3')!.montoPagado).toBe(0);
+    expect(porId.get('c2')!.montoPagado).toBe(0);
+    expect(porId.get('c2')!.status).toBe('PENDIENTE');
+    expect(porId.has('c1')).toBe(false);          // la primera no se toca
+  });
+
+  it('deja una cuota a medias cuando el retiro no la cubre entera', () => {
+    const { updates } = aplicarPagoACuotas(-1000, cuando, calendario());
+    const c3 = updates.find(u => u.id === 'c3')!;
+    expect(c3.montoPagado).toBe(1000);
+    expect(c3.status).toBe('PENDIENTE');
+  });
+
+  it('no deja crédito negativo si se retira de más', () => {
+    const { updates, leftover } = aplicarPagoACuotas(-50000, cuando, calendario());
+    updates.forEach(u => expect(u.montoPagado).toBeGreaterThanOrEqual(0));
+    // Lo que no alcanzó a retirarse se reporta, no se pierde en silencio.
+    expect(leftover).toBeLessThan(0);
+  });
+
+  it('un calendario sin nada pagado no puede dar crédito', () => {
+    const vacio = [{ id: 'c1', montoEsperado: 4000, montoPagado: 0, status: 'PENDIENTE' as const }];
+    const { updates, leftover } = aplicarPagoACuotas(-4000, cuando, vacio);
+    expect(updates).toEqual([]);
+    expect(leftover).toBe(-4000);
+  });
+});
