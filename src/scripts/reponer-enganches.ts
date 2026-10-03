@@ -11,8 +11,11 @@
 // el archivo de revisión se dedujo contra un financiado que incluía el
 // enganche no registrado.
 //
-//   npx tsx src/scripts/reponer-enganches.ts            (dry-run)
-//   npx tsx src/scripts/reponer-enganches.ts --aplicar
+// Se le pasan los códigos ya confirmados con el equipo, uno por uno: el
+// detector los propone, pero cada caso merece su revisión antes de escribir.
+//
+//   npx tsx src/scripts/reponer-enganches.ts F158            (dry-run)
+//   npx tsx src/scripts/reponer-enganches.ts F158 --aplicar
 import { PrismaClient, PaymentType } from '@prisma/client';
 import { editarDatosDelContrato } from '../services/contratoEdicion.service';
 
@@ -20,7 +23,13 @@ const prisma = new PrismaClient();
 const aplicar = process.argv.includes('--aplicar');
 const $ = (n: unknown) => `$${Number(n).toLocaleString('es-MX')}`;
 
-const CASOS = ['V223', 'V454', 'E031'];
+const CASOS = process.argv.slice(2).filter(a => !a.startsWith('--'));
+
+if (CASOS.length === 0) {
+  console.error('Uso: npx tsx src/scripts/reponer-enganches.ts <CODIGO> [<CODIGO>...] [--aplicar]');
+  console.error('Para encontrar candidatos: npx tsx src/scripts/enganches-sin-registrar.ts');
+  process.exit(1);
+}
 
 async function main() {
   console.log(aplicar ? '=== APLICANDO ===\n' : '=== DRY-RUN (nada se escribe) ===\n');
