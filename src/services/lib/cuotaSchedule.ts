@@ -27,9 +27,16 @@ export interface BuildCuotaRowsInput {
  * desborda al mes siguiente y el calendario salta y repite meses (caso V205).
  */
 export function addMonthsClamped(base: Date, months: number): Date {
-  const y = base.getFullYear(), m = base.getMonth() + months, d = base.getDate();
-  const lastDay = new Date(y, m + 1, 0).getDate();
-  return new Date(y, m, Math.min(d, lastDay), base.getHours(), base.getMinutes(), base.getSeconds());
+  // TODO en UTC. Con métodos de hora local, una fecha guardada a medianoche
+  // UTC daba un mes distinto según dónde corriera el código: en México el
+  // ancla 2025-05-01 producía la cuota 1 el 31 de MAYO, y en el servidor el 1
+  // de JUNIO. Un calendario no puede depender de la laptop que lo rearma.
+  const y = base.getUTCFullYear(), m = base.getUTCMonth() + months, d = base.getUTCDate();
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(
+    y, m, Math.min(d, lastDay),
+    base.getUTCHours(), base.getUTCMinutes(), base.getUTCSeconds(),
+  ));
 }
 
 /** Una fila por cuota. El vencimiento de la cuota i es startDate + i meses calendario. */
@@ -41,7 +48,10 @@ export function buildCuotaRows({ contractId, startDate, cuotaAmounts, idFactory 
       id: idFactory(),
       contractId,
       numeroCuota,
-      mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }),
+      // timeZone UTC: sin esto, una cuota que vence el día 1 se etiquetaba con
+      // el mes ANTERIOR, porque la fecha retrocede un día al leerse en México.
+      // Es el texto que lee el equipo, y por el que reportaron meses malos.
+      mes: fechaVencimiento.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
       fechaVencimiento,
       montoEsperado,
       montoPagado: 0,
