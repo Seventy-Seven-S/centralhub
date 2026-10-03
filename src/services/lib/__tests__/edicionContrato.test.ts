@@ -175,3 +175,17 @@ describe('el enganche se puede corregir', () => {
       { pagado: 93948, primerPago: null, lotesOcupadosPorOtros: [] })).toBeNull();
   });
 });
+
+describe('mensualidadPara — cuando cambia el enganche', () => {
+  it('se recalcula al corregir el enganche', () => {
+    // V223: su enganche de $15,000 se había capturado como mensualidad, así
+    // que el contrato decía enganche $0. Al reponerlo, lo financiado baja de
+    // $235,000 a $220,000 y la mensualidad vuelve a sus $3,667 originales.
+    expect(mensualidadPara(220000, 60, undefined)).toBe(3667);
+  });
+
+  it('con el enganche en cero sale la mensualidad inflada', () => {
+    // Lo que el sistema tenía antes de reponer el enganche.
+    expect(mensualidadPara(235000, 60, undefined)).toBe(3917);
+  });
+});

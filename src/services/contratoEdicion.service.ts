@@ -105,12 +105,16 @@ export async function editarDatosDelContrato(
   // que las cuotas se armaran contra un financiado equivocado.
   const enganche = entrada.downPayment ?? actual.downPayment;
   const financiado = round2(totalPrice - enganche);
-  // Si cambia el PLAZO y no se captura mensualidad, la mensualidad se deriva
-  // del plazo nuevo: conservar la vieja hace que las cuotas no cierren contra
-  // lo financiado y la corrección se rechaza sola.
+  // La mensualidad sale de lo financiado entre el plazo. Si cambia cualquiera
+  // de los dos y no se captura una mensualidad, hay que recalcularla:
+  // conservar la vieja hace que las cuotas no cierren y la corrección se
+  // rechaza sola. Pasó con V223, cuyo enganche de $15,000 estaba capturado
+  // como mensualidad y dejaba el contrato con enganche en cero.
   const cambiaPlazo = entrada.installmentCount !== undefined
     && entrada.installmentCount !== actual.installmentCount;
-  const mensualidad = cambiaPlazo
+  const cambiaEnganche = entrada.downPayment !== undefined
+    && entrada.downPayment !== actual.downPayment;
+  const mensualidad = (cambiaPlazo || cambiaEnganche)
     ? mensualidadPara(financiado, plazo, entrada.installmentAmount) ?? undefined
     : entrada.installmentAmount ?? actual.installmentAmount ?? undefined;
   const inicio = entrada.mesInicioCalendario ? inicioDesdeMes(entrada.mesInicioCalendario) : actual.startDate;
