@@ -10,8 +10,12 @@
 // el cliente paga al mes. Aquí se pasa ya confirmado, caso por caso, porque
 // cada uno merece su revisión con el equipo.
 //
-//   npx tsx src/scripts/partir-enganche.ts V434 10000            (dry-run)
-//   npx tsx src/scripts/partir-enganche.ts V434 10000 --aplicar
+// La mensualidad es opcional: si no se da, se deriva de lo financiado entre el
+// plazo. Se pasa cuando el equipo tiene la cifra pactada y difiere por el
+// redondeo, como A101/A102 ($4,066 contra los $4,067 que saldrían solos).
+//
+//   npx tsx src/scripts/partir-enganche.ts V434 10000                  (dry-run)
+//   npx tsx src/scripts/partir-enganche.ts A101 48800 4066 --aplicar
 import { PrismaClient, PaymentType, PaymentStatus } from '@prisma/client';
 import { editarDatosDelContrato } from '../services/contratoEdicion.service';
 import { partirPagoEnganche } from '../services/lib/partirPagoEnganche';
@@ -20,11 +24,16 @@ const prisma = new PrismaClient();
 const aplicar = process.argv.includes('--aplicar');
 const $ = (n: unknown) => `$${Number(n).toLocaleString('es-MX')}`;
 
-const [CODIGO, MONTO] = process.argv.slice(2).filter(a => !a.startsWith('--'));
+const [CODIGO, MONTO, MENSUALIDAD] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const ENGANCHE = Number(MONTO);
+const MENSUALIDAD_PACTADA = MENSUALIDAD ? Number(MENSUALIDAD) : undefined;
 
 if (!CODIGO || !Number.isFinite(ENGANCHE) || ENGANCHE <= 0) {
-  console.error('Uso: npx tsx src/scripts/partir-enganche.ts <CODIGO> <ENGANCHE> [--aplicar]');
+  console.error('Uso: npx tsx src/scripts/partir-enganche.ts <CODIGO> <ENGANCHE> [<MENSUALIDAD>] [--aplicar]');
+  process.exit(1);
+}
+if (MENSUALIDAD_PACTADA !== undefined && (!Number.isFinite(MENSUALIDAD_PACTADA) || MENSUALIDAD_PACTADA <= 0)) {
+  console.error('La mensualidad, si se da, debe ser un número mayor a cero');
   process.exit(1);
 }
 
@@ -95,6 +104,7 @@ async function main() {
   const admin = await prisma.user.findFirstOrThrow({ where: { role: 'ADMIN' }, select: { id: true } });
   const r = await editarDatosDelContrato(c.id, {
     downPayment: enganche,
+    ...(MENSUALIDAD_PACTADA !== undefined ? { installmentAmount: MENSUALIDAD_PACTADA } : {}),
     motivo: `Su enganche de ${$(enganche)} venía junto con la primera mensualidad en un solo pago de ${$(pago.amount)}, así que el contrato quedaba con enganche en cero y la mensualidad salía inflada.`,
   }, admin.id, { dryRun: !aplicar });
 
