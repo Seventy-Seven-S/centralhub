@@ -58,7 +58,7 @@ async function main() {
   const pago = await prisma.payment.findFirstOrThrow({
     where: { contractId: c.id, status: PaymentStatus.CONFIRMED },
     orderBy: { paymentDate: 'asc' },
-    select: { id: true, paymentNumber: true, amount: true, paymentDate: true, paymentType: true, paymentMethod: true, concept: true },
+    select: { id: true, paymentNumber: true, amount: true, paymentDate: true, paymentType: true, paymentMethod: true, concept: true, corteId: true },
   });
 
   const { enganche, resto } = partirPagoEnganche(Number(pago.amount), ENGANCHE);
@@ -89,6 +89,11 @@ async function main() {
         data: {
           paymentNumber: `${pago.paymentNumber}-M`,
           contractId: c.id, clientId: c.clientId,
+          // Hereda el corte del pago del que salió. Sin esto el pedazo nuevo
+          // aparecía como pendiente de entregar, aunque ese dinero YA se había
+          // reportado: pasó con A101 y A102, cuyo original estaba en el corte
+          // #1 de JSA 2 y los pedazos volvieron a salir en la liquidación.
+          corteId: pago.corteId,
           paymentType: PaymentType.INSTALLMENT,
           paymentMethod: pago.paymentMethod,
           amount: resto,
