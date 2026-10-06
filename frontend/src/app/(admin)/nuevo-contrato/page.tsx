@@ -175,7 +175,10 @@ export default function NuevoContratoPage() {
   const fechaInicio = fechaInicioDesdeMes(mesPrimeraMensualidad, todayLocalISO());
   const [precioEditado, setPrecioEditado] = useState<number>(0);
   const [agentId,      setAgentId]      = useState('');
-  const [commissionPct, setCommissionPct] = useState(0);
+  // La comisión se captura en PESOS: el equipo acuerda el monto con el
+  // vendedor, no la proporción, y con el porcentaje tenían que sacar la cuenta
+  // al revés para llegar a la cifra pactada.
+  const [comisionPesos, setComisionPesos] = useState(0);
 
   const { data: proyectos = [] } = useProyectos();
   const { data: todosLotes = [] } = useLotes(projectId);
@@ -220,7 +223,9 @@ export default function NuevoContratoPage() {
   const totalUpfront    = totalDeposit + downPayment;
   const saldoFinanciado = Math.max(0, precioEditado - totalUpfront);
   const mensualidad     = plazo > 0 ? saldoFinanciado / plazo : 0;
-  const comisionMonto   = commissionPct > 0 ? (precioEditado * commissionPct) / 100 : 0;
+  const comisionMonto   = comisionPesos > 0 ? comisionPesos : 0;
+  // Solo para enseñar a qué proporción equivale lo que tecleó.
+  const comisionPct     = precioEditado > 0 ? (comisionMonto * 100) / precioEditado : 0;
 
   // ── Navegación entre pasos
   function goNext() {
@@ -284,7 +289,7 @@ export default function NuevoContratoPage() {
         // debe distinguirse de "nunca se mandó nada" para que el backend no
         // reimponga la herencia sobre una elección explícita de vaciarlo.
         agentId:       agentId || null,
-        commissionPercentage: agentId && commissionPct > 0 ? commissionPct : undefined,
+        commissionAmount: agentId && comisionPesos > 0 ? comisionPesos : undefined,
       });
 
       const contractId = contractRes.data.data.id;
@@ -652,7 +657,7 @@ export default function NuevoContratoPage() {
                 <select
                   style={inputStyle}
                   value={agentId}
-                  onChange={e => { setAgentId(e.target.value); if (!e.target.value) setCommissionPct(0); }}
+                  onChange={e => { setAgentId(e.target.value); if (!e.target.value) setComisionPesos(0); }}
                 >
                   <option value="">— Sin asignar —</option>
                   {vendedores.map(v => (
@@ -663,31 +668,27 @@ export default function NuevoContratoPage() {
                 </select>
               </Field>
 
-              <Field label="% de comisión">
-                <input
+              <Field label="Comisión del vendedor">
+                <InputMoneda
                   style={inputStyle}
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.1"
-                  value={commissionPct === 0 ? '' : commissionPct}
-                  onChange={e => setCommissionPct(Number(e.target.value) || 0)}
-                  placeholder="Ej: 3"
+                  valor={comisionPesos === 0 ? '' : String(comisionPesos)}
+                  onValorChange={v => setComisionPesos(Number(v) || 0)}
+                  placeholder="Lo que le toca al vendedor"
                 />
               </Field>
             </div>
 
-            {agentId && commissionPct <= 0 && (
+            {agentId && comisionPesos <= 0 && (
               <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
-                Asignaste un vendedor. Captura el % de comisión para registrarla; si lo dejas en 0,
-                el contrato se crea sin comisión.
+                Asignaste un vendedor. Captura su comisión en pesos para registrarla; si la dejas
+                en cero, el contrato se crea sin comisión.
               </p>
             )}
-            {agentId && commissionPct > 0 && (
+            {agentId && comisionPesos > 0 && (
               <p className="text-sm font-semibold mt-3" style={{ color: 'var(--accent)' }}>
                 Comisión: {formatCurrency(comisionMonto)}
                 <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>
-                  {' '}({commissionPct}% de {formatCurrency(precioEditado)})
+                  {' '}(equivale al {comisionPct.toFixed(2)}% de {formatCurrency(precioEditado)})
                 </span>
               </p>
             )}
@@ -759,7 +760,7 @@ export default function NuevoContratoPage() {
                 // que va un mes antes por cómo se arma el calendario.
                 { label: 'Primera mensualidad', value: new Date(mesPrimeraMensualidad + '-01T12:00:00').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase()) },
                 ...(agentId && comisionMonto > 0
-                  ? [{ label: `Comisión (${commissionPct}%)`, value: formatCurrency(comisionMonto) }]
+                  ? [{ label: 'Comisión del vendedor', value: formatCurrency(comisionMonto) }]
                   : []),
               ]}
             />

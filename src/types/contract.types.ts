@@ -24,6 +24,9 @@ export interface CreateContractDto {
   agentId?: string | null;
   // % de comisión tecleado manualmente por venta (sobre el precio del contrato).
   commissionPercentage?: number;
+  // La comisión pactada en PESOS. Si viene, manda sobre el porcentaje: el
+  // equipo acuerda el monto, no la proporción.
+  commissionAmount?: number;
 }
 
 // DTO para actualizar contrato

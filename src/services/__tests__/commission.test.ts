@@ -81,3 +81,42 @@ describe('buildCommissionData', () => {
     expect(result!.commissionAmount).toBe(13333.33);
   });
 });
+
+describe('buildCommissionData — comisión por cantidad', () => {
+  const base = { contractId: 'c1', agentId: 'a1', baseAmount: 250000 };
+
+  it('acepta la comisión como cantidad en pesos', () => {
+    // El equipo pidió teclear los pesos directo: el porcentaje los obligaba a
+    // sacar la cuenta al revés para llegar al monto pactado.
+    const r = buildCommissionData({ ...base, fixedAmount: 12500 });
+    expect(r?.commissionAmount).toBe(12500);
+    expect(r?.fixedAmount).toBe(12500);
+    expect(r?.percentage).toBeNull();
+  });
+
+  it('el porcentaje sigue funcionando igual', () => {
+    const r = buildCommissionData({ ...base, percentage: 5 });
+    expect(r?.commissionAmount).toBe(12500);
+    expect(r?.percentage).toBe(5);
+    expect(r?.fixedAmount).toBeNull();
+  });
+
+  it('la cantidad manda si llegan las dos', () => {
+    // No debería pasar desde la pantalla, pero si llega, gana lo explícito.
+    const r = buildCommissionData({ ...base, percentage: 5, fixedAmount: 9000 });
+    expect(r?.commissionAmount).toBe(9000);
+  });
+
+  it('sin cantidad ni porcentaje no se crea comisión', () => {
+    expect(buildCommissionData({ ...base })).toBeNull();
+    expect(buildCommissionData({ ...base, fixedAmount: 0 })).toBeNull();
+  });
+
+  it('una cantidad negativa no crea comisión', () => {
+    expect(buildCommissionData({ ...base, fixedAmount: -100 })).toBeNull();
+  });
+
+  it('redondea los centavos de la cantidad', () => {
+    expect(buildCommissionData({ ...base, fixedAmount: 12500.456 })?.commissionAmount).toBe(12500.46);
+  });
+});

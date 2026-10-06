@@ -311,6 +311,7 @@ export class ContractService {
         contractId: contract.id,
         agentId: finalAgentId,
         percentage: data.commissionPercentage,
+        fixedAmount: (data as { commissionAmount?: number }).commissionAmount,
         baseAmount: totalPrice,
       });
       if (commissionData) {

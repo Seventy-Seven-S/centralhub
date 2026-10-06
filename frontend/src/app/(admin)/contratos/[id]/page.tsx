@@ -105,6 +105,9 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const { data: contrato, isLoading: loadingContrato, isError: errorContrato } = useContratoById(id);
   const { data: cuotas   = [], isLoading: loadingCuotas } = useCuotasByContrato(id);
   const { data: pagos    = [], isLoading: loadingPagos }  = usePagosByContrato(id);
+  // El historial llega colapsado: hay clientes con decenas de movimientos y la
+  // lista completa empuja todo lo demás fuera de la pantalla.
+  const [historialAbierto, setHistorialAbierto] = useState<boolean>(false);
   const { data: cambios  = [] } = useCambiosContrato(id);
   const { role } = useRole();
   const esAdmin = role === 'ADMIN';
@@ -715,17 +718,27 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
 
         {/* SECCIÓN 4 — Historial de pagos */}
         <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
-          <div className="px-6 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
-            <CreditCard className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+          <button
+            type="button"
+            onClick={() => setHistorialAbierto(a => !a)}
+            className="w-full px-6 py-4 flex items-center gap-2 text-left transition-colors hover:opacity-80"
+            style={{ borderBottom: historialAbierto ? '1px solid var(--border)' : 'none' }}
+            aria-expanded={historialAbierto}
+          >
+            <CreditCard className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
             <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               Historial de pagos
               {!loadingPagos && (
                 <span className="font-normal ml-1" style={{ color: 'var(--text-tertiary)' }}>({pagos.length})</span>
               )}
             </h3>
-          </div>
+            <ChevronDown
+              className="w-4 h-4 ml-auto flex-shrink-0 transition-transform"
+              style={{ color: 'var(--text-tertiary)', transform: historialAbierto ? 'rotate(180deg)' : 'none' }}
+            />
+          </button>
 
-          {loadingPagos ? (
+          {!historialAbierto ? null : loadingPagos ? (
             <div className="p-6 space-y-3">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--bg-secondary)' }} />

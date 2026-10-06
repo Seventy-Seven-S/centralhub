@@ -24,6 +24,8 @@ export interface BuildCommissionInput {
   contractId: string;
   agentId?: string | null;
   percentage?: number | null;
+  /** La comisión pactada en pesos. Si viene, manda sobre el porcentaje. */
+  fixedAmount?: number | null;
   baseAmount: number;
 }
 
@@ -31,7 +33,9 @@ export interface CommissionCreateData {
   contractId: string;
   agentId: string;
   commissionType: CommissionType;
-  percentage: number;
+  /** Uno de los dos viene lleno y el otro en null, según cómo se pactó. */
+  percentage: number | null;
+  fixedAmount: number | null;
   baseAmount: number;
   commissionAmount: number;
   status: CommissionStatus;
@@ -45,22 +49,39 @@ export function buildCommissionData(
     return null;
   }
 
+  const baseAmount = input.baseAmount;
+
+  // La comisión se puede pactar como CANTIDAD o como porcentaje. El equipo
+  // pidió poder teclear los pesos directo: con solo el porcentaje tenían que
+  // sacar la cuenta al revés para llegar al monto acordado.
+  const fixedAmount = input.fixedAmount ?? 0;
+  if (fixedAmount > 0) {
+    return {
+      contractId: input.contractId,
+      agentId: input.agentId,
+      commissionType: CommissionType.SALE,
+      percentage: null,
+      fixedAmount: round2(fixedAmount),
+      baseAmount,
+      commissionAmount: round2(fixedAmount),
+      status: CommissionStatus.PENDING,
+    };
+  }
+
   // Comisión manual: sin % tecleado (o <= 0) no se crea comisión.
   const percentage = input.percentage ?? 0;
   if (percentage <= 0) {
     return null;
   }
 
-  const baseAmount = input.baseAmount;
-  const commissionAmount = round2((baseAmount * percentage) / 100);
-
   return {
     contractId: input.contractId,
     agentId: input.agentId,
     commissionType: CommissionType.SALE,
     percentage,
+    fixedAmount: null,
     baseAmount,
-    commissionAmount,
+    commissionAmount: round2((baseAmount * percentage) / 100),
     status: CommissionStatus.PENDING,
   };
 }
