@@ -95,6 +95,12 @@ describe('corteService.crearCorte', () => {
     expect(mocks.tx.corte.create).not.toHaveBeenCalled();
   });
 
+  it('rechaza el corte de un proyecto sin cortes', async () => {
+    mocks.prisma.project.findUnique.mockResolvedValue({ id: 'proj-1', code: 'VDR', name: 'Valle del Roble', sinCortes: true });
+    await expect(corteService.crearCorte(input)).rejects.toThrow(/no maneja cortes/i);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('rechaza un corte sin pagos', async () => {
     await expect(corteService.crearCorte({ ...input, paymentIds: [] })).rejects.toThrow(/al menos un pago/i);
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();

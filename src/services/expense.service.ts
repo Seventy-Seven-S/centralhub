@@ -78,7 +78,8 @@ export class ExpenseService {
         date:        new Date(data.date),
         projectId:   data.projectId,
         categoryId:  data.categoryId,
-        descontarEnCorte: data.descontarEnCorte === true,
+        // En un proyecto sin cortes no hay corte que lo descuente.
+        descontarEnCorte: data.descontarEnCorte === true && !project.sinCortes,
         createdById: userId,
       },
       include: {
@@ -157,6 +158,10 @@ export class ExpenseService {
 
     // Ya liquidado: su monto y su casilla forman parte de un corte firmado.
     const cambiaMonto = data.amount !== undefined && Number(data.amount) !== Number(expense.amount);
+    if (data.descontarEnCorte === true) {
+      const project = await prisma.project.findUnique({ where: { id: expense.projectId }, select: { sinCortes: true } });
+      if (project?.sinCortes) throw new Error('Este proyecto no maneja cortes');
+    }
     const cambiaCasilla = data.descontarEnCorte !== undefined && data.descontarEnCorte !== expense.descontarEnCorte;
     if (expense.corteId && (cambiaMonto || cambiaCasilla)) {
       throw new Error('Este gasto ya se descontó en un corte; su monto no se puede cambiar');

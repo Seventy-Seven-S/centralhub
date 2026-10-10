@@ -213,10 +213,16 @@ export default function CortesPage() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Liquidaciones</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{selectedProjectId ? `${cortes.length} cortes registrados` : 'Selecciona un proyecto para generar un corte'}</p>
         </div>
-        <button onClick={() => setAbierto(true)} disabled={!selectedProjectId} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: 'var(--accent)' }}>
+        <button onClick={() => setAbierto(true)} disabled={!selectedProjectId || proyecto?.sinCortes} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: 'var(--accent)' }}>
           <Plus className="w-4 h-4" /> Generar corte
         </button>
       </div>
+
+      {proyecto?.sinCortes && (
+        <p className="text-sm rounded-xl px-4 py-3" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+          {proyecto.name} no maneja cortes: sus finanzas son los ingresos menos todos sus gastos, sin entregas al dueño.
+        </p>
+      )}
 
       <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>
         {isError ? (

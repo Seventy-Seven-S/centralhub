@@ -16,7 +16,7 @@ import { repartoDelProyecto, guardarAcuerdo } from '../services/reparto.service'
  * duplicado en los dos endpoints, arreglar un total en uno dejaba el otro
  * mintiendo — ya pasó con los otros ingresos.
  */
-async function cifrasDelProyecto(projectId: string) {
+async function cifrasDelProyecto(projectId: string, sinCortes = false) {
   const [contratosVivos, lotesPorEstado, valorLotes, pagos, porEntregar, porDescontar, egresos, otros] = await Promise.all([
     prisma.contract.count({ where: { projectId, status: { in: CONTRATOS_VIVOS } } }),
     prisma.lot.groupBy({ by: ['status'], where: { projectId }, _count: true }),
@@ -44,7 +44,8 @@ async function cifrasDelProyecto(projectId: string) {
   return {
     totalContratos:      contratosVivos,
     valorTotal:          round2(valorLotes._sum.basePrice ?? 0),
-    pendientePorEntregar: round2((porEntregar._sum.amount ?? 0) - Number(porDescontar._sum.amount ?? 0)),
+    // Un proyecto sin cortes no le entrega a nadie: lo cobrado ya es suyo.
+    pendientePorEntregar: sinCortes ? 0 : round2((porEntregar._sum.amount ?? 0) - Number(porDescontar._sum.amount ?? 0)),
     // El total sale de contar los lotes reales, no del campo capturado que
     // nadie mantuvo: decía 50 en JSA 1 cuando ya había 113 lotes cargados.
     totalLotes:          lotes.total,
@@ -71,7 +72,7 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
   });
 
   const enriched = await Promise.all(
-    projects.map(async (p) => ({ ...p, ...(await cifrasDelProyecto(p.id)) })),
+    projects.map(async (p) => ({ ...p, ...(await cifrasDelProyecto(p.id, p.sinCortes)) })),
   );
 
   res.status(200).json({
@@ -91,7 +92,7 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
 
   const enriched = {
     ...project,
-    ...(await cifrasDelProyecto(id)),
+    ...(await cifrasDelProyecto(id, project.sinCortes)),
   };
 
   res.status(200).json({

@@ -17,6 +17,8 @@ export interface Proyecto {
   commissionValue:  number | null;
   /** Quién firma de recibido en los cortes de este proyecto. */
   duenoTerreno:     string | null;
+  /** No se liquida por cortes (VDR): sus finanzas son ingresos − gastos. */
+  sinCortes:        boolean;
   createdAt:        string;
   /** Contratos vivos: no cuenta cancelados, rescindidos ni borradores. */
   totalContratos:      number;

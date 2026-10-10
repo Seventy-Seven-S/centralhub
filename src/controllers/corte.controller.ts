@@ -4,7 +4,7 @@ import corteService from '../services/corte.service';
 
 function statusFor(msg: string) {
   if (/no encontrado/i.test(msg)) return 404;
-  if (/al menos un pago|exceden|negativ|ya están en otro corte|indica el nombre|proyecto/i.test(msg)) return 400;
+  if (/al menos un pago|exceden|negativ|ya están en otro corte|indica el nombre|proyecto|no maneja cortes/i.test(msg)) return 400;
   return 500;
 }
 

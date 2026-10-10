@@ -96,6 +96,7 @@ export const corteService = {
     const fecha = input.fecha instanceof Date ? input.fecha : new Date(input.fecha);
     const project = await prisma.project.findUnique({ where: { id: input.projectId } });
     if (!project) throw new Error('Proyecto no encontrado');
+    if (project.sinCortes) throw new Error('Este proyecto no maneja cortes');
 
     return prisma.$transaction(async (tx) => {
       const pagos = await tx.payment.findMany({

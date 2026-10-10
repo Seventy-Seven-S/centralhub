@@ -166,6 +166,11 @@ model Project {
   // prellenaba "Antonio Isassi" cuando son Carlos y Marilina. Como dato se
   // corrige sin desplegar y no depende de que alguien lo teclee bien cada vez.
   duenoTerreno      String?  @map("dueno_terreno")
+
+  // Proyecto que no se liquida por cortes (VDR): no hay dueño a quien
+  // entregarle, sus finanzas son ingresos menos todos sus gastos. Sin esto el
+  // "pendiente por entregar" crecía para siempre con todo lo cobrado.
+  sinCortes         Boolean  @default(false) @map("sin_cortes")
   
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

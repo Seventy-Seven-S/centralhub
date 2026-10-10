@@ -68,7 +68,7 @@ interface ExpenseModalProps {
   expense:    Expense | null;
   projectId:  string;
   categories: ExpenseCategory[];
-  projects:   Array<{ id: string; name: string; code: string }>;
+  projects:   Array<{ id: string; name: string; code: string; sinCortes?: boolean }>;
   onClose:    () => void;
 }
 
@@ -85,6 +85,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
   });
   // Ya liquidado en un corte: el dueño firmó ese monto, no se toca.
   const enCorte = !!expense?.corteId;
+  const sinCortes = !!projects.find(p => p.id === form.projectId)?.sinCortes;
   const [error, setError] = useState('');
 
   const createMutation = useCreateExpense(form.projectId);
@@ -113,7 +114,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           amount:      Number(form.amount),
           description: form.description || undefined,
           date:        new Date(form.date).toISOString(),
-          ...(!enCorte && { descontarEnCorte: form.descontarEnCorte }),
+          ...(!enCorte && !sinCortes && { descontarEnCorte: form.descontarEnCorte }),
         };
         await updateMutation.mutateAsync({ id: expense!.id, dto });
       } else {
@@ -123,7 +124,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           amount:      Number(form.amount),
           description: form.description || undefined,
           date:        new Date(form.date).toISOString(),
-          descontarEnCorte: form.descontarEnCorte,
+          descontarEnCorte: form.descontarEnCorte && !sinCortes,
         };
         await createMutation.mutateAsync(dto);
       }
@@ -227,7 +228,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
             <p className="text-xs px-3 py-2 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}>
               Este gasto ya se descontó en un corte; su monto no se puede cambiar.
             </p>
-          ) : (
+          ) : sinCortes ? null : (
             <label className="flex items-start gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
               <input
                 type="checkbox"
@@ -825,7 +826,7 @@ export default function GastosPage() {
           expense={expenseModal.expense}
           projectId={selectedProject}
           categories={categories}
-          projects={proyectos.map(p => ({ id: p.id, name: p.name, code: p.code }))}
+          projects={proyectos.map(p => ({ id: p.id, name: p.name, code: p.code, sinCortes: p.sinCortes }))}
           onClose={() => setExpenseModal({ open: false, expense: null })}
         />
       )}
