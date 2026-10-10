@@ -6,7 +6,7 @@ producción. Es el ensayo antes de tocar la base real.
 ## Levantar
 
 ```bash
-npm run local:up      # Postgres 18 en el puerto 5434 (docker)
+npm run local:up      # Postgres 18 en el puerto 5434 (Homebrew, sin Docker)
 npm run dev           # API en http://localhost:4000
 cd frontend && npm run dev   # UI en http://localhost:3001
 ```
@@ -22,10 +22,16 @@ reemplaza. Tarda menos de un minuto.
 
 ## Por qué el puerto 5434 y no el 5432
 
-En el 5432 vive el `postgresql@17` de Homebrew, que otros proyectos usan. El
-contenedor de CentralHub tiene puerto propio para que nunca haya duda de a qué
-base le está pegando un script. Además la versión coincide con producción
-(PostgreSQL 18), porque `pg_dump` no puede leer un servidor más nuevo que él.
+En el 5432 vive el `postgresql@17` de Homebrew, que otros proyectos usan. La
+base de CentralHub es un servidor aparte con puerto propio para que nunca haya
+duda de a qué base le está pegando un script. Además la versión coincide con
+producción (PostgreSQL 18), porque `pg_dump` no puede leer un servidor más
+nuevo que él.
+
+Corre sin Docker (se quitó por espacio en disco): es el `postgresql@18` de
+Homebrew con su propio directorio de datos en `~/.local/share/centralhub-pg18`,
+arrancado por `scripts/pg-local.sh`. No usa `brew services`. Si la Mac se
+reinicia, basta con `npm run local:up` (o `local:refresh`, que lo arranca solo).
 
 ## Los correos NO salen en local
 

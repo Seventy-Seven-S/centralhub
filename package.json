@@ -14,8 +14,8 @@
     "migrate": "tsx src/scripts/migrate-project.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "local:up": "docker compose up -d postgres",
-    "local:down": "docker compose stop postgres",
+    "local:up": "./scripts/pg-local.sh start",
+    "local:down": "./scripts/pg-local.sh stop",
     "local:refresh": "./scripts/refrescar-local.sh",
     "local:psql": "psql postgresql://postgres:postgres@127.0.0.1:5434/centralhub"
   },

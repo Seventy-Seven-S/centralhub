@@ -15,12 +15,7 @@ LOCAL_URL="postgresql://postgres:postgres@${LOCAL_HOST}:${LOCAL_PORT}/${LOCAL_DB
 DUMP="$(mktemp -t centralhub-prod).dump"
 trap 'rm -f "$DUMP"' EXIT
 
-echo "→ Levantando Postgres local (puerto ${LOCAL_PORT})…"
-docker compose up -d postgres >/dev/null
-for i in $(seq 1 30); do
-  docker exec centralhub-postgres pg_isready -U postgres >/dev/null 2>&1 && break
-  sleep 1
-done
+"$(dirname "$0")/pg-local.sh" start
 
 echo "→ Leyendo la URL de producción desde Railway…"
 # El CLI a veces devuelve vacío; sin esta validación psql se iría a la base
