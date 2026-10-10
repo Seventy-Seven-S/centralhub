@@ -3,7 +3,7 @@
 // propone mientras no tenga corte, y una vez ligado no vuelve a aparecer.
 import { PrismaClient, PaymentStatus } from '@prisma/client';
 import { round2 } from '../utils/money';
-import { wherePendienteDeCorte } from './lib/cortePendiente';
+import { wherePendienteDeCorte, whereGastoPorDescontar } from './lib/cortePendiente';
 
 const prisma = new PrismaClient();
 
@@ -13,6 +13,7 @@ export interface CrearCorteInput {
   projectId: string;
   fecha: Date | string;
   paymentIds: string[];
+  expenseIds?: string[];       // gastos marcados "descontar en el próximo corte" que entran a este
   reparto: RepartoItem[];      // egresos capturados (Central, Oficina 2, Planos, Notaría…)
   dueno: string;               // nombre del dueño que firma de recibido
   duenoCategoryId: string;     // categoría "Dueño del terreno" donde se registra lo entregado
@@ -41,15 +42,28 @@ const PAGO_SELECT = {
   },
 } as const;
 
+const GASTO_SELECT = {
+  id: true, amount: true, date: true, description: true,
+  category: { select: { id: true, name: true } },
+} as const;
+
 export const corteService = {
-  /** Pagos confirmados del proyecto que aún no se han reportado en ningún corte. */
+  /**
+   * Pagos confirmados del proyecto que aún no se han reportado en ningún corte,
+   * y los gastos marcados para descontarse en el próximo.
+   */
   async pendientes(projectId: string) {
-    const pagos = await prisma.payment.findMany({
-      where: wherePendienteDeCorte(projectId),
-      select: PAGO_SELECT,
-      orderBy: { paymentDate: 'asc' },
-    });
-    return { pagos, total: round2(pagos.reduce((a, p) => a + p.amount, 0)) };
+    const [pagos, gastosRaw] = await Promise.all([
+      prisma.payment.findMany({ where: wherePendienteDeCorte(projectId), select: PAGO_SELECT, orderBy: { paymentDate: 'asc' } }),
+      prisma.expense.findMany({ where: whereGastoPorDescontar(projectId), select: GASTO_SELECT, orderBy: { date: 'asc' } }),
+    ]);
+    const gastos = gastosRaw.map(g => ({ ...g, amount: Number(g.amount) }));
+    return {
+      pagos,
+      total: round2(pagos.reduce((a, p) => a + p.amount, 0)),
+      gastos,
+      totalGastos: round2(gastos.reduce((a, g) => a + g.amount, 0)),
+    };
   },
 
   async listar(projectId?: string) {
@@ -92,8 +106,22 @@ export const corteService = {
         throw new Error('Algunos pagos ya están en otro corte o no pertenecen al proyecto; recarga la lista');
       }
 
+      const gastoIds = [...new Set(input.expenseIds ?? [])];
+      const gastos = gastoIds.length
+        ? await tx.expense.findMany({ where: { id: { in: gastoIds }, ...whereGastoPorDescontar(input.projectId) }, select: { id: true, amount: true, categoryId: true } })
+        : [];
+      if (gastos.length !== gastoIds.length) {
+        throw new Error('Algunos gastos ya están en otro corte o no pertenecen al proyecto; recarga la lista');
+      }
+
+      // Los gastos por descontar cuentan como egreso igual que los que se
+      // capturan en el asistente; la diferencia es que ya existen como gasto,
+      // así que se ligan al corte en vez de crearse otra vez.
       const totalIngresos = round2(pagos.reduce((a, p) => a + p.amount, 0));
-      const { totalEgresos, entregadoDueno } = calcularReparto(totalIngresos, input.reparto);
+      const { totalEgresos, entregadoDueno } = calcularReparto(totalIngresos, [
+        ...input.reparto,
+        ...gastos.map(g => ({ categoryId: g.categoryId, amount: Number(g.amount) })),
+      ]);
       const fechas = pagos.map(p => p.paymentDate.getTime());
       const ultimo = await tx.corte.findFirst({ where: { projectId: input.projectId }, orderBy: { numero: 'desc' }, select: { numero: true } });
 
@@ -114,6 +142,7 @@ export const corteService = {
       });
 
       await tx.payment.updateMany({ where: { id: { in: ids } }, data: { corteId: corte.id } });
+      if (gastos.length) await tx.expense.updateMany({ where: { id: { in: gastoIds } }, data: { corteId: corte.id } });
 
       const etiqueta = `Corte #${corte.numero} ${project.code} ${fecha.toISOString().slice(0, 10)}`;
       const egresos = [

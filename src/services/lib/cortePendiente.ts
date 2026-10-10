@@ -25,3 +25,11 @@ export function wherePendienteDeCorte(projectId: string): Prisma.PaymentWhereInp
     },
   };
 }
+
+// Gastos que el próximo corte le descuenta al dueño: los que se capturaron con
+// la casilla "Descontar en el próximo corte" y todavía no se ligan a ninguno.
+// Filtrar por la casilla no es opcional: hay miles de gastos migrados sin
+// corte, y tomarlos todos descontaría años de historia.
+export function whereGastoPorDescontar(projectId: string): Prisma.ExpenseWhereInput {
+  return { projectId, descontarEnCorte: true, corteId: null };
+}

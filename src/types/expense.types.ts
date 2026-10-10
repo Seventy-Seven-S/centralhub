@@ -14,6 +14,7 @@ export interface CreateExpenseDto {
   date: string; // ISO date string
   projectId: string;
   categoryId: string;
+  descontarEnCorte?: boolean;
 }
 
 export interface UpdateExpenseDto {
@@ -21,6 +22,7 @@ export interface UpdateExpenseDto {
   description?: string;
   date?: string;
   categoryId?: string;
+  descontarEnCorte?: boolean;
 }
 
 export interface ExpenseFilters {

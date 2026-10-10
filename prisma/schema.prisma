@@ -945,6 +945,11 @@ model Expense {
   updatedAt   DateTime        @updatedAt
   createdById String
   corteId     String?         @map("corte_id")
+  // Se le descuenta al dueño en el próximo corte del proyecto (comisiones,
+  // gastos de obra que salen de su dinero). Mientras no tenga corte, el
+  // asistente lo propone; al generarlo se LIGA a ese corte, no se duplica.
+  // Los gastos migrados quedan en false: si no, el corte descontaría años.
+  descontarEnCorte Boolean    @default(false) @map("descontar_en_corte")
   corte       Corte?          @relation(fields: [corteId], references: [id])
   project     Project         @relation(fields: [projectId], references: [id])
   category    ExpenseCategory @relation(fields: [categoryId], references: [id])

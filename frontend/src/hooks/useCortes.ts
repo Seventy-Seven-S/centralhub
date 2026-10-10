@@ -16,6 +16,14 @@ export interface PagoCorte {
   };
 }
 
+export interface GastoPorDescontar {
+  id: string;
+  amount: number;
+  date: string;
+  description: string | null;
+  category: { id: string; name: string };
+}
+
 export interface Corte {
   id: string;
   projectId: string;
@@ -40,7 +48,7 @@ export interface CorteDetalle extends Corte {
 }
 
 export function usePendientesCorte(projectId?: string) {
-  return useQuery<{ pagos: PagoCorte[]; total: number }>({
+  return useQuery<{ pagos: PagoCorte[]; total: number; gastos: GastoPorDescontar[]; totalGastos: number }>({
     queryKey: ['cortes', 'pendientes', projectId],
     queryFn: async () => (await api.get('/cortes/pendientes', { params: { projectId } })).data.data,
     enabled: !!projectId,

@@ -42,9 +42,10 @@ export class CorteController {
   // POST /api/v1/cortes
   async crear(req: Request, res: Response) {
     try {
-      const { projectId, fecha, paymentIds, reparto, dueno, duenoCategoryId, notas } = req.body ?? {};
+      const { projectId, fecha, paymentIds, expenseIds, reparto, dueno, duenoCategoryId, notas } = req.body ?? {};
       const corte = await corteService.crearCorte({
         projectId, fecha, paymentIds: Array.isArray(paymentIds) ? paymentIds : [],
+        expenseIds: Array.isArray(expenseIds) ? expenseIds.map(String) : [],
         reparto: Array.isArray(reparto) ? reparto.map((r: any) => ({ categoryId: String(r.categoryId), amount: Number(r.amount) })) : [],
         dueno, duenoCategoryId, notas, userId: req.user!.userId,
       });

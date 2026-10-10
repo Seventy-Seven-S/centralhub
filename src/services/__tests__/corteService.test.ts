@@ -4,10 +4,11 @@ const mocks = vi.hoisted(() => {
   const tx = {
     payment: { findMany: vi.fn(), updateMany: vi.fn() },
     corte: { findFirst: vi.fn(), create: vi.fn() },
-    expense: { createMany: vi.fn() },
+    expense: { createMany: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
   };
   const prisma = {
     payment: { findMany: vi.fn() },
+    expense: { findMany: vi.fn() },
     corte: { findMany: vi.fn(), findUnique: vi.fn() },
     project: { findUnique: vi.fn() },
     $transaction: vi.fn(async (cb: any) => cb(tx)),
@@ -47,6 +48,8 @@ beforeEach(() => {
   mocks.tx.corte.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'corte-4', ...data }));
   mocks.tx.payment.updateMany.mockResolvedValue({ count: 2 });
   mocks.tx.expense.createMany.mockResolvedValue({ count: 2 });
+  mocks.tx.expense.findMany.mockResolvedValue([]);
+  mocks.prisma.expense.findMany.mockResolvedValue([]);
 });
 
 describe('corteService.crearCorte', () => {
@@ -74,6 +77,24 @@ describe('corteService.crearCorte', () => {
     expect(mocks.tx.corte.create).not.toHaveBeenCalled();
   });
 
+  it('los gastos por descontar restan al dueño y se LIGAN al corte, sin crearse otra vez', async () => {
+    mocks.tx.expense.findMany.mockResolvedValue([{ id: 'g1', amount: '2500', categoryId: 'asesores' }]);
+    await corteService.crearCorte({ ...input, expenseIds: ['g1'] });
+
+    expect(mocks.tx.expense.findMany.mock.calls[0][0].where).toMatchObject({ id: { in: ['g1'] }, projectId: 'proj-1', descontarEnCorte: true, corteId: null });
+    expect(mocks.tx.corte.create.mock.calls[0][0].data).toMatchObject({ totalIngresos: 10000, totalEgresos: 5500, entregadoDueno: 4500 });
+    expect(mocks.tx.expense.updateMany).toHaveBeenCalledWith({ where: { id: { in: ['g1'] } }, data: { corteId: 'corte-4' } });
+    const creados = mocks.tx.expense.createMany.mock.calls[0][0].data;
+    expect(creados.map((e: any) => e.categoryId).sort()).toEqual(['central', 'dueno']);
+    expect(creados.find((e: any) => e.categoryId === 'dueno').amount).toBe(4500);
+  });
+
+  it('si un gasto ya se descontó en otro corte, rechaza todo', async () => {
+    mocks.tx.expense.findMany.mockResolvedValue([]);
+    await expect(corteService.crearCorte({ ...input, expenseIds: ['g1'] })).rejects.toThrow(/gastos ya están en otro corte/i);
+    expect(mocks.tx.corte.create).not.toHaveBeenCalled();
+  });
+
   it('rechaza un corte sin pagos', async () => {
     await expect(corteService.crearCorte({ ...input, paymentIds: [] })).rejects.toThrow(/al menos un pago/i);
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
@@ -87,5 +108,14 @@ describe('corteService.pendientes', () => {
     expect(mocks.prisma.payment.findMany.mock.calls[0][0].where).toMatchObject({ status: 'CONFIRMED', corteId: null, contract: { projectId: 'proj-1' } });
     expect(r.total).toBe(10000);
     expect(r.pagos).toHaveLength(2);
+  });
+
+  it('propone solo los gastos marcados para descontar y sin corte (nunca los migrados)', async () => {
+    mocks.prisma.payment.findMany.mockResolvedValue(PAGOS);
+    mocks.prisma.expense.findMany.mockResolvedValue([{ id: 'g1', amount: '14000', date: new Date('2026-09-21'), description: 'Comisión', category: { id: 'a', name: 'Asesores' } }]);
+    const r = await corteService.pendientes('proj-1');
+    expect(mocks.prisma.expense.findMany.mock.calls[0][0].where).toEqual({ projectId: 'proj-1', descontarEnCorte: true, corteId: null });
+    expect(r.gastos[0].amount).toBe(14000);
+    expect(r.totalGastos).toBe(14000);
   });
 });

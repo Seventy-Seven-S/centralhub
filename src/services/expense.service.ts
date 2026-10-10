@@ -78,6 +78,7 @@ export class ExpenseService {
         date:        new Date(data.date),
         projectId:   data.projectId,
         categoryId:  data.categoryId,
+        descontarEnCorte: data.descontarEnCorte === true,
         createdById: userId,
       },
       include: {
@@ -154,6 +155,13 @@ export class ExpenseService {
     const expense = await prisma.expense.findUnique({ where: { id } });
     if (!expense) throw new Error('Gasto no encontrado');
 
+    // Ya liquidado: su monto y su casilla forman parte de un corte firmado.
+    const cambiaMonto = data.amount !== undefined && Number(data.amount) !== Number(expense.amount);
+    const cambiaCasilla = data.descontarEnCorte !== undefined && data.descontarEnCorte !== expense.descontarEnCorte;
+    if (expense.corteId && (cambiaMonto || cambiaCasilla)) {
+      throw new Error('Este gasto ya se descontó en un corte; su monto no se puede cambiar');
+    }
+
     if (data.categoryId) {
       const category = await prisma.expenseCategory.findUnique({ where: { id: data.categoryId } });
       if (!category) throw new Error('Categoría no encontrada');
@@ -166,6 +174,7 @@ export class ExpenseService {
         ...(data.description !== undefined && { description: data.description }),
         ...(data.date        !== undefined && { date:        new Date(data.date) }),
         ...(data.categoryId  !== undefined && { categoryId:  data.categoryId }),
+        ...(data.descontarEnCorte !== undefined && { descontarEnCorte: data.descontarEnCorte === true }),
       },
       include: {
         project:  { select: { id: true, code: true, name: true } },

@@ -8,7 +8,7 @@ import api from '@/lib/api';
 import { formatCurrency, formatDateUTC, todayLocalISO } from '@/lib/utils';
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import { useProyectos } from '@/hooks/useProyectos';
-import { useCortes, usePendientesCorte, fetchCorte, type PagoCorte } from '@/hooks/useCortes';
+import { useCortes, usePendientesCorte, fetchCorte, type PagoCorte, type GastoPorDescontar } from '@/hooks/useCortes';
 import { resumenReparto, validarCorte, type Egresos } from '@/lib/corte';
 import { ComprobanteCorte } from '@/components/pdf/ComprobanteCorte';
 import { InputMoneda } from '@/components/ui/InputMoneda';
@@ -27,6 +27,7 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
   const { data: pendientes, isLoading } = usePendientesCorte(projectId);
   const { data: categorias = [] } = useQuery<Categoria[]>({ queryKey: ['expense-categories'], queryFn: async () => (await api.get('/expenses/categories')).data.data });
   const [seleccion, setSeleccion] = useState<Record<string, boolean>>({});
+  const [selGastos, setSelGastos] = useState<Record<string, boolean>>({});
   const [egresos, setEgresos] = useState<Egresos>({});
   const [fecha, setFecha] = useState(todayLocalISO());
   // El dueño viene del proyecto, no de un mapa en el código: ahí es donde
@@ -36,16 +37,21 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (pendientes) setSeleccion(Object.fromEntries(pendientes.pagos.map(p => [p.id, true]))); }, [pendientes]);
+  useEffect(() => {
+    if (!pendientes) return;
+    setSeleccion(Object.fromEntries(pendientes.pagos.map(p => [p.id, true])));
+    setSelGastos(Object.fromEntries((pendientes.gastos ?? []).map(g => [g.id, true])));
+  }, [pendientes]);
 
   const catDueno = categorias.find(c => c.name === CAT_DUENO);
   const catsEgreso = categorias.filter(c => c.name !== CAT_DUENO);
   const pagos = useMemo(() => (pendientes?.pagos ?? []).map(p => ({ id: p.id, amount: p.amount, seleccionado: !!seleccion[p.id] })), [pendientes, seleccion]);
-  const r = resumenReparto(pagos, egresos);
+  const gastos = useMemo(() => (pendientes?.gastos ?? []).map(g => ({ id: g.id, amount: g.amount, seleccionado: !!selGastos[g.id] })), [pendientes, selGastos]);
+  const r = resumenReparto(pagos, egresos, gastos);
   const inputStyle = { border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' };
 
   async function confirmar() {
-    const msg = validarCorte({ pagos, egresos, fecha });
+    const msg = validarCorte({ pagos, egresos, fecha, gastos });
     if (msg) { setError(msg); return; }
     if (!dueno.trim()) { setError('Indica el nombre del dueño que recibe'); return; }
     if (!catDueno) { setError('No existe la categoría "Dueño del terreno" en Gastos'); return; }
@@ -54,6 +60,7 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
     try {
       const { data } = await api.post('/cortes', {
         projectId, fecha, paymentIds: pagos.filter(p => p.seleccionado).map(p => p.id),
+        expenseIds: gastos.filter(g => g.seleccionado).map(g => g.id),
         reparto: Object.entries(egresos).filter(([, v]) => Number(v) > 0).map(([categoryId, v]) => ({ categoryId, amount: Number(v) })),
         dueno: dueno.trim(), duenoCategoryId: catDueno.id, notas: notas.trim() || undefined,
       });
@@ -103,6 +110,36 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
             )}
           </div>
 
+          {(pendientes?.gastos?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+                Gastos por descontar — capturados en Gastos para salir en este corte (comisiones, etc.)
+              </p>
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                <table className="w-full text-sm">
+                  <thead><tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <th className="px-3 py-2 w-8"></th>
+                    {['Fecha', 'Categoría', 'Descripción', 'Monto'].map((h, i) => <th key={h} className={`px-3 py-2 text-xs font-semibold ${i === 3 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-secondary)' }}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {pendientes!.gastos.map((g: GastoPorDescontar) => (
+                      <tr key={g.id} onClick={() => setSelGastos(s => ({ ...s, [g.id]: !s[g.id] }))} className="cursor-pointer hover:bg-[var(--bg-secondary)]" style={{ borderTop: '1px solid var(--border)', opacity: selGastos[g.id] ? 1 : 0.5 }}>
+                        <td className="px-3 py-2" style={{ color: 'var(--accent)' }}>{selGastos[g.id] ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{formatDateUTC(g.date, 'short')}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{g.category.name}</td>
+                        <td className="px-3 py-2 max-w-[260px] truncate" style={{ color: 'var(--text-secondary)' }}>{g.description ?? '—'}</td>
+                        <td className="px-3 py-2 text-right font-semibold">{formatCurrency(g.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                Ya están registrados como gasto: no los vuelvas a capturar en el reparto.
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>2 · Reparto — lo que no se capture aquí se entrega al dueño</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -131,7 +168,7 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
 
           <div className="rounded-xl px-4 py-3 grid grid-cols-3 gap-3 text-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div><p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Ingresos ({r.seleccionados} pagos)</p><p className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(r.totalIngresos)}</p></div>
-            <div><p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Egresos capturados</p><p className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(r.totalEgresos)}</p></div>
+            <div><p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Egresos{r.totalGastos > 0 ? ` (incluye ${formatCurrency(r.totalGastos)} por descontar)` : ' capturados'}</p><p className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(r.totalEgresos)}</p></div>
             <div><p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Se entrega a {dueno || 'dueño'}</p><p className="font-bold" style={{ color: r.entregadoDueno < 0 ? 'var(--danger)' : 'var(--accent)' }}>{formatCurrency(r.entregadoDueno)}</p></div>
           </div>
 

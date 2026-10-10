@@ -10,7 +10,13 @@ const pagos = [
 describe('resumenReparto', () => {
   it('total = suma de los pagos seleccionados; el dueño recibe total − egresos capturados', () => {
     const r = resumenReparto(pagos, { central: '3000', planos: '500' });
-    expect(r).toEqual({ totalIngresos: 10000, totalEgresos: 3500, entregadoDueno: 6500, seleccionados: 2 });
+    expect(r).toEqual({ totalIngresos: 10000, totalEgresos: 3500, totalGastos: 0, entregadoDueno: 6500, seleccionados: 2 });
+  });
+  it('los gastos por descontar seleccionados se suman a los egresos', () => {
+    const gastos = [{ id: 'g1', amount: 2000, seleccionado: true }, { id: 'g2', amount: 900, seleccionado: false }];
+    const r = resumenReparto(pagos, { central: '3000' }, gastos);
+    expect(r).toMatchObject({ totalGastos: 2000, totalEgresos: 5000, entregadoDueno: 5000 });
+    expect(validarCorte({ pagos, egresos: { central: '9000' }, fecha: '2026-09-10', gastos })).toBe('Los egresos exceden el total de ingresos del corte');
   });
   it('campos vacíos o no numéricos cuentan como 0', () => {
     expect(resumenReparto(pagos, { central: '', planos: 'abc' }).totalEgresos).toBe(0);

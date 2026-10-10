@@ -81,7 +81,10 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
     amount:      expense ? String(Number(expense.amount)) : '',
     description: expense?.description ?? '',
     date:        expense ? expense.date.slice(0, 10) : todayLocalISO(),
+    descontarEnCorte: expense?.descontarEnCorte ?? false,
   });
+  // Ya liquidado en un corte: el dueño firmó ese monto, no se toca.
+  const enCorte = !!expense?.corteId;
   const [error, setError] = useState('');
 
   const createMutation = useCreateExpense(form.projectId);
@@ -110,6 +113,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           amount:      Number(form.amount),
           description: form.description || undefined,
           date:        new Date(form.date).toISOString(),
+          ...(!enCorte && { descontarEnCorte: form.descontarEnCorte }),
         };
         await updateMutation.mutateAsync({ id: expense!.id, dto });
       } else {
@@ -119,6 +123,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           amount:      Number(form.amount),
           description: form.description || undefined,
           date:        new Date(form.date).toISOString(),
+          descontarEnCorte: form.descontarEnCorte,
         };
         await createMutation.mutateAsync(dto);
       }
@@ -216,6 +221,28 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
               style={inputStyle}
             />
           </div>
+
+          {/* Descontar en el próximo corte */}
+          {enCorte ? (
+            <p className="text-xs px-3 py-2 rounded-lg" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)' }}>
+              Este gasto ya se descontó en un corte; su monto no se puede cambiar.
+            </p>
+          ) : (
+            <label className="flex items-start gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={form.descontarEnCorte}
+                onChange={e => setForm(f => ({ ...f, descontarEnCorte: e.target.checked }))}
+                className="mt-0.5"
+              />
+              <span>
+                Descontar en el próximo corte
+                <span className="block text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Sale solo al generar el corte del proyecto y se le resta al dueño (comisiones, etc.).
+                </span>
+              </span>
+            </label>
+          )}
 
           {error && (
             <p className="text-xs px-3 py-2 rounded-lg" style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-pale)' }}>
@@ -609,6 +636,11 @@ export default function GastosPage() {
                         </td>
                         <td className="px-5 py-3.5 max-w-xs truncate" style={{ color: 'var(--text-secondary)' }}>
                           {expense.description || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                          {expense.descontarEnCorte && !expense.corteId && (
+                            <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: 'var(--gold)', backgroundColor: 'var(--bg-secondary)' }}>
+                              Por descontar en corte
+                            </span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 text-right font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                           {formatCurrency(Number(expense.amount))}

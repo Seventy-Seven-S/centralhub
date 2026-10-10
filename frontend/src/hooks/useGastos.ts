@@ -17,6 +17,8 @@ export interface Expense {
   date:        string;
   projectId:   string;
   categoryId:  string;
+  descontarEnCorte: boolean;
+  corteId:     string | null;
   createdAt:   string;
   project:     { id: string; code: string; name: string };
   category:    { id: string; name: string };
@@ -52,6 +54,7 @@ export interface CreateExpenseDto {
   date:        string;
   projectId:   string;
   categoryId:  string;
+  descontarEnCorte?: boolean;
 }
 
 export interface UpdateExpenseDto {
@@ -59,6 +62,7 @@ export interface UpdateExpenseDto {
   description?: string;
   date?:        string;
   categoryId?:  string;
+  descontarEnCorte?: boolean;
 }
 
 // ── Fetch functions ───────────────────────────────────────────────────────────

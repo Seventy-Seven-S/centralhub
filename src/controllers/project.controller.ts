@@ -5,7 +5,7 @@ import { whereProyectoVisible } from '../services/lib/proyectosOcultos';
 import { componerTotales } from '../services/lib/totalesProyecto';
 import { CONTRATOS_VIVOS, resumirLotes } from '../services/lib/conteosProyecto';
 import { round2 } from '../utils/money';
-import { wherePendienteDeCorte } from '../services/lib/cortePendiente';
+import { wherePendienteDeCorte, whereGastoPorDescontar } from '../services/lib/cortePendiente';
 import { whereIngresoReal } from '../services/lib/ingresoReal';
 import { repartoDelProyecto, guardarAcuerdo } from '../services/reparto.service';
 
@@ -17,7 +17,7 @@ import { repartoDelProyecto, guardarAcuerdo } from '../services/reparto.service'
  * mintiendo — ya pasó con los otros ingresos.
  */
 async function cifrasDelProyecto(projectId: string) {
-  const [contratosVivos, lotesPorEstado, valorLotes, pagos, porEntregar, egresos, otros] = await Promise.all([
+  const [contratosVivos, lotesPorEstado, valorLotes, pagos, porEntregar, porDescontar, egresos, otros] = await Promise.all([
     prisma.contract.count({ where: { projectId, status: { in: CONTRATOS_VIVOS } } }),
     prisma.lot.groupBy({ by: ['status'], where: { projectId }, _count: true }),
     // Valor total del proyecto: la suma del precio inicial de todos sus lotes.
@@ -30,6 +30,8 @@ async function cifrasDelProyecto(projectId: string) {
     // Dinero cobrado que todavía no se le reporta al dueño: es justo lo que
     // sumaría el botón de generar corte.
     prisma.payment.aggregate({ where: wherePendienteDeCorte(projectId), _sum: { amount: true } }),
+    // …menos los gastos que ese corte le va a descontar (comisiones, etc.).
+    prisma.expense.aggregate({ where: whereGastoPorDescontar(projectId), _sum: { amount: true } }),
     prisma.expense.aggregate({ where: { projectId }, _sum: { amount: true } }),
     // Dinero que entró al proyecto sin venir de un cliente (aportaciones del
     // dueño para cubrir gastos). Suma a los ingresos: si no, el gasto que
@@ -42,7 +44,7 @@ async function cifrasDelProyecto(projectId: string) {
   return {
     totalContratos:      contratosVivos,
     valorTotal:          round2(valorLotes._sum.basePrice ?? 0),
-    pendientePorEntregar: round2(porEntregar._sum.amount ?? 0),
+    pendientePorEntregar: round2((porEntregar._sum.amount ?? 0) - Number(porDescontar._sum.amount ?? 0)),
     // El total sale de contar los lotes reales, no del campo capturado que
     // nadie mantuvo: decía 50 en JSA 1 cuando ya había 113 lotes cargados.
     totalLotes:          lotes.total,
