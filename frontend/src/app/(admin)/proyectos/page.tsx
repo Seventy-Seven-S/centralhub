@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { aplicarOrden, mover } from '@/lib/ordenProyectos';
 import { avanceDeVentas } from '@/lib/avanceProyecto';
-import { Building2, MapPin, TrendingUp, AlertCircle, TrendingDown, GripVertical } from 'lucide-react';
-import { useProyectos, useOrdenProyectos, Proyecto } from '@/hooks/useProyectos';
+import { Building2, MapPin, TrendingUp, AlertCircle, TrendingDown, GripVertical, Palette, X } from 'lucide-react';
+import { useProyectos, useOrdenProyectos, useColoresProyectos, Proyecto } from '@/hooks/useProyectos';
+import { COLORES_PROYECTO, veloDeColor, type ColorProyecto } from '@/lib/colorProyecto';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency } from '@/lib/utils';
 
@@ -32,9 +33,78 @@ function GridSkeleton() {
   );
 }
 
+// ── Selector de color ─────────────────────────────────────────────────────────
+// Personal de cada usuario. Los clics no deben llegar a la tarjeta, que al
+// hacer clic abre el proyecto.
+function SelectorColor({ color, onPintar }: { color: ColorProyecto | null; onPintar: (c: ColorProyecto | null) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!abierto) return;
+    const cerrar = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setAbierto(false); };
+    document.addEventListener('mousedown', cerrar);
+    return () => document.removeEventListener('mousedown', cerrar);
+  }, [abierto]);
+
+  const elegir = (c: ColorProyecto | null) => { onPintar(c); setAbierto(false); };
+
+  return (
+    <div ref={ref} className="relative" onClick={e => e.stopPropagation()} draggable={false} onDragStart={e => e.preventDefault()}>
+      <button
+        type="button"
+        onClick={() => setAbierto(a => !a)}
+        title="Color de la tarjeta (solo lo ves tú)"
+        aria-label="Color de la tarjeta"
+        className="w-7 h-7 rounded-full flex items-center justify-center"
+        style={{
+          border: '1px solid var(--border)',
+          backgroundColor: color ? `rgb(${COLORES_PROYECTO[color].rgb})` : 'var(--bg-secondary)',
+          color: 'var(--text-tertiary)',
+        }}
+      >
+        {!color && <Palette className="w-3.5 h-3.5" />}
+      </button>
+      {abierto && (
+        <div
+          className="absolute right-0 top-9 z-20 rounded-xl shadow-lg p-2 flex items-center gap-1.5"
+          style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+        >
+          {(Object.keys(COLORES_PROYECTO) as ColorProyecto[]).map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => elegir(c)}
+              title={COLORES_PROYECTO[c].nombre}
+              aria-label={COLORES_PROYECTO[c].nombre}
+              className="w-6 h-6 rounded-full"
+              style={{
+                backgroundColor: `rgb(${COLORES_PROYECTO[c].rgb})`,
+                outline: color === c ? '2px solid var(--text-primary)' : 'none',
+                outlineOffset: 2,
+              }}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => elegir(null)}
+            title="Sin color"
+            aria-label="Sin color"
+            className="w-6 h-6 rounded-full flex items-center justify-center"
+            style={{ border: '1px solid var(--border)', color: 'var(--text-tertiary)' }}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Card ──────────────────────────────────────────────────────────────────────
-function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrando, onDragStart, onDragEnter, onDragEnd }: {
-  proyecto: Proyecto; onClick: () => void; hideIngresos: boolean;
+function ProyectoCard({ proyecto, color, onPintar, onClick, hideIngresos, arrastrable, arrastrando, onDragStart, onDragEnter, onDragEnd }: {
+  proyecto: Proyecto; color: ColorProyecto | null; onPintar: (c: ColorProyecto | null) => void;
+  onClick: () => void; hideIngresos: boolean;
   arrastrable: boolean; arrastrando: boolean;
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void;
 }) {
@@ -53,7 +123,8 @@ function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrand
       className="rounded-2xl shadow-sm hover:shadow-md transition-shadow cursor-pointer p-5 space-y-4"
       style={{
         backgroundColor: 'var(--surface)',
-        border: `1px solid ${arrastrando ? 'var(--accent)' : 'var(--border)'}`,
+        backgroundImage: color ? veloDeColor(color) : undefined,
+        border: `1px solid ${arrastrando ? 'var(--accent)' : color ? `rgba(${COLORES_PROYECTO[color].rgb}, 0.45)` : 'var(--border)'}`,
         opacity: arrastrando ? 0.5 : 1,
       }}
     >
@@ -71,12 +142,15 @@ function ProyectoCard({ proyecto, onClick, hideIngresos, arrastrable, arrastrand
           <span className="text-xs font-mono mt-0.5 block" style={{ color: 'var(--text-tertiary)' }}>{proyecto.code}</span>
         </div>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
         <span
           className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold shrink-0"
           style={{ backgroundColor: 'var(--accent-pale)', color: 'var(--accent)' }}
         >
           {proyecto.status === 'ACTIVE' ? 'Activo' : proyecto.status}
         </span>
+          <SelectorColor color={color} onPintar={onPintar} />
+        </div>
       </div>
 
       {/* Ubicación */}
@@ -176,6 +250,7 @@ export default function ProyectosPage() {
   const { canOnlyViewLots } = useRole();
   const { data: proyectos = [], isLoading, isError } = useProyectos();
   const { orden, guardar } = useOrdenProyectos();
+  const { colores, pintar } = useColoresProyectos();
 
   // El orden que se ve sale de reconciliar el guardado con lo que manda el
   // servidor: un proyecto nuevo aparece al final en vez de perderse.
@@ -246,6 +321,8 @@ export default function ProyectosPage() {
             <ProyectoCard
               key={p.id}
               proyecto={p}
+              color={colores[p.id] ?? null}
+              onPintar={c => pintar.mutate({ projectId: p.id, color: c })}
               onClick={() => { if (!moviendo.current) router.push(`/proyectos/${p.id}`); }}
               hideIngresos={canOnlyViewLots}
               arrastrable

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { leerColores, conColor, type ColorProyecto } from '@/lib/colorProyecto';
 import type { Reparto } from '@/components/proyectos/RepartoProyecto';
 
 export interface Proyecto {
@@ -99,4 +100,36 @@ export function useOrdenProyectos() {
   });
 
   return { orden, guardar };
+}
+
+// El color de cada tarjeta también es de CADA usuario y vive en sus
+// preferencias, junto al orden.
+export function useColoresProyectos() {
+  const qc = useQueryClient();
+  const key = ['mis-preferencias', 'coloresProyectos'];
+
+  const { data: colores = {} } = useQuery<Record<string, ColorProyecto>>({
+    queryKey: key,
+    queryFn: async () => {
+      const { data } = await api.get('/users/mis-preferencias');
+      return leerColores(data?.data?.coloresProyectos);
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const pintar = useMutation({
+    mutationFn: ({ projectId, color }: { projectId: string; color: ColorProyecto | null }) =>
+      api.put('/users/mis-preferencias', { coloresProyectos: conColor(qc.getQueryData(key) ?? colores, projectId, color) }),
+    onMutate: async ({ projectId, color }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previo = qc.getQueryData<Record<string, ColorProyecto>>(key);
+      qc.setQueryData(key, conColor(previo ?? {}, projectId, color));
+      return { previo };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previo) qc.setQueryData(key, ctx.previo);
+    },
+  });
+
+  return { colores, pintar };
 }
