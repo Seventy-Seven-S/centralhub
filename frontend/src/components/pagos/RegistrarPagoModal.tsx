@@ -15,8 +15,8 @@ import { formatCurrency, formatLotsLabel, todayLocalISO, normalizeForSearch } fr
 type Step = 'pick' | 'form' | 'saving' | 'generating' | 'done';
 
 const METODOS = [
-  { value: 'TRANSFER', label: 'Transferencia' },
   { value: 'CASH',     label: 'Efectivo' },
+  { value: 'TRANSFER', label: 'Transferencia' },
   { value: 'CHECK',    label: 'Cheque' },
   { value: 'CARD',     label: 'Tarjeta' },
 ];

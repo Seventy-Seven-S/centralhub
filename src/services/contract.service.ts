@@ -266,7 +266,8 @@ export class ContractService {
           paymentDate:   earliestReservedAt,
           concept:       `Depósito de apartado: ${conceptParts}`,
           paymentType:   PaymentType.RESERVATION_DEPOSIT,
-          paymentMethod: PaymentMethod.TRANSFER,
+          // Todo se cobra en efectivo (confirmado por el equipo, 2026-10-12).
+          paymentMethod: PaymentMethod.CASH,
           status:        PaymentStatus.CONFIRMED,
           paymentNumber,
         },
@@ -285,7 +286,7 @@ export class ContractService {
           paymentDate:   contract.startDate ?? contract.contractDate,
           concept:       'Enganche al firmar',
           paymentType:   PaymentType.DOWN_PAYMENT,
-          paymentMethod: PaymentMethod.TRANSFER,
+          paymentMethod: PaymentMethod.CASH,
           status:        PaymentStatus.CONFIRMED,
           paymentNumber,
         },
