@@ -15,12 +15,22 @@ export const TIPOS_QUE_NO_SON_INGRESO: PaymentType[] = [
   PaymentType.TRASPASO_ENTRADA,
 ];
 
+// Una devolución que ya tiene su gasto (la que se crea al cancelar desde la
+// app) es dinero que salió y ya está restado en Gastos: si además contara
+// aquí como ingreso negativo, se restaría dos veces. Las devoluciones
+// migradas no tienen gasto ligado y siguen restando como siempre.
+export const DEVOLUCION_CON_GASTO: Prisma.PaymentWhereInput = {
+  paymentType: PaymentType.RESCISSION_REFUND,
+  gastoDevolucion: { isNot: null },
+};
+
 /** Filtro para las consultas que suman ingresos. */
 export function whereIngresoReal(): Prisma.PaymentWhereInput {
-  return { paymentType: { notIn: TIPOS_QUE_NO_SON_INGRESO } };
+  return { paymentType: { notIn: TIPOS_QUE_NO_SON_INGRESO }, NOT: DEVOLUCION_CON_GASTO };
 }
 
 /** La misma regla, para filtrar una lista ya traída de la base. */
-export function esIngresoReal(pago: { paymentType: PaymentType | string }): boolean {
+export function esIngresoReal(pago: { paymentType: PaymentType | string; gastoDevolucion?: unknown }): boolean {
+  if (pago.paymentType === PaymentType.RESCISSION_REFUND && pago.gastoDevolucion) return false;
   return !TIPOS_QUE_NO_SON_INGRESO.includes(pago.paymentType as PaymentType);
 }

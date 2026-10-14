@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TIPOS_QUE_NO_SON_INGRESO, whereIngresoReal, esIngresoReal } from '../ingresoReal';
+import { TIPOS_QUE_NO_SON_INGRESO, DEVOLUCION_CON_GASTO, whereIngresoReal, esIngresoReal } from '../ingresoReal';
 
 describe('TIPOS_QUE_NO_SON_INGRESO', () => {
   it('excluye el abono que viaja en un traspaso', () => {
@@ -23,7 +23,11 @@ describe('TIPOS_QUE_NO_SON_INGRESO', () => {
 
 describe('whereIngresoReal', () => {
   it('arma el filtro que deben usar todas las sumas de ingresos', () => {
-    expect(whereIngresoReal()).toEqual({ paymentType: { notIn: TIPOS_QUE_NO_SON_INGRESO } });
+    expect(whereIngresoReal()).toEqual({ paymentType: { notIn: TIPOS_QUE_NO_SON_INGRESO }, NOT: DEVOLUCION_CON_GASTO });
+  });
+
+  it('saca la devolución que ya tiene su gasto, para no restarla dos veces', () => {
+    expect(DEVOLUCION_CON_GASTO).toEqual({ paymentType: 'RESCISSION_REFUND', gastoDevolucion: { isNot: null } });
   });
 });
 
@@ -31,5 +35,8 @@ describe('esIngresoReal', () => {
   it('sirve para filtrar en memoria lo mismo que el filtro de base', () => {
     expect(esIngresoReal({ paymentType: 'INSTALLMENT' })).toBe(true);
     expect(esIngresoReal({ paymentType: 'TRASPASO_ENTRADA' })).toBe(false);
+    expect(esIngresoReal({ paymentType: 'RESCISSION_REFUND', gastoDevolucion: { id: 'g' } })).toBe(false);
+    // La migrada, sin gasto, sigue restando como ingreso negativo.
+    expect(esIngresoReal({ paymentType: 'RESCISSION_REFUND', gastoDevolucion: null })).toBe(true);
   });
 });

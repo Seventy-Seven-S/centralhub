@@ -676,7 +676,7 @@ export class ContractService {
       await tx.cuota.deleteMany({ where: { contractId: id, status: CuotaStatus.PENDIENTE } });
 
       if (refund > 0) {
-        await tx.payment.create({
+        const devolucion = await tx.payment.create({
           data: {
             paymentNumber: `${contract.contractNumber}-DEV-${Date.now()}`,
             contractId: id,
@@ -688,6 +688,31 @@ export class ContractService {
             concept: 'Devolución por rescisión de contrato',
             status: PaymentStatus.CONFIRMED,
             createdBy: input.userId ?? null,
+          },
+        });
+
+        // Lo que se le regresa al cliente es dinero que SALE: va a Gastos, y
+        // en un proyecto con cortes se le descuenta al dueño en el siguiente.
+        // Antes solo quedaba como ingreso negativo, la liquidación no lo veía
+        // y el equipo lo capturaba a mano en Gastos — y se restaba dos veces.
+        const proyecto = await tx.project.findUnique({ where: { id: contract.projectId }, select: { sinCortes: true } });
+        const autorId = input.userId
+          ?? (await tx.user.findFirst({ where: { role: 'ADMIN' }, orderBy: { createdAt: 'asc' }, select: { id: true } }))?.id;
+        if (!autorId) throw new Error('No hay usuario para registrar el gasto de la devolución');
+        const categoria = await tx.expenseCategory.upsert({
+          where: { name: 'Cancelaciones' }, update: {}, create: { name: 'Cancelaciones', createdById: autorId },
+        });
+        const lotes = vinculos.map(v => `M${v.lot.manzana}-L${v.lot.lotNumber}`).join(', ');
+        await tx.expense.create({
+          data: {
+            amount: refund,
+            date: rescindedAt,
+            description: `Cancelación de contrato ${lotes} (${contract.codigoLegado ?? contract.contractNumber}) — devolución al cliente`,
+            projectId: contract.projectId,
+            categoryId: categoria.id,
+            createdById: autorId,
+            descontarEnCorte: !proyecto?.sinCortes,
+            pagoDevolucionId: devolucion.id,
           },
         });
       }

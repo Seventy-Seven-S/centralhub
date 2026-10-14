@@ -1,4 +1,5 @@
 // src/services/payment.service.ts
+import { DEVOLUCION_CON_GASTO } from './lib/ingresoReal';
 import { PrismaClient, PaymentStatus, PaymentType, CuotaStatus, ContractStatus, PaymentPlanType } from '@prisma/client';
 import { RegistrarPagoDto, UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
 import { aplicarPagoACuotas } from './lib/pagoCuotas';
@@ -285,6 +286,10 @@ export class PaymentService {
     if (filters.projectId) where.contract = { projectId: filters.projectId };
     else if (!filters.contractId) Object.assign(where, wherePagoVisible());
     if (filters.status) where.status = filters.status;
+    // En el listado de Ingresos (por proyecto o global) la devolución con su
+    // gasto no aparece: ya está en Gastos. En el historial del contrato o del
+    // cliente sí se ve, porque es parte de su cuenta.
+    if (!filters.contractId && !filters.clientId) where.NOT = DEVOLUCION_CON_GASTO;
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
 
     if (filters.minAmount || filters.maxAmount) {

@@ -94,6 +94,12 @@ export function RescindirContratoModal({ contratoId, etiqueta, onClose, onDone }
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle} />
             </div>
           </div>
+          {Number(form.devolucion) > 0 && (
+            <p className="text-xs -mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              La devolución se registra sola en Gastos (Cancelaciones) y, si el proyecto maneja liquidaciones, se descuenta en la próxima.
+              No hace falta capturarla aparte.
+            </p>
+          )}
 
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Documento de cancelación firmado (PDF, JPG o PNG)</label>

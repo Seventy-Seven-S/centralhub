@@ -498,6 +498,9 @@ model Payment {
   traspasoId        String?       @map("traspaso_id")
   traspaso          Traspaso?     @relation(fields: [traspasoId], references: [id])
 
+  // Solo en RESCISSION_REFUND creados al cancelar desde la app.
+  gastoDevolucion   Expense?      @relation("GastoDeDevolucion")
+
   contract          Contract      @relation(fields: [contractId], references: [id])
   client            Client        @relation(fields: [clientId], references: [id])
   createdByUser     User?         @relation(fields: [createdBy], references: [id])
@@ -955,6 +958,13 @@ model Expense {
   // asistente lo propone; al generarlo se LIGA a ese corte, no se duplica.
   // Los gastos migrados quedan en false: si no, el corte descontaría años.
   descontarEnCorte Boolean    @default(false) @map("descontar_en_corte")
+  // La devolución al cliente que este gasto registra, cuando se creó al
+  // cancelar un contrato. Una devolución con su gasto ligado deja de contar
+  // como ingreso negativo (ver ingresoReal.ts): así la salida se resta UNA
+  // vez, en Gastos. Las devoluciones migradas no tienen gasto ligado y se
+  // quedan como estaban.
+  pagoDevolucionId String?    @unique @map("pago_devolucion_id")
+  pagoDevolucion   Payment?   @relation("GastoDeDevolucion", fields: [pagoDevolucionId], references: [id])
   corte       Corte?          @relation(fields: [corteId], references: [id])
   project     Project         @relation(fields: [projectId], references: [id])
   category    ExpenseCategory @relation(fields: [categoryId], references: [id])
