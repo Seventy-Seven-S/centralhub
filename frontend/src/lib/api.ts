@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { refreshOnce } from './tokenRefreshLock';
 import { laSesionDeVerdadExpiro } from './sesionExpirada';
+import { avisarCambioDeCifras } from './cifrasAlDia';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -53,7 +54,10 @@ async function doRefresh(): Promise<string> {
 // todas comparten el resultado y reintentan con el token nuevo. Solo si el
 // refresh también falla (vencido de verdad, o inválido) se cierra sesión.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    avisarCambioDeCifras(response.config.method, response.config.url);
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/refresh') || originalRequest?.url?.includes('/auth/login');

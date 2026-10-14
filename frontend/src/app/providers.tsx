@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect, createContext, useContext } from 'react';
+import { alCambiarCifras, CONSULTAS_DE_CIFRAS } from '@/lib/cifrasAlDia';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 type Theme = 'light' | 'dark';
@@ -39,6 +40,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
   }));
+
+  // Tarjetas de proyecto y tablero al día después de cualquier guardado.
+  useEffect(() => alCambiarCifras(() => {
+    CONSULTAS_DE_CIFRAS.forEach(queryKey => queryClient.invalidateQueries({ queryKey: [...queryKey] }));
+  }), [queryClient]);
 
   return (
     <ThemeProvider>
