@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useProyectos } from '@/hooks/useProyectos';
 import { useLotes } from '@/hooks/useLotes';
-import { useVendedores } from '@/hooks/useVendedores';
+import { useBeneficiarios } from '@/hooks/useGastos';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
 import api from '@/lib/api';
 import { InputMoneda } from '@/components/ui/InputMoneda';
@@ -179,10 +179,13 @@ export default function NuevoContratoPage() {
   // vendedor, no la proporción, y con el porcentaje tenían que sacar la cuenta
   // al revés para llegar a la cifra pactada.
   const [comisionPesos, setComisionPesos] = useState(0);
+  // Los asesores no son usuarios del sistema: su nombre se escribe, y se
+  // sugieren los que ya han cobrado antes.
+  const [asesor, setAsesor] = useState('');
 
   const { data: proyectos = [] } = useProyectos();
   const { data: todosLotes = [] } = useLotes(projectId);
-  const { data: vendedores = [] } = useVendedores();
+  const { data: asesoresConocidos = [] } = useBeneficiarios();
 
   const lotesDisponibles = useMemo(
     () => todosLotes.filter(l => l.status === 'AVAILABLE' || l.status === 'RESERVED'),
@@ -237,7 +240,8 @@ export default function NuevoContratoPage() {
     }
     if (step === 2) {
       // El plazo dejó de ser un menú cerrado, así que ahora hay que validarlo.
-      const problema = validarPlazo(plazoTexto);
+      const problema = validarPlazo(plazoTexto)
+        ?? (comisionPesos > 0 && !asesor.trim() ? 'Escribe el nombre del asesor que cobra la comisión.' : null);
       if (problema) { setStep2Error(problema); return; }
       setStep2Error('');
     }
@@ -289,10 +293,13 @@ export default function NuevoContratoPage() {
         // debe distinguirse de "nunca se mandó nada" para que el backend no
         // reimponga la herencia sobre una elección explícita de vaciarlo.
         agentId:       agentId || null,
-        commissionAmount: agentId && comisionPesos > 0 ? comisionPesos : undefined,
+        // La comisión se va a Gastos (Asesores) y se descuenta en la
+        // liquidación; al terminar se imprime el recibo del asesor.
+        comisionAsesor: comisionPesos > 0 ? { nombre: asesor.trim(), monto: comisionPesos } : undefined,
       });
 
       const contractId = contractRes.data.data.id;
+      const comisionGastoId: string | null = contractRes.data.data.comisionGastoId ?? null;
 
       // 4. Cotitulares. Van después porque tienen su propio endpoint. Si alguno
       // falla NO se tumba el alta: el contrato ya existe y perderlo por un
@@ -318,7 +325,7 @@ export default function NuevoContratoPage() {
         return;
       }
 
-      router.push(`/contratos/${contractId}`);
+      router.push(`/contratos/${contractId}${comisionGastoId ? `?reciboComision=${comisionGastoId}` : ''}`);
     } catch (err: any) {
       const apiError = err?.response?.data;
       if (apiError?.code === 'TOTAL_UPFRONT_EXCEEDS_PRICE') {
@@ -646,50 +653,47 @@ export default function NuevoContratoPage() {
             </div>
           )}
 
-          {/* Vendedor + comisión (opcional) */}
+          {/* Asesor + comisión (opcional) */}
           <div className="mt-5 rounded-xl p-4"
                style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
             <p className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              Vendedor y comisión <span style={{ textTransform: 'none', fontWeight: 400 }}>(opcional)</span>
+              Comisión del asesor <span style={{ textTransform: 'none', fontWeight: 400 }}>(opcional)</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Vendedor">
-                <select
+              <Field label="Nombre del asesor">
+                <input
                   style={inputStyle}
-                  value={agentId}
-                  onChange={e => { setAgentId(e.target.value); if (!e.target.value) setComisionPesos(0); }}
-                >
-                  <option value="">— Sin asignar —</option>
-                  {vendedores.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {v.firstName} {v.lastName} · {v.role === 'MANAGER' ? 'Gerente' : 'Agente'}
-                    </option>
-                  ))}
-                </select>
+                  list="asesores-conocidos"
+                  value={asesor}
+                  onChange={e => setAsesor(e.target.value)}
+                  placeholder="Quién cobra la comisión"
+                />
+                <datalist id="asesores-conocidos">
+                  {asesoresConocidos.map(n => <option key={n} value={n} />)}
+                </datalist>
               </Field>
 
-              <Field label="Comisión del vendedor">
+              <Field label="Comisión">
                 <InputMoneda
                   style={inputStyle}
                   valor={comisionPesos === 0 ? '' : String(comisionPesos)}
                   onValorChange={v => setComisionPesos(Number(v) || 0)}
-                  placeholder="Lo que le toca al vendedor"
+                  placeholder="Lo que le toca al asesor"
                 />
               </Field>
             </div>
 
-            {agentId && comisionPesos <= 0 && (
-              <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
-                Asignaste un vendedor. Captura su comisión en pesos para registrarla; si la dejas
-                en cero, el contrato se crea sin comisión.
-              </p>
-            )}
-            {agentId && comisionPesos > 0 && (
+            {comisionPesos > 0 && (
               <p className="text-sm font-semibold mt-3" style={{ color: 'var(--accent)' }}>
                 Comisión: {formatCurrency(comisionMonto)}
                 <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>
                   {' '}(equivale al {comisionPct.toFixed(2)}% de {formatCurrency(precioEditado)})
                 </span>
+              </p>
+            )}
+            {comisionPesos > 0 && (
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                Se registra en Gastos (Asesores), se descuenta en la próxima liquidación y al terminar podrás imprimir el recibo del asesor.
               </p>
             )}
           </div>
@@ -759,8 +763,8 @@ export default function NuevoContratoPage() {
                 // Ojo: el mes es el de la PRIMERA CUOTA, no el de fechaInicio,
                 // que va un mes antes por cómo se arma el calendario.
                 { label: 'Primera mensualidad', value: new Date(mesPrimeraMensualidad + '-01T12:00:00').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase()) },
-                ...(agentId && comisionMonto > 0
-                  ? [{ label: 'Comisión del vendedor', value: formatCurrency(comisionMonto) }]
+                ...(comisionMonto > 0
+                  ? [{ label: `Comisión de ${asesor.trim() || 'asesor'}`, value: formatCurrency(comisionMonto) }]
                   : []),
               ]}
             />

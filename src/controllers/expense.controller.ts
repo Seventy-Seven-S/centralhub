@@ -49,6 +49,15 @@ export class ExpenseController {
     }
   }
 
+  // GET /api/v1/expenses/beneficiarios
+  async getBeneficiarios(_req: Request, res: Response) {
+    try {
+      res.status(200).json({ success: true, data: await expenseService.getBeneficiarios() });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || 'Error al obtener beneficiarios' });
+    }
+  }
+
   // PUT /api/v1/expenses/categories/:id
   async updateCategory(req: Request, res: Response) {
     try {

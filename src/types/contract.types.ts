@@ -27,6 +27,12 @@ export interface CreateContractDto {
   // La comisión pactada en PESOS. Si viene, manda sobre el porcentaje: el
   // equipo acuerda el monto, no la proporción.
   commissionAmount?: number;
+  // Comisión del asesor que hizo la venta. Se registra como gasto de
+  // Asesores (descontable en el corte) y se le imprime su recibo. Los
+  // asesores no son usuarios: el nombre va como texto.
+  comisionAsesor?: { nombre: string; monto: number };
+  // Quién da de alta el contrato (lo pone el controller, no el cliente HTTP).
+  creadoPor?: string;
 }
 
 // DTO para actualizar contrato

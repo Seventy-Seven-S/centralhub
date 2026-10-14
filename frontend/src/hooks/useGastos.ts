@@ -19,6 +19,8 @@ export interface Expense {
   categoryId:  string;
   descontarEnCorte: boolean;
   corteId:     string | null;
+  beneficiario: string | null;
+  pagoDevolucionId: string | null;
   createdAt:   string;
   project:     { id: string; code: string; name: string };
   category:    { id: string; name: string };
@@ -55,6 +57,7 @@ export interface CreateExpenseDto {
   projectId:   string;
   categoryId:  string;
   descontarEnCorte?: boolean;
+  beneficiario?: string | null;
 }
 
 export interface UpdateExpenseDto {
@@ -63,6 +66,7 @@ export interface UpdateExpenseDto {
   date?:        string;
   categoryId?:  string;
   descontarEnCorte?: boolean;
+  beneficiario?: string | null;
 }
 
 // ── Fetch functions ───────────────────────────────────────────────────────────
@@ -191,5 +195,14 @@ export function useDeleteExpense(projectId: string) {
       qc.invalidateQueries({ queryKey: ['expenses', projectId] });
       qc.invalidateQueries({ queryKey: ['expense-summary', projectId] });
     },
+  });
+}
+
+// Nombres a los que ya se les ha pagado (asesores, etc.), para sugerirlos.
+export function useBeneficiarios() {
+  return useQuery<string[]>({
+    queryKey: ['expense-beneficiarios'],
+    queryFn: async () => (await api.get('/expenses/beneficiarios')).data.data,
+    staleTime: 5 * 60_000,
   });
 }

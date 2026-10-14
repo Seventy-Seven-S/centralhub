@@ -963,6 +963,9 @@ model Expense {
   // como ingreso negativo (ver ingresoReal.ts): así la salida se resta UNA
   // vez, en Gastos. Las devoluciones migradas no tienen gasto ligado y se
   // quedan como estaban.
+  // A quién se le entregó el dinero (p. ej. el asesor que cobra la
+  // comisión). Los asesores no son usuarios del sistema: va como texto.
+  beneficiario     String?
   pagoDevolucionId String?    @unique @map("pago_devolucion_id")
   pagoDevolucion   Payment?   @relation("GastoDeDevolucion", fields: [pagoDevolucionId], references: [id])
   corte       Corte?          @relation(fields: [corteId], references: [id])

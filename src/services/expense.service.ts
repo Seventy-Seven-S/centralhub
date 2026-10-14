@@ -80,6 +80,7 @@ export class ExpenseService {
         categoryId:  data.categoryId,
         // En un proyecto sin cortes no hay corte que lo descuente.
         descontarEnCorte: data.descontarEnCorte === true && !project.sinCortes,
+        beneficiario: data.beneficiario?.trim() || null,
         createdById: userId,
       },
       include: {
@@ -180,12 +181,22 @@ export class ExpenseService {
         ...(data.date        !== undefined && { date:        new Date(data.date) }),
         ...(data.categoryId  !== undefined && { categoryId:  data.categoryId }),
         ...(data.descontarEnCorte !== undefined && { descontarEnCorte: data.descontarEnCorte === true }),
+        ...(data.beneficiario !== undefined && { beneficiario: data.beneficiario?.trim() || null }),
       },
       include: {
         project:  { select: { id: true, code: true, name: true } },
         category: { select: { id: true, name: true } },
       },
     });
+  }
+
+  /** Nombres a los que ya se les ha pagado, los más frecuentes primero (para sugerirlos al capturar). */
+  async getBeneficiarios() {
+    const filas = await prisma.expense.groupBy({
+      by: ['beneficiario'], where: { beneficiario: { not: null } }, _count: true,
+      orderBy: { _count: { beneficiario: 'desc' } }, take: 200,
+    });
+    return filas.map(f => f.beneficiario as string);
   }
 
   async deleteExpense(id: string) {

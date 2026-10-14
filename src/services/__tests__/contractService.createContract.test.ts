@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => {
     contract: { create: vi.fn() },
     contractLot: { create: vi.fn() },
     lot: { updateMany: vi.fn() },
+    expenseCategory: { upsert: vi.fn() },
+    expense: { create: vi.fn() },
+    user: { findFirst: vi.fn() },
   };
   return { prisma, tx };
 });
@@ -68,6 +71,9 @@ beforeEach(() => {
     Promise.resolve({ id: 'contract-1', codigoLegado: 'MON1001', ...data }),
   );
   mocks.prisma.$transaction.mockImplementation(async (cb: any) => cb(mocks.tx));
+  mocks.tx.expenseCategory.upsert.mockResolvedValue({ id: 'cat-asesores' });
+  mocks.tx.expense.create.mockResolvedValue({ id: 'gasto-com' });
+  mocks.tx.user.findFirst.mockResolvedValue({ id: 'admin-1' });
 });
 
 function baseInput(overrides: Record<string, any> = {}) {
@@ -264,5 +270,43 @@ describe('createContract — fallo ruidoso al crear la comisión (cadena de atri
     expect(notificationService.createForAudiences).not.toHaveBeenCalled();
     const errorCalls = (logger.error as any).mock.calls.map((c: any[]) => String(c[0]));
     expect(errorCalls.some((msg: string) => msg.toLowerCase().includes('comisi'))).toBe(false);
+  });
+});
+
+describe('createContract — comisión del asesor como gasto', () => {
+  it('registra la comisión en Gastos (Asesores) a nombre del asesor, marcada para el corte', async () => {
+    const r: any = await contractService.createContract(baseInput({ comisionAsesor: { nombre: '  Alberto Ruiz ', monto: 14250 }, creadoPor: 'u-1' }));
+    expect(mocks.tx.expenseCategory.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { name: 'Asesores' } }));
+    expect(mocks.tx.expense.create).toHaveBeenCalledOnce();
+    const data = mocks.tx.expense.create.mock.calls[0][0].data;
+    expect(data).toMatchObject({
+      amount: 14250, beneficiario: 'Alberto Ruiz', projectId: 'project-1', categoryId: 'cat-asesores',
+      createdById: 'u-1', descontarEnCorte: true,
+    });
+    expect(data.description).toBe('Comisión M5-L12 (MON1001)');
+    expect(r.comisionGastoId).toBe('gasto-com');
+  });
+
+  it('en un proyecto sin cortes se registra pero no se marca para descontar', async () => {
+    mocks.prisma.project.findUnique.mockResolvedValue({ id: 'project-1', code: 'VDR', sinCortes: true });
+    await contractService.createContract(baseInput({ comisionAsesor: { nombre: 'Aldo', monto: 10000 } }));
+    expect(mocks.tx.expense.create.mock.calls[0][0].data.descontarEnCorte).toBe(false);
+  });
+
+  it('sin usuario en la sesión, el gasto queda a nombre del administrador', async () => {
+    await contractService.createContract(baseInput({ comisionAsesor: { nombre: 'Aldo', monto: 10000 } }));
+    expect(mocks.tx.expense.create.mock.calls[0][0].data.createdById).toBe('admin-1');
+  });
+
+  it('una comisión sin nombre de asesor se rechaza antes de crear nada', async () => {
+    await expect(contractService.createContract(baseInput({ comisionAsesor: { nombre: '  ', monto: 5000 } })))
+      .rejects.toThrow(/nombre del asesor/i);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('sin comisión (o en cero) no se crea gasto', async () => {
+    await contractService.createContract(baseInput());
+    await contractService.createContract(baseInput({ comisionAsesor: { nombre: 'Aldo', monto: 0 } }));
+    expect(mocks.tx.expense.create).not.toHaveBeenCalled();
   });
 });

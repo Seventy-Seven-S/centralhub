@@ -15,6 +15,7 @@ export interface CreateExpenseDto {
   projectId: string;
   categoryId: string;
   descontarEnCorte?: boolean;
+  beneficiario?: string | null;
 }
 
 export interface UpdateExpenseDto {
@@ -23,6 +24,7 @@ export interface UpdateExpenseDto {
   date?: string;
   categoryId?: string;
   descontarEnCorte?: boolean;
+  beneficiario?: string | null;
 }
 
 export interface ExpenseFilters {

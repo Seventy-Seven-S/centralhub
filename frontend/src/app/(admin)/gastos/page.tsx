@@ -5,13 +5,14 @@ import ChipResumen from '@/components/ui/ChipResumen';
 import { resumirGastosPorCategoria, filtrarPorCategoria, resumirGastosPorProyecto, filtrarPorProyecto } from '@/lib/gastos';
 import {
   Receipt, Plus, Pencil, Trash2, ChevronLeft, ChevronRight,
-  AlertCircle, X, ChevronDown, ChevronUp, Tag, TrendingDown,
+  AlertCircle, X, ChevronDown, ChevronUp, Tag, TrendingDown, Printer,
 } from 'lucide-react';
+import { abrirReciboComision } from '@/components/pdf/ReciboComision';
 import { useProyectos } from '@/hooks/useProyectos';
 import {
   useExpenseCategories, useExpensesByProject,
   useCreateExpense, useUpdateExpense, useDeleteExpense,
-  useCreateCategory, useUpdateCategory, useDeleteCategory,
+  useCreateCategory, useUpdateCategory, useDeleteCategory, useBeneficiarios,
   Expense, ExpenseCategory, CreateExpenseDto, UpdateExpenseDto,
   ExpenseFilters,
 } from '@/hooks/useGastos';
@@ -82,7 +83,9 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
     description: expense?.description ?? '',
     date:        expense ? expense.date.slice(0, 10) : todayLocalISO(),
     descontarEnCorte: expense?.descontarEnCorte ?? false,
+    beneficiario: expense?.beneficiario ?? '',
   });
+  const { data: beneficiarios = [] } = useBeneficiarios();
   // Ya liquidado en un corte: el dueño firmó ese monto, no se toca.
   const enCorte = !!expense?.corteId;
   const sinCortes = !!projects.find(p => p.id === form.projectId)?.sinCortes;
@@ -115,6 +118,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           description: form.description || undefined,
           date:        new Date(form.date).toISOString(),
           ...(!enCorte && !sinCortes && { descontarEnCorte: form.descontarEnCorte }),
+          beneficiario: form.beneficiario.trim() || null,
         };
         await updateMutation.mutateAsync({ id: expense!.id, dto });
       } else {
@@ -125,6 +129,7 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
           description: form.description || undefined,
           date:        new Date(form.date).toISOString(),
           descontarEnCorte: form.descontarEnCorte && !sinCortes,
+          beneficiario: form.beneficiario.trim() || null,
         };
         await createMutation.mutateAsync(dto);
       }
@@ -208,6 +213,22 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
                 style={inputStyle}
               />
             </div>
+          </div>
+
+          {/* A quién se le entregó */}
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>A quién se le entregó (opcional)</label>
+            <input
+              list="beneficiarios-gasto"
+              value={form.beneficiario}
+              onChange={e => setForm(f => ({ ...f, beneficiario: e.target.value }))}
+              placeholder="Asesor, proveedor…"
+              className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50"
+              style={inputStyle}
+            />
+            <datalist id="beneficiarios-gasto">
+              {beneficiarios.map(n => <option key={n} value={n} />)}
+            </datalist>
           </div>
 
           {/* Descripción */}
@@ -637,6 +658,9 @@ export default function GastosPage() {
                         </td>
                         <td className="px-5 py-3.5 max-w-xs truncate" style={{ color: 'var(--text-secondary)' }}>
                           {expense.description || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                          {expense.beneficiario && (
+                            <span className="ml-1" style={{ color: 'var(--text-tertiary)' }}>· {expense.beneficiario}</span>
+                          )}
                           {expense.descontarEnCorte && !expense.corteId && (
                             <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: 'var(--gold)', backgroundColor: 'var(--bg-secondary)' }}>
                               Por descontar en corte
@@ -648,6 +672,16 @@ export default function GastosPage() {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
+                            {expense.category?.name === 'Asesores' && expense.beneficiario && (
+                              <button
+                                onClick={() => abrirReciboComision(expense.id)}
+                                title="Imprimir recibo del asesor"
+                                className="p-1.5 rounded-lg transition hover:bg-[var(--bg-tertiary)]"
+                                style={{ color: 'var(--text-secondary)' }}
+                              >
+                                <Printer className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => setExpenseModal({ open: true, expense })}
                               title="Editar"

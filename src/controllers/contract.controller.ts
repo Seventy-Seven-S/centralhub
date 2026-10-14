@@ -20,7 +20,7 @@ export class ContractController {
   // POST /api/v1/contracts
   async create(req: Request, res: Response) {
     try {
-      const data: CreateContractDto = req.body;
+      const data: CreateContractDto = { ...req.body, creadoPor: req.user?.userId };
       const contract = await contractService.createContract(data);
 
       res.status(201).json({

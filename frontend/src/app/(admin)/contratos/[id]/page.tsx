@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, AlertCircle, FileText, DollarSign,
@@ -30,6 +30,7 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { ContratoCompraventa } from '@/components/pdf/ContratoCompraventa';
 import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
 import { ReciboContrato } from '@/components/pdf/ReciboContrato';
+import { abrirReciboComision } from '@/components/pdf/ReciboComision';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import { reciboPropsDesdeLog, reciboPropsDesdePago } from '@/lib/reimpresion';
 import { resumenPagado } from '@/lib/resumenPagado';
@@ -101,6 +102,9 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const router     = useRouter();
   const queryClient = useQueryClient();
+  // Recién dado de alta con comisión: se ofrece imprimir el recibo del asesor.
+  const reciboComision = useSearchParams().get('reciboComision');
+  const [imprimiendoComision, setImprimiendoComision] = useState(false);
 
   const { data: contrato, isLoading: loadingContrato, isError: errorContrato } = useContratoById(id);
   const { data: cuotas   = [], isLoading: loadingCuotas } = useCuotasByContrato(id);
@@ -398,6 +402,33 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
       )}
 
       <div className="space-y-5">
+
+        {reciboComision && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm"
+               style={{ backgroundColor: 'var(--accent-pale, var(--bg-secondary))', border: '1px solid var(--accent)' }}>
+            <span style={{ color: 'var(--text-primary)' }}>
+              La comisión del asesor quedó registrada en Gastos. Imprime su recibo para que lo firme.
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={imprimiendoComision}
+                onClick={async () => {
+                  setImprimiendoComision(true);
+                  try {
+                    await abrirReciboComision(reciboComision, contrato ? `${contrato.client.firstName} ${contrato.client.lastName}` : undefined);
+                  } finally { setImprimiendoComision(false); }
+                }}
+                className="rounded-lg px-3 py-1.5 font-semibold text-white disabled:opacity-60"
+                style={{ backgroundColor: 'var(--accent)' }}>
+                {imprimiendoComision ? 'Generando…' : 'Imprimir recibo del asesor'}
+              </button>
+              <button onClick={() => router.replace(`/contratos/${id}`)}
+                className="rounded-lg px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* SECCIÓN 1 — Header */}
         <div className="flex items-center gap-3">

@@ -135,7 +135,13 @@ export class ContractService {
     const inheritedAgentId = reservedAgentIds.length === 1 ? reservedAgentIds[0] : null;
     const finalAgentId = data.agentId !== undefined ? data.agentId : inheritedAgentId;
 
-    // Calcular precio total primero (necesario para validar el split)
+    // Comisión del asesor: si trae monto, tiene que traer a quién.
+    const comision = data.comisionAsesor && Number(data.comisionAsesor.monto) > 0
+      ? { nombre: (data.comisionAsesor.nombre ?? '').trim(), monto: Math.round(Number(data.comisionAsesor.monto) * 100) / 100 }
+      : null;
+    if (comision && !comision.nombre) throw new Error('Escribe el nombre del asesor que cobra la comisión');
+
+        // Calcular precio total primero (necesario para validar el split)
     const totalPrice = (data as any).totalPrice && (data as any).totalPrice > 0
       ? (data as any).totalPrice
       : lots.reduce((sum, lot) => sum + lot.currentPrice, 0);
@@ -170,6 +176,7 @@ export class ContractService {
     }
 
     // Crear contrato con transacción
+    let comisionGastoId: string | null = null;
     const contract = await prisma.$transaction(async (tx) => {
       // 1. Crear el contrato
       const newContract = await tx.contract.create({
@@ -229,6 +236,32 @@ export class ContractService {
       // 4. Migrar la INE del apartado al expediente del cliente
       // (la INE 'pertenece al Client' como estado final — ver spec INE)
       await migrateIneToClient(tx, data.lotIds, data.clientId);
+
+      // 5. Comisión del asesor → Gastos (Asesores). Va DENTRO de la
+      // transacción: antes la comisión se perdía en silencio cuando no había
+      // vendedor-usuario, y nunca llegaba a Gastos ni a la liquidación.
+      if (comision) {
+        const autorId = data.creadoPor
+          ?? (await tx.user.findFirst({ where: { role: 'ADMIN' }, orderBy: { createdAt: 'asc' }, select: { id: true } }))?.id;
+        if (!autorId) throw new Error('No hay usuario para registrar la comisión');
+        const categoria = await tx.expenseCategory.upsert({
+          where: { name: 'Asesores' }, update: {}, create: { name: 'Asesores', createdById: autorId },
+        });
+        const gasto = await tx.expense.create({
+          data: {
+            amount: comision.monto,
+            date: new Date(),
+            description: `Comisión ${lots.map(l => `M${l.manzana}-L${l.lotNumber}`).join(', ')} (${generatedNumber})`,
+            beneficiario: comision.nombre,
+            projectId: data.projectId,
+            categoryId: categoria.id,
+            createdById: autorId,
+            // En un proyecto sin cortes no hay a quién descontársela.
+            descontarEnCorte: !project.sinCortes,
+          },
+        });
+        comisionGastoId = gasto.id;
+      }
 
       return newContract;
     });
@@ -405,7 +438,8 @@ export class ContractService {
       ).catch(err => console.error('Error enviando email de bienvenida:', err));
     }
 
-    return fullContract;
+    // El id del gasto de la comisión, para imprimir el recibo del asesor.
+    return { ...fullContract, comisionGastoId };
   }
 
   // Listar contratos con filtros
