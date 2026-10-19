@@ -19,6 +19,10 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = (localStorage.getItem('ch-theme') as Theme) ?? 'light';
+    // localStorage solo existe en el navegador: leerlo en el render inicial
+    // haría que el HTML del servidor y el del cliente no coincidan
+    // (error de hidratación). Por eso se lee aquí, después de montar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(stored);
     document.documentElement.classList.toggle('light', stored === 'light');
   }, []);

@@ -30,6 +30,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const stored = readStoredProjectId(window.localStorage);
     const resolved = resolveStoredSelection(projects, stored);
     if (resolved !== stored) writeStoredProjectId(window.localStorage, resolved);
+    // Se queda en el efecto: depende de localStorage (solo en el navegador,
+    // leerlo en el render rompe la hidratación) y escribe en él.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedProjectIdState(resolved);
     setHydrated(true);
   }, [isLoading, hydrated, projects]);

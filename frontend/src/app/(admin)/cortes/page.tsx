@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { pdf } from '@react-pdf/renderer';
 import { X, FileDown, Plus, AlertCircle, CheckSquare, Square } from 'lucide-react';
@@ -38,11 +38,18 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!pendientes) return;
-    setSeleccion(Object.fromEntries(pendientes.pagos.map(p => [p.id, true])));
-    setSelGastos(Object.fromEntries((pendientes.gastos ?? []).map(g => [g.id, true])));
-  }, [pendientes]);
+  // Cada vez que llegan pendientes nuevos se marcan todos. Se ajusta durante
+  // el render (patrón de React para derivar estado de una prop que cambia) en
+  // vez de en un efecto; compara la misma referencia que comparaba el efecto,
+  // así que se dispara exactamente en los mismos casos.
+  const [pendientesPrevios, setPendientesPrevios] = useState<typeof pendientes>(undefined);
+  if (pendientes !== pendientesPrevios) {
+    setPendientesPrevios(pendientes);
+    if (pendientes) {
+      setSeleccion(Object.fromEntries(pendientes.pagos.map(p => [p.id, true])));
+      setSelGastos(Object.fromEntries((pendientes.gastos ?? []).map(g => [g.id, true])));
+    }
+  }
 
   const catDueno = categorias.find(c => c.name === CAT_DUENO);
   const catsEgreso = categorias.filter(c => c.name !== CAT_DUENO);

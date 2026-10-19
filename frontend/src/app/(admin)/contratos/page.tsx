@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, FileText, AlertTriangle, DollarSign,
@@ -101,7 +101,14 @@ export default function ContratosPage() {
   const { selectedProjectId } = useProjectSelection();
   const { data: contratos = [], isLoading, isError } = useContratos(selectedProjectId ?? undefined);
 
-  useEffect(() => { setPage(1); }, [selectedProjectId]);
+  // Al cambiar de proyecto se vuelve a la página 1. Se ajusta durante el
+  // render (patrón de React para "resetear estado cuando cambia una prop") en
+  // vez de en un efecto: mismo resultado, sin un render intermedio de más.
+  const [proyectoPrevio, setProyectoPrevio] = useState(selectedProjectId);
+  if (proyectoPrevio !== selectedProjectId) {
+    setProyectoPrevio(selectedProjectId);
+    setPage(1);
+  }
 
   // KPIs
   const kpis = useMemo(() => ({

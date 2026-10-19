@@ -62,7 +62,7 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
     payCuota(
       { cuotaId: cuota.id, montoPagado: n, fechaPago: fecha, idempotencyKey: idempotencyKeyRef.current },
       {
-        onSuccess: async (response: any) => {
+        onSuccess: async (response) => {
           setStep('generating');
           try {
             const reciboId: string | null = response?.data?.data?.reciboId ?? null;

@@ -266,6 +266,9 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
 
   // Las acciones del contrato, para el menú. Se arman aquí y no en el JSX para
   // que las condiciones de cuándo aparece cada una se lean de corrido.
+  // El lint cree que el ref del input de archivo se lee durante el render
+  // porque el arreglo pasa por .filter(); solo se lee dentro del onClick.
+  // eslint-disable-next-line react-hooks/refs
   const accionesDelContrato: AccionMenu[] = [
     esAdmin && {
       label: 'Corregir datos del contrato',

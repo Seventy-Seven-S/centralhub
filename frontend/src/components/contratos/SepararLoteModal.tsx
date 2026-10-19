@@ -66,6 +66,10 @@ export function SepararLoteModal({ contratoId, etiqueta, onClose, onDone }: Prop
       }
     })();
     return () => { vivo = false; };
+    // Solo al abrir (o cambiar de contrato): lotId se lee para saber si ya
+    // había uno elegido; meterlo como dependencia recargaría la vista previa
+    // completa en cada cambio de lote, que ya lo hace el efecto de abajo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contratoId]);
 
   useEffect(() => {
@@ -77,6 +81,9 @@ export function SepararLoteModal({ contratoId, etiqueta, onClose, onDone }: Prop
       setPrecio(String(p.sugerido.precioQueSeVa));
       setMonto(String(p.sugerido.montoQueSeVa));
     })().catch(() => undefined);
+    // Solo al cambiar de lote. 'previa' no va: este efecto la reescribe y se
+    // volvería un ciclo; contratoId no cambia mientras el modal está abierto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lotId]);
 
   const precioNum = aNumero(precio);

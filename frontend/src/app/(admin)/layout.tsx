@@ -18,8 +18,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Cerrar el drawer al navegar (el onClose de los links del Sidebar también
-  // lo hace, pero esto cubre navegaciones programáticas)
-  useEffect(() => { setSidebarOpen(false); }, [pathname]);
+  // lo hace, pero esto cubre navegaciones programáticas). Se ajusta durante el
+  // render en vez de en un efecto: mismo resultado, sin render intermedio.
+  const [rutaPrevia, setRutaPrevia] = useState(pathname);
+  if (rutaPrevia !== pathname) {
+    setRutaPrevia(pathname);
+    setSidebarOpen(false);
+  }
 
   useEffect(() => {
     if (!isAuthenticated) {

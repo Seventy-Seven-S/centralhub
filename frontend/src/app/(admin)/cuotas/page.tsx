@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, AlertCircle } from 'lucide-react';
 import { formatCurrency, normalizeForSearch } from '@/lib/utils';
@@ -72,7 +72,14 @@ export default function CuotasPage() {
   const { selectedProjectId } = useProjectSelection();
   const { data: cuotas = [], isLoading, isError } = useCuotas(selectedProjectId ?? undefined, statusFilter || undefined);
 
-  useEffect(() => { setPage(1); }, [selectedProjectId]);
+  // Al cambiar de proyecto se vuelve a la página 1. Se ajusta durante el
+  // render (patrón de React para "resetear estado cuando cambia una prop") en
+  // vez de en un efecto: mismo resultado, sin un render intermedio de más.
+  const [proyectoPrevio, setProyectoPrevio] = useState(selectedProjectId);
+  if (proyectoPrevio !== selectedProjectId) {
+    setProyectoPrevio(selectedProjectId);
+    setPage(1);
+  }
 
   const kpiPendientes = useMemo(() => cuotas.filter(c => c.status === 'PENDIENTE').length, [cuotas]);
   const kpiPagadas    = useMemo(() => cuotas.filter(c => c.status === 'PAGADA').length, [cuotas]);

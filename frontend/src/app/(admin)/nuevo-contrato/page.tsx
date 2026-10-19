@@ -199,7 +199,11 @@ export default function NuevoContratoPage() {
   );
 
   // El precio propuesto es la SUMA de los lotes elegidos; sigue siendo editable.
+  // Se deja como efecto a propósito: lotesSeleccionados es un useMemo sobre
+  // datos de la API, y moverlo al render cambiaría en qué momento se pisa un
+  // precio que la secretaria ya editó. No vale el riesgo por una regla de lint.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrecioEditado(precioDeLotes(lotesSeleccionados));
   }, [lotesSeleccionados]);
 
@@ -210,7 +214,10 @@ export default function NuevoContratoPage() {
   // "quién lo apartó"; el humano ve el nuevo precargado y decide de nuevo
   // (confirma o cambia). El backend también hereda como red de seguridad
   // aunque este efecto fallara — ver finalAgentId en contract.service.ts.
+  // Igual que el precio: se conserva el efecto para no mover cuándo se pisa
+  // el asesor elegido a mano.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAgentId(loteSeleccionado?.reservedByAgentId ?? '');
   }, [loteSeleccionado]);
 
