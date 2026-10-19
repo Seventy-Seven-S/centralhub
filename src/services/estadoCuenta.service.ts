@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import { prisma } from '../config/database';
 import { EstadoCuentaLog } from '@prisma/client';
 
@@ -8,7 +9,9 @@ export function generarFolio(contractId: string): string {
   const day    = String(now.getDate()).padStart(2, '0');
   const prefix = contractId.slice(0, 6).toUpperCase();
   const chars  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const random = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  // El folio se valida en una página pública: con Math.random (predecible) se
+  // podían adivinar folios ajenos. randomInt es criptográfico y sin sesgo.
+  const random = Array.from({ length: 4 }, () => chars[randomInt(chars.length)]).join('');
   return `EC-${year}${month}${day}-${prefix}-${random}`;
 }
 

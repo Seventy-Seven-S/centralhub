@@ -41,6 +41,8 @@ model User {
   emailVerified    Boolean     @default(false)
   twoFactorCode    String?
   twoFactorExpiry  DateTime?
+  // Fallos con el código vigente; al llegar al tope el código se invalida.
+  twoFactorAttempts Int      @default(0)
 
   refreshTokens      RefreshToken[]
   activities         Activity[]

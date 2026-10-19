@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
 import { prisma } from '../config/database';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, refreshTokenTtlMs } from '../config/jwt';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
@@ -8,6 +9,16 @@ import { EmailSendError } from '../utils/errors';
 import { normalizeEmail } from '../utils/normalizeEmail';
 import { logger } from '../utils/logger';
 import { decidirRotacion } from '../services/lib/rotacionRefresh';
+
+// Intentos fallidos que aguanta un código 2FA antes de invalidarse.
+export const MAX_INTENTOS_2FA = 5;
+const MENSAJE_2FA_AGOTADO = 'Demasiados intentos fallidos. Inicia sesión de nuevo para recibir otro código.';
+
+// crypto.randomInt y no Math.random: Math.random no es criptográfico y su
+// secuencia se puede predecir a partir de salidas anteriores.
+export function generarCodigo2fa(): string {
+  return randomInt(100000, 1000000).toString();
+}
 
 function persistRefreshToken(userId: string, token: string) {
   return prisma.refreshToken.create({
@@ -90,12 +101,13 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Flujo 2FA normal (producción)
-  const code       = Math.floor(100000 + Math.random() * 900000).toString();
+  const code       = generarCodigo2fa();
   const hashedCode = await bcrypt.hash(code, 10);
   const expiry     = new Date(Date.now() + 10 * 60 * 1000);
+  // Código nuevo, contador nuevo: los fallos del código anterior no cuentan.
   await prisma.user.update({
     where: { id: user.id },
-    data:  { twoFactorCode: hashedCode, twoFactorExpiry: expiry },
+    data:  { twoFactorCode: hashedCode, twoFactorExpiry: expiry, twoFactorAttempts: 0 },
   });
   try {
     await sendVerificationCode(user.email, user.firstName, code);
@@ -124,12 +136,36 @@ export const verify2fa = asyncHandler(async (req: Request, res: Response) => {
   if (new Date() > user.twoFactorExpiry)
     throw new ApiError(400, 'Verification code has expired');
 
+  // Un código que ya agotó sus intentos no se vuelve a comparar, aunque
+  // alguna petición en vuelo no alcanzara a borrarlo.
+  if (user.twoFactorAttempts >= MAX_INTENTOS_2FA) throw new ApiError(400, MENSAJE_2FA_AGOTADO);
+
   const isValid = await bcrypt.compare(code, user.twoFactorCode);
-  if (!isValid) throw new ApiError(400, 'Invalid verification code');
+  if (!isValid) {
+    // Un código de 6 dígitos son 900,000 opciones: sin tope, 10 minutos de
+    // intentos (repartidos entre IPs para esquivar el rate limiter) bastan
+    // para adivinarlo. Al quinto fallo el código se quema y hay que volver a
+    // iniciar sesión para que llegue otro.
+    // El incremento es atómico en la base (no "leer y sumar"): con intentos
+    // en paralelo, cada fallo cuenta.
+    const { twoFactorAttempts } = await prisma.user.update({
+      where:  { id: user.id },
+      data:   { twoFactorAttempts: { increment: 1 } },
+      select: { twoFactorAttempts: true },
+    });
+    if (twoFactorAttempts >= MAX_INTENTOS_2FA) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data:  { twoFactorCode: null, twoFactorExpiry: null },
+      });
+      throw new ApiError(400, MENSAJE_2FA_AGOTADO);
+    }
+    throw new ApiError(400, 'Invalid verification code');
+  }
 
   await prisma.user.update({
     where: { id: user.id },
-    data:  { twoFactorCode: null, twoFactorExpiry: null, lastLogin: new Date() },
+    data:  { twoFactorCode: null, twoFactorExpiry: null, twoFactorAttempts: 0, lastLogin: new Date() },
   });
 
   const accessToken  = generateAccessToken({ userId: user.id, email: user.email, role: user.role });
