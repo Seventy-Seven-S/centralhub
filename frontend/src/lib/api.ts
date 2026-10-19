@@ -25,11 +25,15 @@ function forceLogout() {
   document.cookie = 'auth_token=; path=/; max-age=0';
   document.cookie = 'user_role=; path=/; max-age=0';
   const currentPath = window.location.pathname;
+  // Navegación dura a propósito: esto corre fuera de React (interceptor de
+  // axios) y recargar la página tira cualquier estado en memoria de la sesión.
+  /* eslint-disable @next/next/no-location-assign-relative-destination */
   if (currentPath.startsWith('/portal') || currentPath.startsWith('/mis-')) {
     window.location.href = '/portal';
   } else {
     window.location.href = '/login';
   }
+  /* eslint-enable @next/next/no-location-assign-relative-destination */
 }
 
 async function doRefresh(): Promise<string> {

@@ -5,7 +5,7 @@ import ChipResumen from '@/components/ui/ChipResumen';
 import { resumirGastosPorCategoria, filtrarPorCategoria, resumirGastosPorProyecto, filtrarPorProyecto } from '@/lib/gastos';
 import {
   Receipt, Plus, Pencil, Trash2, ChevronLeft, ChevronRight,
-  AlertCircle, X, ChevronDown, ChevronUp, Tag, TrendingDown, Printer,
+  X, ChevronDown, ChevronUp, Tag, Printer,
 } from 'lucide-react';
 import { abrirReciboComision } from '@/components/pdf/ReciboComision';
 import { useProyectos } from '@/hooks/useProyectos';

@@ -12,7 +12,6 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
-import { cn } from '@/lib/utils';
 import ProjectSelector from '@/components/layout/ProjectSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import { RegistrarPagoModal } from '@/components/pagos/RegistrarPagoModal';

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { refreshOnce } from './tokenRefreshLock';
 
 describe('refreshOnce — un solo refresh en curso, aunque N requests lo pidan a la vez', () => {

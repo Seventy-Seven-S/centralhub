@@ -189,6 +189,8 @@ export function ReciboContrato({ contrato, cuota, pago, balanceDespues, qrDataUr
           {/* VALIDACIÓN (QR) */}
           <View style={s.qrSection}>
             {qrDataUri ? (
+              // Image de @react-pdf, no un <img> del DOM: no acepta alt.
+              // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={qrDataUri} style={s.qrImage} />
             ) : (
               <View style={s.qrBox}>

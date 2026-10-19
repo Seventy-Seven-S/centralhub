@@ -32,7 +32,8 @@ export function leerColores(v: unknown): Record<string, ColorProyecto> {
 
 /** Asigna o quita (null) el color de un proyecto sin tocar los demás. */
 export function conColor(actuales: Record<string, ColorProyecto>, projectId: string, color: ColorProyecto | null) {
-  const { [projectId]: _, ...resto } = actuales;
+  const resto = { ...actuales };
+  delete resto[projectId];
   return color ? { ...resto, [projectId]: color } : resto;
 }
 

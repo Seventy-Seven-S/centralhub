@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, Label,
 } from 'recharts';
 import {
-  FileText, AlertTriangle, DollarSign,
+  AlertTriangle, DollarSign,
   Clock, TrendingUp,
 } from 'lucide-react';
 import { useDashboardSummary, useMoraDetail, type CuotaEnMora } from '@/hooks/useDashboard';

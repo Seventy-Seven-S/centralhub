@@ -191,7 +191,8 @@ export interface EstadoDeCuentaProps {
 // renglones caben por hoja vive en paginarCuotas.ts, con sus pruebas.
 const TAMANO_HOJA = 'LETTER' as const;
 
-export function EstadoDeCuenta({ contrato, cuotas, pagos, folio, contentHash }: EstadoDeCuentaProps) {
+// contentHash se acepta en las props pero el PDF aún no lo imprime.
+export function EstadoDeCuenta({ contrato, cuotas, pagos, folio }: EstadoDeCuentaProps) {
   const codigo        = contrato.codigoLegado ?? contrato.contractNumber;
   const clienteNombre = `${contrato.client.firstName} ${contrato.client.lastName}`;
   // Todos los lotes del contrato (no solo el primero); área total solo si se conoce.

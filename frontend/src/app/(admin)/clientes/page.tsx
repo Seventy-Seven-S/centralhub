@@ -3,8 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Users, ChevronLeft, ChevronRight, Eye, AlertCircle } from 'lucide-react';
-import { useClientes, useClientes as useClientesHook } from '@/hooks/useClientes';
-import { useContratosByCliente } from '@/hooks/useClientes';
+import { useClientes } from '@/hooks/useClientes';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { normalizeForSearch } from '@/lib/utils';

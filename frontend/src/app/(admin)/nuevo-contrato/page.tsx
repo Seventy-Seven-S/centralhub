@@ -53,14 +53,6 @@ function Field({
   );
 }
 
-function ReadonlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p style={{ ...labelStyle }}>{label}</p>
-      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value || '—'}</p>
-    </div>
-  );
-}
 
 // ── Stepper ───────────────────────────────────────────────────────────────────
 function Stepper({ current }: { current: number }) {

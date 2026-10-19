@@ -7,7 +7,7 @@
 // dejar constancia del faltante.
 
 import { useState } from 'react';
-import { Banknote, AlertCircle, CheckCircle2, Clock, X, Loader2 } from 'lucide-react';
+import { Banknote, CheckCircle2, Clock, X, Loader2 } from 'lucide-react';
 import { useCortesDiarios, useRecibirCorte, useCorteDiario, useResumenDiario, CorteDiario } from '@/hooks/useCorteDiario';
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency, formatDateUTC } from '@/lib/utils';
