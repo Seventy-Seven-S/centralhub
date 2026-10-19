@@ -3,7 +3,7 @@ import api from '@/lib/api';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
-export type NotificationType = 'RESERVATION' | 'CONTRACT' | 'PAYMENT';
+export type NotificationType = 'RESERVATION' | 'CONTRACT' | 'PAYMENT' | 'SYSTEM';
 
 export interface Notification {
   id:               string;

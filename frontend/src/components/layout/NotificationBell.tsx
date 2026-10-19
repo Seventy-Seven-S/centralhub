@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Calendar, FileText, DollarSign, CheckCheck } from 'lucide-react';
+import { Bell, Calendar, FileText, DollarSign, CheckCheck, AlertTriangle } from 'lucide-react';
 import { useRole } from '@/hooks/useRole';
 import {
   useNotificaciones,
@@ -17,6 +17,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   RESERVATION: Calendar,
   CONTRACT:    FileText,
   PAYMENT:     DollarSign,
+  // Avisos del sistema, p. ej. que el correo dejó de salir.
+  SYSTEM:      AlertTriangle,
 };
 
 // scope 'staff' (default): backoffice — ADMIN ve todo, MANAGER sus apartados.

@@ -958,6 +958,7 @@ enum NotificationType {
   RESERVATION
   CONTRACT
   PAYMENT
+  SYSTEM // avisos del propio sistema, p. ej. que el correo dejó de salir
 }
 
 // A quién va dirigida la notificación. Se crea UNA FILA POR AUDIENCIA para que

@@ -10,6 +10,7 @@ import { connectDatabase } from './config/database';
 import { startMoraJob } from './jobs/mora.job';
 import { startLiberarApartadosJob } from './jobs/liberarApartados.job';
 import { startCleanRateLimitBucketsJob } from './jobs/cleanRateLimitBuckets.job';
+import { startVerificarCorreoJob } from './jobs/verificarCorreo.job';
 
 const PORT = process.env.PORT || 4000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -26,6 +27,7 @@ const startServer = async (): Promise<void> => {
       startMoraJob();
       startLiberarApartadosJob();
       startCleanRateLimitBucketsJob();
+      startVerificarCorreoJob();
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
