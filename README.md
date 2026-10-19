@@ -376,7 +376,7 @@ npm run prisma:studio
 npm run prisma:seed
 
 # Importación de datos
-npm run migrate              # tsx src/scripts/migrate-project.ts
+npm run migrate              # tsx src/scripts/tools/migrate-project.ts
 # Scripts auxiliares en src/scripts/:
 #   seed-lots-monarca2.ts
 #   link-contracts-lots-monarca2.ts

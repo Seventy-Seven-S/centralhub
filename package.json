@@ -11,7 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "migrate": "tsx src/scripts/migrate-project.ts",
+    "migrate": "tsx src/scripts/tools/migrate-project.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "local:up": "./scripts/pg-local.sh start",

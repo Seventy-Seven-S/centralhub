@@ -44,17 +44,21 @@ Nunca aplica en producción: ahí el correo siempre sale.
 
 ## Cómo ensayar un script de datos
 
+Las herramientas que se reusan viven en `src/scripts/tools/`; los scripts que
+se corrieron una sola vez y las auditorías quedan en `src/scripts/_historico/`
+como referencia (no se vuelven a correr sin revisarlos).
+
 `.env` apunta a local, así que por omisión todo script pega en local:
 
 ```bash
-npx tsx src/scripts/<script>.ts ... --confirm     # local
+npx tsx src/scripts/tools/<script>.ts ... --confirm     # local
 ```
 
 Para producción hay que pasar la URL a propósito:
 
 ```bash
 PGURL=$(railway variables --service Postgres --json | jq -r .DATABASE_PUBLIC_URL)
-DATABASE_URL="$PGURL" npx tsx src/scripts/<script>.ts ... --confirm
+DATABASE_URL="$PGURL" npx tsx src/scripts/tools/<script>.ts ... --confirm
 ```
 
 Si `railway variables` devuelve vacío (pasa de vez en cuando), `DATABASE_URL`
