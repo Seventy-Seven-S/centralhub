@@ -1,0 +1,7 @@
+{
+  // Lo que va a producción: sin scripts de datos ni pruebas. Los scripts se
+  // corren con tsx desde src/ y las pruebas con vitest; compilarlos solo
+  // engorda dist/ y mete al build errores de archivos que no se despliegan.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "dist", "src/scripts", "**/__tests__", "**/*.test.ts"]
+}
