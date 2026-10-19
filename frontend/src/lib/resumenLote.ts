@@ -6,12 +6,13 @@ export interface LoteContratoVigente {
     codigoLegado: string | null;
     status: string;
     balance: number | null;
-    client: { id: string; firstName: string; lastName: string };
+    /** null para el AGENT: el backend no le manda quién compró ni el saldo. */
+    client: { id: string; firstName: string; lastName: string } | null;
   };
 }
 
 export type ResumenLote =
-  | { tipo: 'vendido'; cliente: string; codigo: string; contratoId: string; precioVenta: number; estadoContrato: string; balance: number | null }
+  | { tipo: 'vendido'; cliente: string | null; codigo: string; contratoId: string; precioVenta: number; estadoContrato: string; balance: number | null }
   | { tipo: 'propietario'; propietario: string }
   | { tipo: 'libre' }
   | { tipo: 'sin-contrato' };
@@ -25,7 +26,7 @@ export function resumenLote(lote: { status: string; contracts?: LoteContratoVige
     const c = vigente.contract;
     return {
       tipo: 'vendido',
-      cliente: `${c.client.firstName} ${c.client.lastName}`,
+      cliente: c.client ? `${c.client.firstName} ${c.client.lastName}` : null,
       codigo: c.codigoLegado ?? c.contractNumber,
       contratoId: c.id,
       precioVenta: vigente.priceAtSale,

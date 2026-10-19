@@ -25,10 +25,12 @@ const adminOrManager = authorize('ADMIN', 'MANAGER');
 // (pieza 3), así que abrir esto no reabre el hueco de atribución.
 const adminManagerOrAgent = authorize('ADMIN', 'MANAGER', 'AGENT');
 
-// Lectura — todos los roles autenticados pueden ver lotes (PII de contacto
-// filtrada por rol+ownership en el controller — ver scopeLotPII).
-router.get('/',    lotController.getAll);
-router.get('/:id', lotController.getById);
+// Lectura — los tres roles del equipo ven lotes (el AGENT vive en /lotes).
+// Lo que cada uno recibe se recorta en el controller: el AGENT no recibe
+// contacto de apartados ajenos ni comprador/saldo de lotes vendidos — ver
+// scopeLotPII. Explícito para que un rol nuevo no herede la lectura.
+router.get('/',    adminManagerOrAgent, lotController.getAll);
+router.get('/:id', adminManagerOrAgent, lotController.getById);
 
 // Escritura — solo ADMIN y MANAGER
 router.post('/',   adminOrManager, lotController.create);

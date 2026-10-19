@@ -60,3 +60,17 @@ describe('lot.routes — POST /:id/reserve abierto a AGENT, resto sin cambios', 
     expect(tryFirstMiddleware(findRouteLayer('put', '/:id'), { role: 'AGENT', userId: 'agent-1' }).threw).toBe(true);
   });
 });
+
+describe('lot.routes — lectura explícita para los tres roles del equipo', () => {
+  it('GET / y GET /:id: ADMIN, MANAGER y AGENT pasan; cualquier otro rol → 403', () => {
+    for (const path of ['/', '/:id']) {
+      const layer = findRouteLayer('get', path);
+      expect(tryFirstMiddleware(layer, { role: 'ADMIN', userId: 'a' }).threw).toBe(false);
+      expect(tryFirstMiddleware(layer, { role: 'MANAGER', userId: 'm' }).threw).toBe(false);
+      expect(tryFirstMiddleware(layer, { role: 'AGENT', userId: 'g' }).threw).toBe(false);
+      const otro = tryFirstMiddleware(layer, { role: 'CLIENT', userId: 'c' });
+      expect(otro.threw).toBe(true);
+      expect(otro.error.statusCode).toBe(403);
+    }
+  });
+});

@@ -28,7 +28,8 @@ export interface Lote {
     priceAtSale: number;
     contract: {
       id: string; contractNumber: string; codigoLegado: string | null; status: string; balance: number | null;
-      client: { id: string; firstName: string; lastName: string };
+      // null para el AGENT: no recibe comprador ni saldo (ver scopeLotPII).
+      client: { id: string; firstName: string; lastName: string } | null;
     };
   }>;
 }

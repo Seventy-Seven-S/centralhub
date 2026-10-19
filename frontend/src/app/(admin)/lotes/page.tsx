@@ -211,12 +211,14 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                 const r = resumenLote(lote);
                 if (r.tipo === 'vendido') return (
                   <div className="rounded-xl px-3 py-2.5 space-y-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                    <div className="flex justify-between gap-3">
-                      <span style={{ color: 'var(--text-secondary)' }}>Cliente</span>
-                      <Link href={`/contratos/${r.contratoId}`} className="font-medium text-right hover:underline" style={{ color: 'var(--accent)' }}>
-                        {r.cliente} ↗
-                      </Link>
-                    </div>
+                    {r.cliente && (
+                      <div className="flex justify-between gap-3">
+                        <span style={{ color: 'var(--text-secondary)' }}>Cliente</span>
+                        <Link href={`/contratos/${r.contratoId}`} className="font-medium text-right hover:underline" style={{ color: 'var(--accent)' }}>
+                          {r.cliente} ↗
+                        </Link>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span style={{ color: 'var(--text-secondary)' }}>Contrato</span>
                       <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{r.codigo}</span>

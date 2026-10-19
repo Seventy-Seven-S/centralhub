@@ -73,3 +73,43 @@ describe('scopeLotPII — IDOR: el dato no viaja, no se oculta en la vista', () 
     }
   });
 });
+
+describe('scopeLotPII — comprador y saldo del contrato vigente', () => {
+  const vendido = (): any => lot({
+    status: 'SOLD',
+    reservedByName: null, reservedByPhone: null, reservedByEmail: null, reservedByAgentId: null,
+    contracts: [{
+      priceAtSale: 244000,
+      contract: {
+        id: 'c-9', contractNumber: 'JSA2-A013', codigoLegado: 'A013', status: 'IN_MORA',
+        balance: 33797, clientId: 'cl-1', notes: 'Paga los viernes, tel 8689998877',
+        client: { id: 'cl-1', firstName: 'Karina', lastName: 'Rodriguez', email: 'karina@gmail.com', phone: '8681112233' },
+      },
+    }],
+  });
+
+  it('ADMIN y MANAGER reciben el contrato completo', () => {
+    expect(scopeLotPII(vendido(), 'ADMIN', 'a')).toEqual(vendido());
+    expect(scopeLotPII(vendido(), 'MANAGER', 'm')).toEqual(vendido());
+  });
+
+  it('AGENT: sabe que está vendido (código, precio, estado) pero sin comprador ni saldo', () => {
+    const r: any = scopeLotPII(vendido(), 'AGENT', 'agent-A');
+    expect(r.contracts).toEqual([{
+      priceAtSale: 244000,
+      contract: { id: 'c-9', contractNumber: 'JSA2-A013', codigoLegado: 'A013', status: 'IN_MORA', client: null, balance: null },
+    }]);
+    const json = JSON.stringify(r);
+    for (const dato of ['Karina', 'karina@gmail.com', '8681112233', '33797', 'cl-1', '8689998877']) {
+      expect(json).not.toContain(dato);
+    }
+  });
+
+  it('AGENT con su propio apartado conserva el contacto del apartado, pero tampoco ve compradores de contratos', () => {
+    const input: any = lot({ reservedByAgentId: 'agent-A', contracts: vendido().contracts });
+    const r: any = scopeLotPII(input, 'AGENT', 'agent-A');
+    expect(r.reservedByName).toBe('Juan Pérez');
+    expect((r.contracts as any)[0].contract.client).toBeNull();
+    expect((r.contracts as any)[0].contract.balance).toBeNull();
+  });
+});

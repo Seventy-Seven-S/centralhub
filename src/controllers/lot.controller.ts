@@ -11,17 +11,36 @@ import { IneFileInput } from '../services/ineDocument';
 // pero nada de contacto ni de qué asesor lo apartó. El dato se elimina del
 // objeto de respuesta — nunca viaja por la red — no se oculta solo en la
 // vista. ADMIN/MANAGER: sin cambios, ven todo.
+//
+// Lo mismo con el contrato vigente de un lote vendido: el AGENT sabe que está
+// vendido (código, precio, estado), pero no quién lo compró ni cuánto debe.
+// Eso es de las secretarias; el asesor no tiene pantalla de contratos.
+type ContratoDeLote = { contract?: Record<string, unknown> | null } & Record<string, unknown>;
+
 export function scopeLotPII<T extends {
   reservedByAgentId: string | null;
   reservedByName?: string | null;
   reservedByPhone?: string | null;
   reservedByEmail?: string | null;
+  contracts?: ContratoDeLote[];
 }>(lot: T, role: string | undefined, userId: string | undefined): T {
   if (role === 'ADMIN' || role === 'MANAGER') return lot;
-  if (role === 'AGENT' && !!userId && lot.reservedByAgentId === userId) return lot;
+
+  // Lista blanca, no lista negra: el detalle del lote trae el contrato
+  // completo (notas, montos, clientId…) y cualquier campo nuevo quedaría
+  // expuesto si solo se borraran los conocidos. client y balance van en null
+  // para que el frontend reciba la misma forma.
+  const contracts = lot.contracts?.map((lc) => {
+    if (!lc.contract) return lc;
+    const { id, contractNumber, codigoLegado, status } = lc.contract;
+    return { ...lc, contract: { id, contractNumber, codigoLegado, status, client: null, balance: null } };
+  });
+  const sinComprador = contracts ? { ...lot, contracts } : lot;
+
+  if (role === 'AGENT' && !!userId && lot.reservedByAgentId === userId) return sinComprador;
 
   return {
-    ...lot,
+    ...sinComprador,
     reservedByName: null,
     reservedByPhone: null,
     reservedByEmail: null,

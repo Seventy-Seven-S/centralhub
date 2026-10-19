@@ -12,6 +12,14 @@ describe('resumenLote', () => {
     expect(r).toEqual({ tipo: 'vendido', cliente: 'Karina Rodriguez Acuña', codigo: 'A013', contratoId: 'c-9', precioVenta: 244000, estadoContrato: 'IN_MORA', balance: 33797 });
   });
 
+  it('vista del AGENT: el backend no manda comprador ni saldo — vendido sin cliente, sin tronar', () => {
+    const r = resumenLote({
+      ...base,
+      contracts: [{ priceAtSale: 244000, contract: { id: 'c-9', contractNumber: 'JSA2-A013', codigoLegado: 'A013', status: 'ACTIVE', balance: null, client: null } }],
+    });
+    expect(r).toEqual({ tipo: 'vendido', cliente: null, codigo: 'A013', contratoId: 'c-9', precioVenta: 244000, estadoContrato: 'ACTIVE', balance: null });
+  });
+
   it('lote no disponible (sin contrato vigente): propietario Antonio Isassi, no está a la venta', () => {
     const r = resumenLote({ ...base, status: 'UNAVAILABLE', contracts: [] });
     expect(r).toEqual({ tipo: 'propietario', propietario: 'Antonio Isassi' });
