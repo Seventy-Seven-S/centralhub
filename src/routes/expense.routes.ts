@@ -1,11 +1,17 @@
 // src/routes/expense.routes.ts
 import { Router } from 'express';
 import expenseController from '../controllers/expense.controller';
-import { authenticate } from '../middlewares/auth';
+import { authenticate, authorize } from '../middlewares/auth';
 
 const router = Router();
 
 router.use(authenticate);
+// Gastos es de ADMIN y MANAGER: la pantalla /gastos (que las secretarias usan
+// a diario para capturar, corregir y borrar, categorías incluidas), el
+// selector de asesores del alta de contrato y el recibo de comisión. El AGENT
+// no tiene ninguna pantalla que lea gastos — antes podía ver todos con solo
+// tener sesión.
+router.use(authorize('ADMIN', 'MANAGER'));
 
 // ── Categories ──────────────────────────────────────────────────────────────
 router.post('/categories',       expenseController.createCategory);
