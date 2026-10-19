@@ -6,8 +6,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
   Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt, DollarSign,
-  CreditCard, Banknote,
+  CreditCard, Banknote, MailWarning,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
 import { cn } from '@/lib/utils';
@@ -52,6 +54,8 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     title: 'Sistema',
     items: [
       { label: 'Usuarios', href: '/usuarios', icon: UserCog, roles: ['ADMIN'] },
+      // Solo ADMIN, igual que la ruta del backend: es operación, no ventanilla.
+      { label: 'Recibos no enviados', href: '/recibos-fallidos', icon: MailWarning, roles: ['ADMIN'] },
     ],
   },
 ];
@@ -81,6 +85,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const { theme, toggle } = useTheme();
   const [showPago, setShowPago] = useState(false);
+
+  // Indicador del menú: un count, no la lista, y sin prisa — basta con que el
+  // número esté al día en unos minutos.
+  const { data: recibosFallidos = 0 } = useQuery<number>({
+    enabled: user?.role === 'ADMIN',
+    queryKey: ['recibos-fallidos-conteo'],
+    queryFn: async () => (await api.get('/payments/recibos/fallidos/conteo')).data.data.total,
+    staleTime: 5 * 60_000,
+  });
+  const indicador: Record<string, number> = { '/recibos-fallidos': recibosFallidos };
 
   function handleLogout() {
     logout();
@@ -196,6 +210,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
                       {label}
+                      {indicador[href] > 0 && (
+                        <span
+                          className="ml-auto min-w-5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-center"
+                          style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                        >
+                          {indicador[href] > 99 ? '99+' : indicador[href]}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

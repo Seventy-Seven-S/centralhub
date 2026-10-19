@@ -6,7 +6,7 @@ const hrefs = (rol: string | null) => navParaRol(rol).flatMap(g => g.items.map(i
 describe('navParaRol — qué ve cada rol en el menú', () => {
   it('ADMIN ve todo', () => {
     const h = hrefs('ADMIN');
-    for (const r of ['/dashboard', '/ingresos', '/cortes', '/gastos', '/usuarios', '/dinero-retenido']) {
+    for (const r of ['/dashboard', '/ingresos', '/cortes', '/gastos', '/usuarios', '/dinero-retenido', '/recibos-fallidos']) {
       expect(h).toContain(r);
     }
   });
@@ -20,6 +20,8 @@ describe('navParaRol — qué ve cada rol en el menú', () => {
     expect(h).not.toContain('/usuarios');
     // El dinero retenido es información del negocio, no operativa.
     expect(h).not.toContain('/dinero-retenido');
+    // El backend solo deja ver los recibos fallidos al ADMIN.
+    expect(h).not.toContain('/recibos-fallidos');
   });
 
   it('quien cobra ve "Mi corte"; el ADMIN ve la bandeja de cortes diarios', () => {

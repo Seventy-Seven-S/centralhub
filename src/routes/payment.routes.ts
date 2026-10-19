@@ -3,7 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import paymentController from '../controllers/payment.controller';
 import { authenticate, authorize } from '../middlewares/auth';
 import { asyncHandler } from '../middlewares/errorHandler';
-import { recibosConEnvioFallido, reenviarRecibo } from '../services/reciboLog.service';
+import { recibosConEnvioFallido, contarRecibosConEnvioFallido, reenviarRecibo } from '../services/reciboLog.service';
 
 const router = Router();
 
@@ -16,6 +16,10 @@ const soloAdmin = authorize('ADMIN');
 // negocio, no de atención al cliente en ventanilla.
 router.get('/recibos/fallidos', soloAdmin, asyncHandler(async (_req: Request, res: Response) => {
   res.json({ success: true, data: await recibosConEnvioFallido() });
+}));
+
+router.get('/recibos/fallidos/conteo', soloAdmin, asyncHandler(async (_req: Request, res: Response) => {
+  res.json({ success: true, data: { total: await contarRecibosConEnvioFallido() } });
 }));
 
 // Reenviar. Acepta un correo distinto: el fallo más común es una dirección mal

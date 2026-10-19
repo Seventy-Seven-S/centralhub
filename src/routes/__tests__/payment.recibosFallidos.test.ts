@@ -16,6 +16,8 @@ describe('payment.routes — orden de rutas', () => {
     expect(pos("'/recibos/:id/reenviar'")).toBeGreaterThan(0);
     expect(pos("'/recibos/fallidos'")).toBeLessThan(pos("'/:id'"));
     expect(pos("'/recibos/:id/reenviar'")).toBeLessThan(pos("'/:id'"));
+    expect(pos("'/recibos/fallidos/conteo'")).toBeGreaterThan(0);
+    expect(pos("'/recibos/fallidos/conteo'")).toBeLessThan(pos("'/:id'"));
   });
 
   it('ambas exigen rol ADMIN: son datos de operación, no de ventanilla', () => {
@@ -23,5 +25,7 @@ describe('payment.routes — orden de rutas', () => {
     const reenviar = src.slice(pos("'/recibos/:id/reenviar'"), pos("'/recibos/:id/reenviar'") + 90);
     expect(fallidos).toContain('soloAdmin');
     expect(reenviar).toContain('soloAdmin');
+    const conteo = src.slice(pos("'/recibos/fallidos/conteo'"), pos("'/recibos/fallidos/conteo'") + 90);
+    expect(conteo).toContain('soloAdmin');
   });
 });

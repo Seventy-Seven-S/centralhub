@@ -88,10 +88,16 @@ export async function recibosConEnvioFallido(limite = 100) {
     take: limite,
     select: {
       id: true, folio: true, clienteNombre: true, codigoLegado: true, proyecto: true,
-      montoPagado: true, fechaPago: true, issuedAt: true,
+      loteLabel: true, montoPagado: true, fechaPago: true, issuedAt: true,
       envioDestino: true, envioError: true, envioAt: true, envioIntentos: true,
     },
   });
+}
+
+/** Cuántos recibos fallidos hay, para el indicador del menú. Un count es mucho
+ *  más barato que traer la lista completa en cada página que pinta el menú. */
+export async function contarRecibosConEnvioFallido(): Promise<number> {
+  return prisma.reciboLog.count({ where: { envioEstado: 'FALLO' } });
 }
 
 /**
