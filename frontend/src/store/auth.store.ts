@@ -8,6 +8,9 @@ interface AuthUser {
   name:      string;
   role:      'ADMIN' | 'MANAGER' | 'AGENT' | 'CLIENT';
   clientId?: string;
+  // Cliente que entró con la contraseña vieja adivinable: el portal no le
+  // muestra nada hasta que la cambie.
+  mustChangePassword?: boolean;
 }
 
 interface AuthState {
@@ -19,6 +22,7 @@ interface AuthState {
   logout:         () => void;
   clearSession:   () => void;
   setToken:       (token: string, refreshToken: string) => void;
+  marcarContrasenaCambiada: () => void;
 }
 
 function isTokenExpired(token: string): boolean {
@@ -70,6 +74,9 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('auth_refresh_token', refreshToken);
         document.cookie = `auth_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}`;
         set({ token, refreshToken });
+      },
+      marcarContrasenaCambiada: () => {
+        set((state) => (state.user ? { user: { ...state.user, mustChangePassword: false } } : {}));
       },
     }),
     {

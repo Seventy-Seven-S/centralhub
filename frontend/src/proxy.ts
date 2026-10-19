@@ -20,7 +20,10 @@ export function proxy(req: NextRequest) {
     if (pathname.startsWith('/login') && userRole !== 'CLIENT') {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
-    if (pathname.startsWith('/portal') && userRole === 'CLIENT') {
+    // /portal/activar se deja pasar aunque haya sesión: el enlace del correo
+    // puede abrirse en un teléfono donde ya entró otra persona de la familia,
+    // o ser el que el cliente pidió para recuperar su acceso.
+    if (pathname.startsWith('/portal') && !pathname.startsWith('/portal/activar') && userRole === 'CLIENT') {
       return NextResponse.redirect(new URL('/mis-contratos', req.url));
     }
   }

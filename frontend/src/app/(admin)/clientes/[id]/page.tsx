@@ -7,6 +7,7 @@ import { useClienteById, useContratosByCliente, useUpdateCliente, type Cliente, 
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 import { esNoEncontrado } from '@/lib/sesionExpirada';
+import { AccesoPortalCliente } from '@/components/clientes/AccesoPortalCliente';
 
 const STATUS_OPTIONS: Array<{ value: Cliente['status']; label: string }> = [
   { value: 'LEAD',     label: 'Lead' },
@@ -339,6 +340,8 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ id: s
           )}
         </div>
       </div>
+
+      <AccesoPortalCliente clientId={cliente.id} />
 
       {/* Contratos del cliente */}
       <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)' }}>

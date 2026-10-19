@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import NotificationBell from '@/components/layout/NotificationBell';
+import { CambioObligatorio } from '@/components/portal/CambioObligatorio';
 
 const PORTAL_NAV = [
   { label: 'Mis contratos', href: '/mis-contratos' },
@@ -32,6 +33,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   if (!isAuthenticated || user?.role !== 'CLIENT') return null;
+
+  // Entró con la contraseña vieja adivinable: primero la cambia.
+  if (user.mustChangePassword) return <CambioObligatorio onSalir={handleLogout} />;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
