@@ -12,6 +12,11 @@ import {
   readLotsFromTemplate,
 } from '../lib/lots';
 
+// Vitest carga la build ESM de SheetJS (0.20+), que no trae `fs` por su
+// cuenta; sin esto writeFile/readFile fallan con "cannot save file". Los
+// scripts corren con tsx en CommonJS, donde la build CJS sí lo carga sola.
+XLSX.set_fs(fs);
+
 /** Escribe una plantilla del becario temporal y devuelve su ruta. */
 function writeTemplate(rows: any[][]): string {
   const header = ['Proyecto', 'Manzana', 'Lote', 'Superficie_m2', 'Precio', 'Precio_m2', 'Estatus'];
