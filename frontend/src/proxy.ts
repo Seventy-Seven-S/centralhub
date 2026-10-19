@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_ROUTES, PORTAL_ROUTES, PUBLIC_ROUTES, coincideRuta } from '@/lib/rutasProxy';
 
-const ADMIN_ROUTES  = ['/dashboard', '/proyectos', '/clientes', '/contratos', '/cuotas', '/lotes'];
-const PORTAL_ROUTES = ['/mi-cuenta', '/mis-contratos', '/mis-pagos'];
-// /validar: página pública de validación de recibos (el QR del recibo
-// apunta aquí) — cualquiera, con sesión o sin ella, debe poder verla.
-const PUBLIC_ROUTES = ['/login', '/portal', '/validar'];
-
+// Chequeo optimista: solo mira si hay cookie de sesión y su rol para
+// redirigir rápido. La autorización real la hace la API con el token; los
+// guards finos por rol siguen en los layouts de (admin) y (portal).
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token     = req.cookies.get('auth_token')?.value;
   const userRole  = req.cookies.get('user_role')?.value;
 
-  const isAdminRoute  = ADMIN_ROUTES.some(r => pathname.startsWith(r));
-  const isPortalRoute = PORTAL_ROUTES.some(r => pathname.startsWith(r));
-  const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r));
+  const isAdminRoute  = coincideRuta(pathname, ADMIN_ROUTES);
+  const isPortalRoute = coincideRuta(pathname, PORTAL_ROUTES);
+  const isPublicRoute = coincideRuta(pathname, PUBLIC_ROUTES);
 
   // ── Ya autenticado intentando ir a login/portal ───────────────────────────
   if (isPublicRoute && token) {
