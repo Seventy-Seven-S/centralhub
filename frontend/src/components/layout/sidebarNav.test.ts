@@ -6,7 +6,7 @@ const hrefs = (rol: string | null) => navParaRol(rol).flatMap(g => g.items.map(i
 describe('navParaRol — qué ve cada rol en el menú', () => {
   it('ADMIN ve todo', () => {
     const h = hrefs('ADMIN');
-    for (const r of ['/dashboard', '/ingresos', '/cortes', '/gastos', '/comisiones', '/usuarios', '/dinero-retenido']) {
+    for (const r of ['/dashboard', '/ingresos', '/cortes', '/gastos', '/usuarios', '/dinero-retenido']) {
       expect(h).toContain(r);
     }
   });
@@ -17,7 +17,6 @@ describe('navParaRol — qué ve cada rol en el menú', () => {
     expect(h).not.toContain('/ingresos');
     expect(h).not.toContain('/cortes');          // liquidaciones al dueño
     expect(h).not.toContain('/cortes-diarios');  // los cortes de TODAS
-    expect(h).not.toContain('/comisiones');
     expect(h).not.toContain('/usuarios');
     // El dinero retenido es información del negocio, no operativa.
     expect(h).not.toContain('/dinero-retenido');
@@ -40,12 +39,14 @@ describe('navParaRol — qué ve cada rol en el menú', () => {
     expect(h).toContain('/gastos');
   });
 
-  it('AGENT mantiene lo que ya tenía: lotes, proyectos y sus comisiones', () => {
+  it('AGENT mantiene lo que ya tenía: lotes y proyectos', () => {
     const h = hrefs('AGENT');
-    expect(h).toEqual(expect.arrayContaining(['/proyectos', '/lotes', '/comisiones']));
+    expect(h).toEqual(expect.arrayContaining(['/proyectos', '/lotes']));
     expect(h).not.toContain('/dashboard');
     expect(h).not.toContain('/clientes');
     expect(h).not.toContain('/gastos');
+    // Las comisiones ahora son gastos de Asesores: la pantalla vieja se fue.
+    expect(h).not.toContain('/comisiones');
   });
 
   it('sin rol no se filtra nada a la vista: no aparece ningún item restringido', () => {

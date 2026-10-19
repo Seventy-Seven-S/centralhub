@@ -46,7 +46,6 @@ model User {
 
   refreshTokens      RefreshToken[]
   activities         Activity[]
-  commissions        Commission[]
   documents          Document[]
   paymentsCreated    Payment[]
   expensesCreated    Expense[]         @relation("ExpenseCreatedBy")
@@ -389,7 +388,6 @@ model Contract {
   lots                ContractLot[]
   payments            Payment[]
   paymentSchedules    PaymentSchedule[]
-  commissions         Commission[]
   coOwners            CoOwner[]
   cuotas              Cuota[]
   cambios             CambioContrato[]
@@ -706,48 +704,6 @@ model PaymentSchedule {
 
   @@map("payment_schedules")
 }
-
-// ============================================================================
-// COMISIONES
-// ============================================================================
-
-enum CommissionType {
-  SALE
-  REFERRAL
-  BONUS
-}
-
-enum CommissionStatus {
-  PENDING
-  APPROVED
-  PAID
-  CANCELED
-}
-
-model Commission {
-  id                String           @id @default(uuid())
-  contractId        String
-  agentId           String
-  
-  commissionType    CommissionType   @default(SALE)
-  percentage        Float?
-  fixedAmount       Float?
-  baseAmount        Float
-  commissionAmount  Float
-  
-  status            CommissionStatus @default(PENDING)
-  paymentDate       DateTime?
-  
-  notes             String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  
-  contract          Contract         @relation(fields: [contractId], references: [id])
-  agent             User             @relation(fields: [agentId], references: [id])
-
-  @@map("commissions")
-}
-
 
 // ============================================================================
 // ACTIVIDADES Y SEGUIMIENTO

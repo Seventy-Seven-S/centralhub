@@ -31,7 +31,7 @@
  *   tsx src/scripts/clean-test-data.ts --include-projects
  *
  * QUÉ BORRA (modo por defecto, datos transaccionales)
- *   estado_cuenta_logs, cuotas, commissions, payment_schedules, payments,
+ *   estado_cuenta_logs, cuotas, payment_schedules, payments,
  *   co_owners, contract_lots, contracts, activities, documents,
  *   client_refresh_tokens, client_users, client_projects, clients.
  *   Además RESETEA los lots reservados a AVAILABLE (limpia los campos de
@@ -93,11 +93,6 @@ function buildSteps(): Step[] {
       label: 'cuotas',
       count: () => prisma.cuota.count(),
       apply: (tx) => tx.cuota.deleteMany({}),
-    },
-    {
-      label: 'commissions',
-      count: () => prisma.commission.count(),
-      apply: (tx) => tx.commission.deleteMany({}),
     },
     {
       label: 'payment_schedules',

@@ -7,7 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 
-// El AGENT sí entra a /comisiones (el backend le sirve solo las suyas)
+// El AGENT solo ve lotes, proyectos y su corte.
 const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos'];
 const ADMIN_ONLY       = ['/usuarios'];
 

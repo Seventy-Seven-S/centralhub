@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => {
     contractLot: { create: vi.fn() },
     cuota: { createMany: vi.fn() },
     payment: { create: vi.fn() },
-    commission: { create: vi.fn() },
     clientUser: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   };
@@ -35,8 +34,6 @@ vi.mock('@prisma/client', () => ({
   PaymentType: { RESERVATION_DEPOSIT: 'RESERVATION_DEPOSIT', DOWN_PAYMENT: 'DOWN_PAYMENT' },
   PaymentMethod: { TRANSFER: 'TRANSFER', CASH: 'CASH' },
   PaymentStatus: { CONFIRMED: 'CONFIRMED', PENDING: 'PENDING' },
-  CommissionType: { SALE: 'SALE', REFERRAL: 'REFERRAL', BONUS: 'BONUS' },
-  CommissionStatus: { PENDING: 'PENDING', APPROVED: 'APPROVED', PAID: 'PAID' },
 }));
 vi.mock('../email.service', () => ({ sendWelcomeEmail: vi.fn() }));
 vi.mock('../ineDocument', () => ({ migrateIneToClient: vi.fn() }));
@@ -46,8 +43,6 @@ vi.mock('../notification.service', () => ({
 vi.mock('../../utils/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
 import contractService from '../contract.service';
-import notificationService from '../notification.service';
-import { logger } from '../../utils/logger';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -192,84 +187,6 @@ describe('createContract — herencia del asesor del apartado (Contract.agentId)
     await contractService.createContract(input);
 
     expect(mocks.tx.contract.create.mock.calls[0][0].data.agentId).toBeNull();
-  });
-
-  it('buildCommissionData recibe el finalAgentId (heredado), NO el crudo — Contract.agentId y Commission.agentId nunca divergen', async () => {
-    mocks.prisma.lot.findMany.mockResolvedValue([
-      { id: 'lot-1', status: 'AVAILABLE', currentPrice: 100000, reservationDeposit: null, manzana: 5, lotNumber: '12', reservedAt: null, reservedByAgentId: 'agent-A' },
-    ]);
-    const input = baseInput({ commissionPercentage: 5 });
-    delete input.agentId; // sin override — debe heredar 'agent-A' y la comisión debe usar ESE valor
-
-    await contractService.createContract(input);
-
-    expect(mocks.prisma.commission.create).toHaveBeenCalledOnce();
-    const commissionData = mocks.prisma.commission.create.mock.calls[0][0].data;
-    expect(commissionData.agentId).toBe('agent-A');
-    // Mismo valor que el que quedó en el Contract — nunca divergen.
-    expect(commissionData.agentId).toBe(mocks.tx.contract.create.mock.calls[0][0].data.agentId);
-  });
-});
-
-describe('createContract — fallo ruidoso al crear la comisión (cadena de atribución, pieza 5)', () => {
-  it('comisión falla → logger.error con contractId+agentId+error, notificación a ADMIN+MANAGER, Y el contrato se retorna igual (el fallo NO propaga)', async () => {
-    mocks.prisma.lot.findMany.mockResolvedValue([
-      { id: 'lot-1', status: 'AVAILABLE', currentPrice: 100000, reservationDeposit: null, manzana: 5, lotNumber: '12', reservedAt: null, reservedByAgentId: 'agent-A' },
-    ]);
-    const dbError = new Error('connection reset');
-    mocks.prisma.commission.create.mockRejectedValueOnce(dbError);
-
-    const input = baseInput({ commissionPercentage: 5 });
-    delete input.agentId; // hereda 'agent-A'
-
-    // No debe rechazar — el contrato se crea igual pese al fallo de comisión.
-    await expect(contractService.createContract(input)).resolves.toBeDefined();
-
-    expect(logger.error).toHaveBeenCalled();
-    const loggedMessage = (logger.error as any).mock.calls
-      .map((c: any[]) => String(c[0]))
-      .find((msg: string) => msg.includes('comisión') || msg.includes('comision'));
-    expect(loggedMessage).toBeDefined();
-    expect(loggedMessage).toContain('contract-1'); // contractId
-    expect(loggedMessage).toContain('agent-A');    // agentId
-    expect(loggedMessage).toContain('connection reset'); // error real
-
-    expect(notificationService.createForAudiences).toHaveBeenCalledOnce();
-    const [notifInput, audiences] = (notificationService.createForAudiences as any).mock.calls[0];
-    expect(audiences).toEqual(expect.arrayContaining(['ADMIN', 'MANAGER']));
-    expect(audiences).toHaveLength(2);
-    expect(notifInput.relatedEntity).toBe('contract');
-    expect(notifInput.relatedEntityId).toBe('contract-1');
-  });
-
-  it('comisión se crea bien → sin logger.error de comisión, sin notificación de fallo', async () => {
-    mocks.prisma.lot.findMany.mockResolvedValue([
-      { id: 'lot-1', status: 'AVAILABLE', currentPrice: 100000, reservationDeposit: null, manzana: 5, lotNumber: '12', reservedAt: null, reservedByAgentId: 'agent-A' },
-    ]);
-    const input = baseInput({ commissionPercentage: 5 });
-    delete input.agentId;
-
-    await contractService.createContract(input);
-
-    expect(mocks.prisma.commission.create).toHaveBeenCalledOnce();
-    const errorCalls = (logger.error as any).mock.calls.map((c: any[]) => String(c[0]));
-    expect(errorCalls.some((msg: string) => msg.toLowerCase().includes('comisi'))).toBe(false);
-    expect(notificationService.createForAudiences).not.toHaveBeenCalled();
-  });
-
-  it('contrato sin asesor → ni se intenta crear comisión, cero logs de fallo, cero notificación', async () => {
-    mocks.prisma.lot.findMany.mockResolvedValue([
-      { id: 'lot-1', status: 'AVAILABLE', currentPrice: 100000, reservationDeposit: null, manzana: 5, lotNumber: '12', reservedAt: null, reservedByAgentId: null },
-    ]);
-    const input = baseInput();
-    delete input.agentId; // sin herencia posible (lote sin asesor) y sin override
-
-    await contractService.createContract(input);
-
-    expect(mocks.prisma.commission.create).not.toHaveBeenCalled();
-    expect(notificationService.createForAudiences).not.toHaveBeenCalled();
-    const errorCalls = (logger.error as any).mock.calls.map((c: any[]) => String(c[0]));
-    expect(errorCalls.some((msg: string) => msg.toLowerCase().includes('comisi'))).toBe(false);
   });
 });
 

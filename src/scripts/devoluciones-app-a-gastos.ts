@@ -145,7 +145,6 @@ async function main() {
       await tx.notification.deleteMany({ where: { relatedEntityId: c.id } });
       await tx.activity.deleteMany({ where: { OR: [{ contractId: c.id }, { clientId: c.clientId }] } });
       await tx.estadoCuentaLog.deleteMany({ where: { contractId: c.id } });
-      await tx.commission.deleteMany({ where: { contractId: c.id } });
       await tx.payment.deleteMany({ where: { contractId: c.id } });
       await tx.contract.delete({ where: { id: c.id } }); // cuotas, lotes ligados, cotitulares y cambios van en cascada
       await tx.client.delete({ where: { id: c.clientId } });

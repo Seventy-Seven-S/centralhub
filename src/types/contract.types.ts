@@ -22,11 +22,6 @@ export interface CreateContractDto {
   // la herencia); undefined (key ausente) = sin decisión, aplica herencia
   // del apartado — ver finalAgentId en contract.service.ts.
   agentId?: string | null;
-  // % de comisión tecleado manualmente por venta (sobre el precio del contrato).
-  commissionPercentage?: number;
-  // La comisión pactada en PESOS. Si viene, manda sobre el porcentaje: el
-  // equipo acuerda el monto, no la proporción.
-  commissionAmount?: number;
   // Comisión del asesor que hizo la venta. Se registra como gasto de
   // Asesores (descontable en el corte) y se le imprime su recibo. Los
   // asesores no son usuarios: el nombre va como texto.

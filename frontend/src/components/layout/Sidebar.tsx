@@ -46,7 +46,6 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { label: 'Liquidaciones',   href: '/cortes',         icon: FileText,   roles: ['ADMIN'] },
       { label: 'Dinero retenido', href: '/dinero-retenido', icon: DollarSign, roles: ['ADMIN'] },
       { label: 'Gastos',     href: '/gastos',     icon: Receipt,     roles: ['ADMIN', 'MANAGER'] },
-      { label: 'Comisiones', href: '/comisiones', icon: DollarSign, roles: ['ADMIN', 'AGENT'] },
     ],
   },
   {
