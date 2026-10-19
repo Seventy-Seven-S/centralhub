@@ -3,7 +3,6 @@ import { body } from 'express-validator';
 import { authRateLimiter, authIpRateLimiter } from '../middlewares/rateLimiter';
 import { authenticateClient } from '../middlewares/clientAuth';
 import {
-  registerClient,
   loginClient,
   getClientProfile,
   changeClientPassword,
@@ -11,26 +10,9 @@ import {
 
 const router = Router();
 
-/**
- * @route   POST /api/v1/client-auth/register
- * @desc    Registrar cliente con acceso al portal
- * @access  Public
- */
-router.post(
-  '/register',
-  authIpRateLimiter,
-  authRateLimiter,
-  [
-    body('email').trim().isEmail().withMessage('Valid email is required'),
-    body('password')
-      .isLength({ min: 8 })
-      .withMessage('Password must be at least 8 characters long'),
-    body('firstName').trim().notEmpty().withMessage('First name is required'),
-    body('lastName').trim().notEmpty().withMessage('Last name is required'),
-    body('phone').trim().notEmpty().withMessage('Phone is required'),
-  ],
-  registerClient
-);
+// Sin registro público: la cuenta del portal se crea cuando el equipo da de
+// alta el contrato del cliente. Un /register abierto dejaba a cualquiera
+// fabricarse un Client y un acceso al portal.
 
 /**
  * @route   POST /api/v1/client-auth/login
