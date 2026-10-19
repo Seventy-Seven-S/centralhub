@@ -61,3 +61,9 @@ scratch/
 # Credenciales y documentos internos. Nunca a git.
 *.rtf
 *.docx
+
+# Permisos locales de Claude Code: cambian en cada sesión y son de cada máquina.
+.claude/settings.local.json
+
+# Reportes de avance viejos: respaldados en ~/Documents/CentralHub-archivo.
+reporte_avance_*.html
