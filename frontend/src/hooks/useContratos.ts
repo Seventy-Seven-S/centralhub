@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import type { TraspasoEnFicha } from '@/components/contratos/HistorialTraspasos';
 
 export interface CoOwner {
   id:              string;
@@ -46,9 +47,14 @@ export interface ContratoDetalle {
     name: string;
   };
   lots: Array<{
-    lot: { lotNumber: string; manzana: number; areaM2: number };
+    lot: { id: string; lotNumber: string; manzana: number; areaM2: number };
   }>;
   coOwners: CoOwner[];
+  // Solo los trae el detalle (GET /contracts/:id), no el listado.
+  contractFileUrl?:   string | null;
+  rescissionFileUrl?: string | null;
+  traspasosOrigen?:   TraspasoEnFicha[];
+  traspasosDestino?:  TraspasoEnFicha[];
 }
 
 export interface Cuota {

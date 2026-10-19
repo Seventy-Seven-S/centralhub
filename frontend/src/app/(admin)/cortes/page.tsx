@@ -193,7 +193,7 @@ export default function CortesPage() {
   const qc = useQueryClient();
   const { selectedProjectId } = useProjectSelection();
   const { data: proyectos = [] } = useProyectos();
-  const proyecto = proyectos.find((p: any) => p.id === selectedProjectId);
+  const proyecto = proyectos.find(p => p.id === selectedProjectId);
   const { data: cortes = [], isLoading, isError } = useCortes(selectedProjectId ?? undefined);
   const [abierto, setAbierto] = useState(false);
   const [abriendo, setAbriendo] = useState<string | null>(null);

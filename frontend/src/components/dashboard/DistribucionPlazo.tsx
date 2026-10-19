@@ -3,6 +3,7 @@
 import {
   RadialBarChart, RadialBar, ResponsiveContainer, Tooltip,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 
 const COLORS = ['#1A3A2A', '#4A8C3F', '#7AB5A0', '#4A9A6A'];
 
@@ -10,7 +11,8 @@ interface Props {
   data: Array<{ plazoMeses: number; contratos: number }>;
 }
 
-function CustomTooltip({ active, payload }: any) {
+// Recharts clona <CustomTooltip /> y le inyecta las props; por eso son opcionales.
+function CustomTooltip({ active, payload }: Partial<TooltipContentProps>) {
   if (!active || !payload?.length) return null;
   const { name, value } = payload[0];
   return (

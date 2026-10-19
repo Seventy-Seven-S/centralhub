@@ -3,6 +3,7 @@
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Label,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 
 interface Props {
   disponibles: number;
@@ -17,7 +18,8 @@ const SEGMENTS = [
   { key: 'reservados',  label: 'Reservados',  color: '#B8A054' },
 ] as const;
 
-function CustomTooltip({ active, payload }: any) {
+// Recharts clona <CustomTooltip /> y le inyecta las props; por eso son opcionales.
+function CustomTooltip({ active, payload }: Partial<TooltipContentProps>) {
   if (!active || !payload?.length) return null;
   const { name, value } = payload[0];
   return (

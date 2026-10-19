@@ -150,7 +150,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
           pago,
           cuotas,
           { totalPrice: contrato.totalPrice ?? 0 },
-          pagos.filter((p: any) => p.status === 'CONFIRMED'),
+          pagos.filter(p => p.status === 'CONFIRMED'),
         );
       }
       const cuotaBase = cuotas.find(c => c.numeroCuota === props.cuota.numeroCuota);
@@ -260,7 +260,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
   // balance se pone en cero porque ya no se debe nada, y esa resta concluía
   // que el cliente había pagado el terreno completo.
   const { pagado, pct: pctPagado, contratoTerminado } =
-    resumenPagado({ totalPrice, balance, status: contrato.status }, pagos as any[]);
+    resumenPagado({ totalPrice, balance, status: contrato.status }, pagos);
   const fullName    = `${contrato.client.firstName} ${contrato.client.lastName}`;
   const loteLabel   = formatLotsLabel(contrato.lots);
 
@@ -286,14 +286,14 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
       disabled: uploading,
       cargando: uploading ? 'Subiendo…' : undefined,
     },
-    contrato.status !== 'DRAFT' && (contrato as any).contractFileUrl && {
+    contrato.status !== 'DRAFT' && contrato.contractFileUrl && {
       label: 'Ver contrato firmado',
       icono: <ExternalLink size={16} />,
       onClick: handleVerFirmado,
       disabled: openingSigned,
       cargando: openingSigned ? 'Abriendo…' : undefined,
     },
-    contrato.status === 'RESCISSION' && (contrato as any).rescissionFileUrl && {
+    contrato.status === 'RESCISSION' && contrato.rescissionFileUrl && {
       label: 'Ver documento de rescisión',
       icono: <ExternalLink size={16} />,
       onClick: handleVerRescision,
@@ -367,12 +367,12 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             totalPrice: contrato.totalPrice ?? 0,
             installmentAmount: contrato.installmentAmount ?? null,
             installmentCount: contrato.installmentCount ?? null,
-            startDate: (contrato as any).startDate ?? null,
-            lotIds: (contrato.lots ?? []).map((l: any) => l.lot.id),
+            startDate: contrato.startDate ?? null,
+            lotIds: (contrato.lots ?? []).map(l => l.lot.id),
           }}
           // Lo pagado sale de sus pagos confirmados, no del balance: el balance
           // puede venir arrastrado, los pagos son hechos.
-          pagado={pagos.filter((p: any) => p.status === 'CONFIRMED').reduce((s: number, p: any) => s + p.amount, 0)}
+          pagado={pagos.filter(p => p.status === 'CONFIRMED').reduce((s, p) => s + p.amount, 0)}
           onClose={() => setEditando(false)}
           onDone={async () => {
             setEditando(false);
@@ -389,10 +389,10 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
           etiqueta={contrato.codigoLegado ?? contrato.contractNumber}
           clienteActual={`${contrato.client.firstName} ${contrato.client.lastName}`}
           projectIdActual={contrato.project.id}
-          lotIdsActuales={(contrato.lots ?? []).map((l: any) => l.lot.id)}
+          lotIdsActuales={(contrato.lots ?? []).map(l => l.lot.id)}
           // Lo abonado sale de sus pagos confirmados, no del balance: el
           // balance puede venir arrastrado, los pagos son hechos.
-          abonado={pagos.filter((p: any) => p.status === 'CONFIRMED').reduce((s: number, p: any) => s + p.amount, 0)}
+          abonado={pagos.filter(p => p.status === 'CONFIRMED').reduce((s, p) => s + p.amount, 0)}
           onClose={() => setTraspasando(false)}
           onDone={async () => {
             setTraspasando(false);
@@ -486,7 +486,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
               montarse para generar el archivo. */}
           <div className="hidden sm:flex items-center gap-2">
             <PDFDownloadLink
-              document={<EstadoDeCuenta contrato={contrato as any} cuotas={cuotas} pagos={pagos} />}
+              document={<EstadoDeCuenta contrato={contrato} cuotas={cuotas} pagos={pagos} />}
               fileName={`estado-cuenta-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
             >
               {({ loading }) => (
@@ -505,7 +505,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             </PDFDownloadLink>
 
             <PDFDownloadLink
-              document={<ContratoCompraventa contrato={contrato as any} cuotas={cuotas} showWatermark={contrato.status !== 'ACTIVE'} />}
+              document={<ContratoCompraventa contrato={contrato} cuotas={cuotas} showWatermark={contrato.status !== 'ACTIVE'} />}
               fileName={`contrato-${contrato.codigoLegado ?? contrato.contractNumber}.pdf`}
             >
               {({ loading }) => (
@@ -832,8 +832,8 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
             las dos cosas responden a "qué le ha pasado a este contrato". */}
         <HistorialTraspasos
           traspasos={[
-            ...((contrato as any).traspasosOrigen ?? []),
-            ...((contrato as any).traspasosDestino ?? []),
+            ...(contrato.traspasosOrigen ?? []),
+            ...(contrato.traspasosDestino ?? []),
           ]}
         />
 
@@ -871,7 +871,7 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
           <PDFDownloadLink
             document={
               <ContratoCompraventa
-                contrato={contrato as any}
+                contrato={contrato}
                 cuotas={cuotas}
                 showWatermark={contrato.status !== 'ACTIVE'}
               />

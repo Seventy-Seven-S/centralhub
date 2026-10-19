@@ -7,7 +7,7 @@ import { ArrowLeft, AlertCircle, Download } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/api';
 import { PDFDownloadLink } from '@react-pdf/renderer';
-import { EstadoDeCuenta } from '@/components/pdf/EstadoDeCuenta';
+import { EstadoDeCuenta, type EstadoDeCuentaProps } from '@/components/pdf/EstadoDeCuenta';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface ContratoDetalle {
@@ -168,7 +168,10 @@ export default function MiContratoDetallePage({ params }: { params: Promise<{ id
         <PDFDownloadLink
           document={
             <EstadoDeCuenta
-              contrato={contrato as any}
+              // El endpoint del portal manda un subconjunto del contrato (sin
+              // datos personales completos ni cotitulares); el PDF tolera los
+              // campos que faltan, así que se conserva el cast de siempre.
+              contrato={contrato as unknown as EstadoDeCuentaProps['contrato']}
               cuotas={cuotas}
               pagos={pagos}
               folio={contrato.folio}

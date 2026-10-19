@@ -9,7 +9,8 @@ import {
   FileText, AlertTriangle, DollarSign,
   Clock, TrendingUp,
 } from 'lucide-react';
-import { useDashboardSummary, useMoraDetail } from '@/hooks/useDashboard';
+import { useDashboardSummary, useMoraDetail, type CuotaEnMora } from '@/hooks/useDashboard';
+import type { TooltipContentProps } from 'recharts';
 import { useRole }        from '@/hooks/useRole';
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import KPICard            from '@/components/dashboard/KPICard';
@@ -59,7 +60,11 @@ function DashboardSkeleton() {
 }
 
 // ── Tooltip compartido ────────────────────────────────────────────────────────
-function ChartTooltip({ active, payload, label, formatter }: any) {
+type ChartTooltipProps = Omit<Partial<TooltipContentProps>, 'formatter'> & {
+  formatter?: (v: number) => string;
+};
+
+function ChartTooltip({ active, payload, label, formatter }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   const { name, value } = payload[0];
   return (
@@ -78,7 +83,7 @@ function ChartTooltip({ active, payload, label, formatter }: any) {
       )}
       <p style={{ color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{name}</p>
       <p style={{ color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-        {formatter ? formatter(value) : value}
+        {formatter ? formatter(value as number) : value}
       </p>
     </div>
   );
@@ -165,7 +170,7 @@ function IngresosChart({ data }: { data: PuntoMensual[] }) {
               width={52}
             />
             <Tooltip
-              content={(props: any) =>
+              content={props =>
                 <ChartTooltip {...props} formatter={(v: number) => formatCurrency(v)} />
               }
             />
@@ -247,7 +252,7 @@ function CuotasChart({ porStatus }: { porStatus: Record<string, number> }) {
             />
           </Pie>
           <Tooltip
-            content={(props: any) =>
+            content={props =>
               <ChartTooltip {...props} formatter={(v: number) => `${v.toLocaleString('es-MX')} cuotas`} />
             }
           />
@@ -279,11 +284,11 @@ type MoraRow = {
   montoRiesgo:    number;
 };
 
-function MoraTable({ mora, loading }: { mora: any[] | undefined; loading: boolean }) {
+function MoraTable({ mora, loading }: { mora: CuotaEnMora[] | undefined; loading: boolean }) {
   if (loading) return <Skeleton className="h-72" />;
 
   const rows = (Object.values(
-    (mora ?? []).reduce((acc: Record<string, MoraRow>, cuota: any) => {
+    (mora ?? []).reduce((acc: Record<string, MoraRow>, cuota: CuotaEnMora) => {
       const c = cuota.contract;
       if (!acc[c.id]) {
         acc[c.id] = {
@@ -405,7 +410,7 @@ export default function DashboardPage() {
           <AlertTriangle className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--danger)' }} />
           <p className="font-medium" style={{ color: 'var(--text-primary)' }}>No se pudo cargar el dashboard</p>
           <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            {(error as any)?.message ?? 'Error de conexión con el servidor'}
+            {error?.message ?? 'Error de conexión con el servidor'}
           </p>
         </div>
       </div>

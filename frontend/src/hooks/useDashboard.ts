@@ -7,7 +7,17 @@ async function fetchSummary(projectId?: string): Promise<DashboardSummary> {
   return data.data;
 }
 
-async function fetchMora(projectId?: string): Promise<any[]> {
+// Cuota vencida tal como la manda GET /dashboard/mora (solo lo que se usa).
+export interface CuotaEnMora {
+  montoEsperado: number | null;
+  contract: {
+    id:           string;
+    codigoLegado: string | null;
+    client:       { firstName: string; lastName: string };
+  };
+}
+
+async function fetchMora(projectId?: string): Promise<CuotaEnMora[]> {
   const { data } = await api.get('/dashboard/mora', { params: { projectId } });
   return data.data;
 }
@@ -22,7 +32,7 @@ export function useDashboardSummary(projectId?: string, enabled = true) {
 }
 
 export function useMoraDetail(projectId?: string, enabled = true) {
-  return useQuery<any[]>({
+  return useQuery<CuotaEnMora[]>({
     queryKey: ['dashboard', 'mora', projectId ?? 'all'],
     queryFn:  () => fetchMora(projectId),
     staleTime: 60_000,

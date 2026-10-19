@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resumenLote } from './resumenLote';
 
-const base = { id: 'l1', status: 'SOLD', currentPrice: 230000, areaM2: 256.16 } as any;
+const base = { id: 'l1', status: 'SOLD', currentPrice: 230000, areaM2: 256.16 };
 
 describe('resumenLote', () => {
   it('lote vendido: cliente, código, link al contrato, precio de venta y estado del contrato', () => {

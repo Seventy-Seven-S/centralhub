@@ -452,7 +452,7 @@ export default function NuevoContratoPage() {
                     ['INE', 'ine'], ['Estado civil', 'estadoCivil'], ['Lugar de nacimiento', 'lugarNacimiento'],
                   ] as const).map(([etq, campo]) => (
                     <input key={campo} style={inputStyle} type="text" placeholder={etq}
-                           value={(c as any)[campo] ?? ''}
+                           value={c[campo] ?? ''}
                            onChange={e => setCotitulares(cs => cs.map((x, j) => j === i ? { ...x, [campo]: e.target.value } : x))} />
                   ))}
                 </div>
