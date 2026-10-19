@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('../../config/database', () => ({ prisma: mocks.prisma }));
 
-import { updateUser } from '../user.controller';
+import { updateUser, toggleUserStatus } from '../user.controller';
 
 const EXISTENTE = {
   id: 'brianda-id', email: 'briandadelangel@gmail.com',
@@ -92,5 +92,57 @@ describe('updateUser — cambio de correo', () => {
 
     expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 400 });
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateUser — cambio de rol', () => {
+  it('si el rol cambia, revoca sus sesiones para que no siga renovando con el rol viejo', async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ role: 'MANAGER' });
+    mocks.prisma.user.update.mockResolvedValue({ ...EXISTENTE, role: 'AGENT' });
+
+    const { res } = runController('brianda-id', { role: 'AGENT' });
+    await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
+
+    expect(mocks.prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'brianda-id' } });
+  });
+
+  it('si el formulario manda el MISMO rol (solo se corrigió el nombre), no la saca del sistema', async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ role: 'MANAGER' });
+    mocks.prisma.user.update.mockResolvedValue(EXISTENTE);
+
+    const { res } = runController('brianda-id', { firstName: 'Brianda', role: 'MANAGER' });
+    await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
+
+    expect(mocks.prisma.refreshToken.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('toggleUserStatus — desactivar corta la sesión', () => {
+  function runToggle(id: string) {
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() } as unknown as Response;
+    const next = vi.fn();
+    (toggleUserStatus as any)({ params: { id } } as unknown as Request, res, next);
+    return { res, next };
+  }
+
+  it('ACTIVE → INACTIVE: borra sus refresh tokens', async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ status: 'ACTIVE' });
+    mocks.prisma.user.update.mockResolvedValue({ ...EXISTENTE, status: 'INACTIVE' });
+
+    const { res } = runToggle('brianda-id');
+    await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
+
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: 'INACTIVE' } }));
+    expect(mocks.prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'brianda-id' } });
+  });
+
+  it('INACTIVE → ACTIVE: no hay sesiones que cortar', async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ status: 'INACTIVE' });
+    mocks.prisma.user.update.mockResolvedValue(EXISTENTE);
+
+    const { res } = runToggle('brianda-id');
+    await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
+
+    expect(mocks.prisma.refreshToken.deleteMany).not.toHaveBeenCalled();
   });
 });

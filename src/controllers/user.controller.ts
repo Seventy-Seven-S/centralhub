@@ -85,6 +85,13 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     if (owner && owner.id !== id) throw new ApiError(400, 'Email already registered');
   }
 
+  // Rol previo para saber si de verdad cambia: el formulario manda el rol
+  // aunque solo se haya corregido el nombre, y eso no debe sacarlo del sistema.
+  const previo = role
+    ? await prisma.user.findUnique({ where: { id }, select: { role: true } })
+    : null;
+  const cambiaRol = !!role && !!previo && previo.role !== role;
+
   const user = await prisma.user.update({
     where: { id },
     data: {
@@ -96,9 +103,10 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     select: { id: true, email: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
   });
 
-  // Los JWT ya emitidos llevan el email viejo adentro. Al cambiar la identidad
-  // se revocan las sesiones para que el usuario vuelva a entrar con la nueva.
-  if (email) await prisma.refreshToken.deleteMany({ where: { userId: id } });
+  // Los JWT ya emitidos llevan el email y el rol viejos adentro. Al cambiar la
+  // identidad o el rol se revocan las sesiones para que el usuario vuelva a
+  // entrar con los nuevos (y no siga renovando con los permisos de antes).
+  if (email || cambiaRol) await prisma.refreshToken.deleteMany({ where: { userId: id } });
 
   res.json({ status: 'success', data: { user } });
 });
@@ -114,6 +122,10 @@ export const toggleUserStatus = asyncHandler(async (req: Request, res: Response)
     data: { status: newStatus },
     select: { id: true, email: true, firstName: true, lastName: true, role: true, status: true },
   });
+
+  // Desactivar debe sacarlo ya: sin esto su refresh token le seguía
+  // renovando la sesión hasta por 24h.
+  if (newStatus !== 'ACTIVE') await prisma.refreshToken.deleteMany({ where: { userId: id } });
 
   res.json({ status: 'success', data: { user } });
 });
