@@ -2,6 +2,7 @@
 import { PrismaClient, ContractStatus, LotStatus, PaymentPlanType, PaymentType, PaymentMethod, PaymentStatus, CuotaStatus } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto, AddCoOwnerDto, ContractFilters } from '../types/contract.types';
 import { sendWelcomeEmail } from './email.service';
+import { prepararCuentaPortalAlAlta } from './portalAcceso.service';
 import { TotalUpfrontExceedsPriceError } from '../utils/errors';
 import { computeInstallmentSchedule } from './lib/installmentSchedule';
 import { migrateIneToClient } from './ineDocument';
@@ -11,7 +12,6 @@ import { buildCuotaRows } from './lib/cuotaSchedule';
 import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS, COOWNER_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
 import notificationService from './notification.service';
 import { logger } from '../utils/logger';
-import bcrypt from 'bcrypt';
 import { round2 } from '../utils/money';
 import { whereContratoVisible } from './lib/proyectosOcultos';
 
@@ -403,27 +403,22 @@ export class ContractService {
       const lote = fullContract.lots?.[0]?.lot;
       const lotLabel = lote ? `M${lote.manzana} L-${lote.lotNumber}` : '—';
 
-      let tempPassword: string | undefined;
-
-      const existingClientUser = await prisma.clientUser.findUnique({
-        where: { email: fullContract.client.email },
-      });
-
-      if (!existingClientUser) {
-        const lastName = fullContract.client.lastName ?? '';
-        const phone = fullContract.client.phone ?? '';
-        const rawPassword = (lastName.slice(0, 4) + phone.slice(-4)).toLowerCase() || 'Central2024';
-        tempPassword = rawPassword;
-        const hashedPassword = await bcrypt.hash(rawPassword, 10);
-
-        await prisma.clientUser.create({
-          data: {
-            clientId: fullContract.client.id,
-            email: fullContract.client.email,
-            password: hashedPassword,
-            status: 'ACTIVE',
-          },
+      // La cuenta del portal nace sin contraseña utilizable; el correo lleva
+      // un enlace de un solo uso para que el cliente cree la suya. Si falla
+      // la cuenta, el contrato ya existe: se avisa y el equipo puede reenviar
+      // el acceso desde la ficha del cliente.
+      let activationUrl: string | undefined;
+      try {
+        activationUrl = await prepararCuentaPortalAlAlta({
+          id: fullContract.client.id,
+          email: fullContract.client.email,
         });
+      } catch (err) {
+        logger.error(
+          `No se pudo crear la cuenta del portal del cliente ${fullContract.client.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
       }
 
       sendWelcomeEmail(
@@ -434,7 +429,7 @@ export class ContractService {
         lotLabel,
         fullContract.installmentAmount ?? 0,
         undefined,
-        tempPassword,
+        activationUrl,
       ).catch(err => console.error('Error enviando email de bienvenida:', err));
     }
 

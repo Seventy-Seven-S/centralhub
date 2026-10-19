@@ -104,6 +104,14 @@ model ClientUser {
   
   status        ClientUserStatus  @default(ACTIVE)
   emailVerified Boolean           @default(false)
+
+  // Enlace de activación del portal (un solo uso, 7 días). Solo se guarda el
+  // SHA-256 del token: con una copia de la base no se puede activar la cuenta
+  // de nadie. Tras usarlo, el hash se conserva con usedAt para poder decirle
+  // al cliente "este enlace ya se usó" en vez de "no existe".
+  activationTokenHash      String?   @unique
+  activationTokenExpiresAt DateTime?
+  activationTokenUsedAt    DateTime?
   
   lastLogin     DateTime?
   createdAt     DateTime          @default(now())

@@ -3,6 +3,7 @@ import { prisma } from '../config/database';
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { encryptFields, decryptFields, CLIENT_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
 import { formatearGlobalCode } from '../utils/clientCode';
+import { estadoAccesoPortal, reenviarAccesoPortal } from '../services/portalAcceso.service';
 
 const SENSITIVE = [...CLIENT_SENSITIVE_FIELDS];
 
@@ -162,4 +163,22 @@ export const deleteClient = asyncHandler(async (req: Request, res: Response) => 
   });
 
   res.status(204).send();
+});
+
+// ── Acceso al portal ─────────────────────────────────────────────────────────
+
+/** Estado de la cuenta del portal del cliente, para la ficha. */
+export const getPortalAccess = asyncHandler(async (req: Request, res: Response) => {
+  const data = await estadoAccesoPortal(String(req.params.id));
+  res.status(200).json({ status: 'success', data });
+});
+
+/** Manda al cliente un enlace nuevo de un solo uso para crear su contraseña. */
+export const resendPortalAccess = asyncHandler(async (req: Request, res: Response) => {
+  const data = await reenviarAccesoPortal(String(req.params.id));
+  res.status(200).json({
+    status: 'success',
+    message: `Se envió el acceso al portal a ${data.email}`,
+    data,
+  });
 });

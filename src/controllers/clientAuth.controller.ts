@@ -6,6 +6,11 @@ import { generateClientAccessToken, generateClientRefreshToken } from '../config
 import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { decryptFields, CLIENT_SENSITIVE_FIELDS } from '../utils/fieldCrypto';
 import { normalizeEmail } from '../utils/normalizeEmail';
+import {
+  activarCuentaPortal,
+  esContrasenaAdivinable,
+  EnlaceActivacionError,
+} from '../services/portalAcceso.service';
 
 /**
  * Login de cliente
@@ -63,9 +68,16 @@ export const loginClient = asyncHandler(async (req: Request, res: Response) => {
     data: { lastLogin: new Date() },
   });
 
+  // Cuentas creadas antes del enlace de activación: su contraseña salía de
+  // apellido + teléfono y viajó en claro por correo. Se les deja entrar (si no,
+  // quedarían fuera sin aviso), pero el portal no les deja hacer nada hasta
+  // que la cambien.
+  const mustChangePassword = esContrasenaAdivinable(password, clientUser.client);
+
   res.status(200).json({
     status: 'success',
     data: {
+      mustChangePassword,
       client: {
         id: clientUser.client.id,
         globalCode: clientUser.client.globalCode,
@@ -137,10 +149,17 @@ export const changeClientPasswordForUser = async (
 ): Promise<void> => {
   const clientUser = await prisma.clientUser.findUnique({
     where: { id: clientUserId },
+    include: { client: { select: { lastName: true, phone: true } } },
   });
 
   if (!clientUser) {
     throw new ApiError(404, 'Client not found');
+  }
+
+  // Cambiar a la misma fórmula vieja (o a 'Central2024') dejaría la cuenta
+  // igual de expuesta y el portal la volvería a pedir en el siguiente login.
+  if (esContrasenaAdivinable(newPassword, clientUser.client ?? {})) {
+    throw new ApiError(400, 'Esa contraseña es muy fácil de adivinar. Elige otra.');
   }
 
   const isCurrentValid = await bcrypt.compare(currentPassword, clientUser.password);
@@ -180,5 +199,32 @@ export const changeClientPassword = asyncHandler(async (req: Request, res: Respo
   res.status(200).json({
     success: true,
     message: 'Contraseña actualizada',
+  });
+});
+
+/**
+ * Canjear el enlace de activación del portal (público, con rate limit).
+ *
+ * Responde con un `codigo` cuando el enlace no sirve para que el portal
+ * muestre la pantalla correcta (vencido, ya usado, inválido) sin depender del
+ * texto del mensaje.
+ */
+export const activateClientAccount = asyncHandler(async (req: Request, res: Response) => {
+  const { token, password } = req.body ?? {};
+
+  try {
+    await activarCuentaPortal(token, password);
+  } catch (err) {
+    if (err instanceof EnlaceActivacionError) {
+      const status = err.codigo === 'INVALIDO' ? 400 : err.codigo === 'SUSPENDIDA' ? 403 : 410;
+      res.status(status).json({ status: 'error', statusCode: status, codigo: err.codigo, message: err.message });
+      return;
+    }
+    throw err;
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Tu cuenta quedó activa. Ya puedes iniciar sesión.',
   });
 });

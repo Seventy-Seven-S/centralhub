@@ -6,6 +6,7 @@ import {
   loginClient,
   getClientProfile,
   changeClientPassword,
+  activateClientAccount,
 } from '../controllers/clientAuth.controller';
 
 const router = Router();
@@ -29,6 +30,16 @@ router.post(
   ],
   loginClient
 );
+
+/**
+ * @route   POST /api/v1/client-auth/activar
+ * @desc    Crear la contraseña con el enlace de activación (un solo uso)
+ * @access  Public
+ *
+ * Mismos limitadores que el login: el token tiene 256 bits de azar, pero así
+ * nadie usa este endpoint para tantear enlaces a lo bruto.
+ */
+router.post('/activar', authIpRateLimiter, authRateLimiter, activateClientAccount);
 
 /**
  * @route   GET /api/v1/client-auth/profile

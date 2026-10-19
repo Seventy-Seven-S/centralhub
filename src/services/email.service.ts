@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { logger } from '../utils/logger';
 import { EmailSendError } from '../utils/errors';
 import { NOMBRE_EMPRESA, DIRECCION_EMPRESA, TELEFONOS_EMPRESA } from '../utils/empresa';
+import { PORTAL_DE_CLIENTES_ACTIVO } from '../utils/portalClientes';
 
 // Fail-fast en producción: sin RESEND_API_KEY no hay 2FA de staff ni emails
 // de bienvenida — mejor que el server no arranque a que arranque "sano" y
@@ -140,19 +141,8 @@ export async function sendVerificationCode(email: string, firstName: string, cod
   }
 }
 
-/**
- * El portal de clientes está APAGADO por instrucción del arquitecto
- * (2026-09-22): por ahora los clientes no tendrán acceso a esa plataforma.
- *
- * Mientras esté en false, el correo de bienvenida no menciona el portal, no
- * muestra la contraseña temporal y no trae el botón de acceso. Ponerlo en true
- * devuelve todo eso tal como estaba.
- *
- * Ojo: esto solo afecta al CORREO. La cuenta del portal se sigue creando en
- * contract.service (ver la creación de clientUser) — apagar eso es otra
- * decisión.
- */
-const PORTAL_DE_CLIENTES_ACTIVO = false;
+// La bandera del portal vive en utils/portalClientes (la comparten el alta del
+// contrato y el reenvío del acceso).
 
 export async function sendWelcomeEmail(
   email: string,
@@ -161,8 +151,11 @@ export async function sendWelcomeEmail(
   projectName: string,
   lotLabel: string,
   monthlyPayment: number,
-  portalUrl: string = 'http://localhost:3000/portal',
-  tempPassword?: string
+  portalUrl: string = `${appUrl()}/portal`,
+  // Enlace de un solo uso para que el cliente cree su contraseña. Ya NO se
+  // manda ninguna contraseña en el correo: la vieja (apellido + teléfono) se
+  // adivinaba con los datos del contrato.
+  activationUrl?: string,
 ): Promise<void> {
   const monthlyFormatted = monthlyPayment.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
@@ -258,7 +251,7 @@ export async function sendWelcomeEmail(
                 </td>
                 <td>
                   <p style="margin:0;color:#0D2818;font-size:14px;font-weight:700;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Accede a tu portal' : 'Guarda tu número de contrato'}</p>
-                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">${PORTAL_DE_CLIENTES_ACTIVO ? 'Ingresa con tu email y contraseña para ver tu cuenta' : 'Te lo pedirán para cualquier aclaración o trámite'}</p>
+                  <p style="margin:2px 0 0;color:#6B7C74;font-size:13px;">${PORTAL_DE_CLIENTES_ACTIVO ? (activationUrl ? 'Crea tu contraseña con el botón de abajo' : 'Ingresa con tu email y contraseña para ver tu cuenta') : 'Te lo pedirán para cualquier aclaración o trámite'}</p>
                 </td>
               </tr>
             </table>
@@ -298,28 +291,20 @@ export async function sendWelcomeEmail(
     </td>
   </tr>
 
-  ${PORTAL_DE_CLIENTES_ACTIVO && tempPassword ? `
-  <!-- CREDENCIALES -->
+  ${PORTAL_DE_CLIENTES_ACTIVO && activationUrl ? `
+  <!-- ACTIVACIÓN -->
   <tr>
     <td style="padding:0 48px 32px;">
-      <p style="margin:0 0 16px;color:#0D2818;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Tus credenciales de acceso</p>
+      <p style="margin:0 0 16px;color:#0D2818;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Activa tu acceso</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5EDE5;border-radius:10px;overflow:hidden;">
         <tr>
-          <td style="padding:14px 20px;border-bottom:1px solid #E5EDE5;background:#F7F9F7;">
-            <span style="color:#6B7C74;font-size:13px;">Email</span>
+          <td style="padding:14px 20px;background:#F7F9F7;">
+            <span style="color:#6B7C74;font-size:13px;">Tu usuario</span>
             <span style="float:right;color:#0D2818;font-size:14px;font-weight:700;">${email}</span>
           </td>
         </tr>
-        <tr>
-          <td style="padding:16px 20px;background:#FFFBEB;">
-            <span style="color:#6B7C74;font-size:13px;display:block;margin-bottom:10px;">Contraseña temporal</span>
-            <div style="background:#FEF3C7;border:1.5px dashed #F59E0B;border-radius:8px;padding:14px 20px;text-align:center;">
-              <p style="margin:0;color:#92400E;font-size:24px;font-weight:800;letter-spacing:0.12em;font-family:'Courier New',Courier,monospace;">${tempPassword}</p>
-            </div>
-          </td>
-        </tr>
       </table>
-      <p style="margin:12px 0 0;color:#9CA3AF;font-size:12px;line-height:1.6;">⚠️ Por tu seguridad, te recomendamos cambiar tu contraseña al ingresar por primera vez.</p>
+      <p style="margin:12px 0 0;color:#9CA3AF;font-size:12px;line-height:1.6;">El enlace para crear tu contraseña vence en 7 días y solo funciona una vez. Si vence, pide uno nuevo a tu asesor.</p>
     </td>
   </tr>
   ` : ''}
@@ -330,7 +315,7 @@ export async function sendWelcomeEmail(
   <!-- CTA -->
   <tr>
     <td style="padding:0 48px 40px;text-align:center;">
-      <a href="${portalUrl}" style="display:inline-block;background:linear-gradient(135deg,#1A3A2A,#2D6A4F);color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:0.02em;box-shadow:0 4px 12px rgba(26,58,42,0.3);">Acceder a mi portal →</a>
+      <a href="${activationUrl ?? portalUrl}" style="display:inline-block;background:linear-gradient(135deg,#1A3A2A,#2D6A4F);color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:0.02em;box-shadow:0 4px 12px rgba(26,58,42,0.3);">${activationUrl ? 'Crear mi contraseña →' : 'Acceder a mi portal →'}</a>
     </td>
   </tr>
   ` : `
@@ -350,11 +335,82 @@ export async function sendWelcomeEmail(
   });
 
   // No se puede "bloquear" aquí — el contrato ya se creó. Pero un fallo
-  // silencioso deja a un cliente sin sus credenciales sin que nadie se
-  // entere; logueamos visiblemente para que un admin lo detecte y reenvíe
-  // por otro medio.
+  // silencioso deja a un cliente sin su acceso sin que nadie se entere;
+  // logueamos visiblemente para que el equipo lo detecte y reenvíe el acceso
+  // desde la ficha del cliente.
   if (error) {
     logger.error(`Fallo al enviar email de bienvenida a ${email} (contrato ${contractNumber}): ${error.message} (${error.name})`);
+  }
+}
+
+// ── Acceso al portal (reenvío desde la ficha del cliente) ────────────────────
+// Lo manda el equipo cuando el cliente no recibió la bienvenida, se le venció
+// el enlace o perdió su contraseña. Mismo enlace de un solo uso que la
+// bienvenida, sin datos del contrato.
+
+export async function sendPortalAccessEmail(
+  email: string,
+  firstName: string,
+  activationUrl: string,
+): Promise<void> {
+  const { error } = await getResend().emails.send({
+    from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+    to: email,
+    subject: 'Tu acceso al portal de clientes — Central Inmobiliaria',
+    html: `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F0EDE8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;padding:48px 20px;">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <tr>
+    <td style="background:linear-gradient(135deg,#0D2818 0%,#1A3A2A 60%,#2D5A3D 100%);padding:32px 40px;">
+      <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">CentralHub</h1>
+      <p style="margin:6px 0 0;color:#A8C5B0;font-size:13px;">Central Inmobiliaria</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:36px 40px 12px;">
+      <p style="margin:0 0 8px;color:#0D2818;font-size:16px;font-weight:600;">Hola, ${firstName}</p>
+      <p style="margin:0 0 20px;color:#6B7C74;font-size:14px;line-height:1.65;">
+        Con este enlace puedes crear tu contraseña y entrar a tu portal para consultar tus contratos y pagos.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5EDE5;border-radius:10px;overflow:hidden;">
+        <tr>
+          <td style="padding:14px 20px;background:#F7F9F7;">
+            <span style="color:#6B7C74;font-size:13px;">Tu usuario</span>
+            <span style="float:right;color:#0D2818;font-size:14px;font-weight:700;">${email}</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:20px 40px 12px;text-align:center;">
+      <a href="${activationUrl}" style="display:inline-block;background:linear-gradient(135deg,#1A3A2A,#2D6A4F);color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:0.02em;box-shadow:0 4px 12px rgba(26,58,42,0.3);">Crear mi contraseña →</a>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:12px 40px 32px;">
+      <p style="margin:0;color:#9CA3AF;font-size:12px;line-height:1.6;text-align:center;">El enlace vence en 7 días y solo funciona una vez. Si no lo pediste, ignora este correo: tu cuenta no cambia hasta que alguien lo use.</p>
+    </td>
+  </tr>
+  <tr>
+    ${pieHtml()}
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+
+  // Aquí sí se avisa: lo pidió alguien del equipo desde la ficha y tiene que
+  // saber si el correo no salió para dárselo al cliente por otro medio.
+  if (error) {
+    logger.error(`Fallo al enviar acceso al portal a ${email}: ${error.message} (${error.name})`);
+    throw new EmailSendError('No se pudo enviar el correo de acceso al portal.', error.message);
   }
 }
 
@@ -376,7 +432,7 @@ const ROLE_LABELS_ES: Record<string, string> = {
  * que se deriva de ahí y no hace falta dar de alta otra variable; APP_URL
  * existe como override para cuando el frontend viva en otro dominio.
  */
-function appUrl(): string {
+export function appUrl(): string {
   const fromCors = process.env.CORS_ORIGIN?.split(',')[0]?.trim();
   return (process.env.APP_URL?.trim() || fromCors || 'http://localhost:3000').replace(/\/+$/, '');
 }
