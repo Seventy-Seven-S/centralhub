@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CentralHub — frontend
 
-## Getting Started
+La interfaz de CentralHub: el panel del equipo (ADMIN, MANAGER, AGENT) y el
+portal de clientes. Next.js 16 (App Router) + React 19 + Tailwind CSS 4; habla
+con la API del backend (`src/` en la raíz del repo).
 
-First, run the development server:
+> Esta versión de Next trae cambios incompatibles con versiones anteriores.
+> Antes de usar una API poco común, lee la guía en
+> `node_modules/next/dist/docs/` (ver `AGENTS.md`).
+
+## Arrancar
 
 ```bash
+npm install
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL apunta a la API local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La API y la base local se levantan desde la raíz; ver
+[`docs/DESARROLLO-LOCAL.md`](../docs/DESARROLLO-LOCAL.md).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Comandos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev          # servidor de desarrollo
+npm test             # pruebas (Vitest)
+npx tsc --noEmit     # revisión de tipos
+npm run build        # build de producción
+npm run lint
+```
 
-## Learn More
+## Dónde está cada cosa
 
-To learn more about Next.js, take a look at the following resources:
+- `src/app/(admin)/` — pantallas del equipo: dashboard, proyectos, lotes,
+  contratos, cuotas, clientes, gastos, ingresos, cortes, usuarios…
+- `src/app/(portal)/` y `src/app/(auth)/portal` — portal de clientes.
+- `src/app/validar/` — página pública para validar el folio de un recibo.
+- `src/components/` — componentes por módulo; `components/pdf/` genera los
+  contratos, recibos y estados de cuenta.
+- `src/hooks/` — consultas y mutaciones (TanStack Query) por recurso.
+- `src/lib/` — lógica pura de la UI, con sus pruebas al lado (`*.test.ts`).
+- `src/store/` — sesión (Zustand).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Producción
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Se despliega en Railway con Nixpacks (`railway.json` de esta carpeta); ver
+[`docs/DEPLOY-RAILWAY.md`](../docs/DEPLOY-RAILWAY.md).

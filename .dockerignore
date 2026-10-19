@@ -17,3 +17,12 @@ uploads
 .claude
 .codegraph
 docs
+
+# Nada de esto entra a la imagen: borradores, credenciales y basura del
+# sistema (backups y logs ya están arriba).
+scratch
+.superpowers
+credentials
+*.rtf
+.DS_Store
+**/.DS_Store
