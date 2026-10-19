@@ -24,6 +24,16 @@ export const authenticate = (
 
     const token = authHeader.substring(7);
     const decoded = verifyAccessToken(token);
+    // Los tokens del portal de clientes se firman con el MISMO secreto que los
+    // del equipo; lo único que los distingue es authType. Sin este chequeo un
+    // cliente con sesión en el portal entraba a cualquier ruta interna que no
+    // tuviera authorize(). Se exige 'internal' explícito: un token sin el
+    // campo (o con cualquier otro valor) tampoco pasa. El type 'access' cubre
+    // el caso de que algún entorno configure el mismo secreto para ambos
+    // tipos: un refresh token no debe servir como llave de las rutas.
+    if (decoded.authType !== 'internal' || decoded.type !== 'access') {
+      throw new ApiError(401, 'Invalid token type');
+    }
     req.user = decoded;
     next();
   } catch (error) {

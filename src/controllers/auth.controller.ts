@@ -162,6 +162,13 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(401, 'Invalid or expired refresh token');
   }
 
+  // Los refresh del portal de clientes comparten secreto con los del equipo:
+  // sin esto un cliente podría canjear el suyo por un access token interno.
+  if (payload.authType !== 'internal' || payload.type !== 'refresh') {
+    logger.warn(`[refresh] rechazado (token que no es del equipo) para ${payload.userId}`);
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
   const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
   const decision = decidirRotacion(stored, new Date());
   if (!decision.aceptar) {
@@ -179,10 +186,23 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const newPayload = { userId: payload.userId, email: payload.email, role: payload.role };
+  // El usuario y su rol salen de la BASE, no del token: el rol del token es
+  // el de hace hasta 24h. Si en ese lapso lo desactivaron o le bajaron el rol,
+  // renovar con el payload viejo le devolvía el acceso de antes.
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true, email: true, role: true, status: true },
+  });
+  if (!user || user.status !== 'ACTIVE') {
+    logger.warn(`[refresh] rechazado (usuario inexistente o inactivo) para ${payload.userId}`);
+    await prisma.refreshToken.deleteMany({ where: { userId: payload.userId } });
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  const newPayload = { userId: user.id, email: user.email, role: user.role };
   const accessToken = generateAccessToken(newPayload);
   const newRefreshToken = generateRefreshToken(newPayload);
-  await persistRefreshToken(payload.userId, newRefreshToken);
+  await persistRefreshToken(user.id, newRefreshToken);
 
   res.status(200).json({
     status: 'success',

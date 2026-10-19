@@ -3,7 +3,8 @@ import type { Request, Response } from 'express';
 
 const mocks = vi.hoisted(() => {
   const prisma = {
-    refreshToken: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
+    refreshToken: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+    user: { findUnique: vi.fn() },
   };
   const jwt = {
     verifyRefreshToken: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('../../config/jwt', async (importOriginal) => {
 import { refresh } from '../auth.controller';
 
 const PAYLOAD = { userId: 'user-1', email: 'agente@centralinmob.com', role: 'AGENT', type: 'refresh', authType: 'internal' };
+const USER_DB = { id: 'user-1', email: 'agente@centralinmob.com', role: 'AGENT', status: 'ACTIVE' };
 const DB_ROW = { id: 'rt-1', token: 'old-refresh-token', userId: 'user-1', expiresAt: new Date(Date.now() + 60 * 60 * 1000), rotatedAt: null };
 
 function runRefresh(body: any) {
@@ -48,6 +50,8 @@ beforeEach(() => {
   mocks.jwt.generateAccessToken.mockReturnValue('new-access-token');
   mocks.jwt.generateRefreshToken.mockReturnValue('new-refresh-token');
   mocks.prisma.refreshToken.create.mockResolvedValue({});
+  mocks.prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
+  mocks.prisma.user.findUnique.mockResolvedValue(USER_DB);
 });
 
 describe('POST /auth/refresh — rota el token con una gracia corta', () => {
@@ -133,6 +137,60 @@ describe('POST /auth/refresh — la gracia de la segunda pestaña', () => {
     mocks.prisma.refreshToken.findUnique.mockResolvedValue({
       ...DB_ROW, rotatedAt: new Date(Date.now() - 10 * 60_000),
     });
+
+    const { next } = runRefresh({ refreshToken: 'old-refresh-token' });
+    await vi.waitFor(() => expect(next).toHaveBeenCalled());
+    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 401 });
+    expect(mocks.prisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /auth/refresh — el usuario y su rol salen de la base', () => {
+  it('refresh token del PORTAL de clientes → 401, ni siquiera consulta la BD', async () => {
+    mocks.jwt.verifyRefreshToken.mockReturnValue({ ...PAYLOAD, role: 'CLIENT', authType: 'client' });
+
+    const { next } = runRefresh({ refreshToken: 'client-refresh' });
+    await vi.waitFor(() => expect(next).toHaveBeenCalled());
+
+    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 401 });
+    expect(mocks.prisma.refreshToken.findUnique).not.toHaveBeenCalled();
+    expect(mocks.jwt.generateAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('token sin authType (formato viejo o forjado) → 401', async () => {
+    const { authType: _a, ...sinTipo } = PAYLOAD;
+    mocks.jwt.verifyRefreshToken.mockReturnValue(sinTipo);
+
+    const { next } = runRefresh({ refreshToken: 'old-refresh-token' });
+    await vi.waitFor(() => expect(next).toHaveBeenCalled());
+    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 401 });
+  });
+
+  it('el rol del token nuevo es el de la BASE, no el del token viejo', async () => {
+    // El token dice AGENT; en la base ya lo subieron a MANAGER (o al revés).
+    mocks.prisma.user.findUnique.mockResolvedValue({ ...USER_DB, role: 'MANAGER' });
+
+    const { res } = runRefresh({ refreshToken: 'old-refresh-token' });
+    await vi.waitFor(() => expect(res.json).toHaveBeenCalled());
+
+    expect(mocks.jwt.generateAccessToken).toHaveBeenCalledWith({ userId: 'user-1', email: 'agente@centralinmob.com', role: 'MANAGER' });
+    expect(mocks.jwt.generateRefreshToken).toHaveBeenCalledWith({ userId: 'user-1', email: 'agente@centralinmob.com', role: 'MANAGER' });
+  });
+
+  it('usuario desactivado → 401 y se borran todas sus sesiones', async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ ...USER_DB, status: 'INACTIVE' });
+
+    const { next } = runRefresh({ refreshToken: 'old-refresh-token' });
+    await vi.waitFor(() => expect(next).toHaveBeenCalled());
+
+    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 401 });
+    expect(mocks.prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+    expect(mocks.prisma.refreshToken.create).not.toHaveBeenCalled();
+    expect(mocks.jwt.generateAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('usuario que ya no existe → 401', async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(null);
 
     const { next } = runRefresh({ refreshToken: 'old-refresh-token' });
     await vi.waitFor(() => expect(next).toHaveBeenCalled());
