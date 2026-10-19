@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, Pencil, ToggleLeft, ToggleRight, AlertCircle, X } from 'lucide-react';
 import api from '@/lib/api';
 import { normalizeForSearch } from '@/lib/utils';
+import type { ErrorApi } from '@/lib/errorApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface UsuarioInterno {
@@ -90,7 +91,7 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
       }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['usuarios'] }); onClose(); },
-    onError: (e: any) => setError(e.response?.data?.message ?? 'Error al guardar'),
+    onError: (e: ErrorApi) => setError(e.response?.data?.message ?? 'Error al guardar'),
   });
 
   function handleSubmit(e: React.FormEvent) {

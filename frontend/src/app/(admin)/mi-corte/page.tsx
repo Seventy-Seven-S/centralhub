@@ -12,6 +12,7 @@ import { Banknote, Landmark, AlertCircle, CheckCircle2, Loader2 } from 'lucide-r
 import { useMiDia, useCerrarCorte } from '@/hooks/useCorteDiario';
 import { formatCurrency } from '@/lib/utils';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 const METODO: Record<string, string> = { CASH: 'Efectivo', TRANSFER: 'Transferencia', CHECK: 'Cheque', CARD: 'Tarjeta' };
 
@@ -43,7 +44,7 @@ export default function MiCortePage() {
       { declarado: declaradoNum, notaCobrador: nota.trim() || undefined },
       {
         onSuccess: c => setCerrado({ numero: c.numero }),
-        onError: (err: any) => setError(err.response?.data?.message ?? 'No se pudo cerrar el corte'),
+        onError: (err: ErrorApi) => setError(err.response?.data?.message ?? 'No se pudo cerrar el corte'),
       },
     );
   }

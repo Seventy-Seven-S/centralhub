@@ -8,6 +8,7 @@ import { ReciboContrato } from '@/components/pdf/ReciboContrato';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import { useMoneyInput } from '@/hooks/useMoneyInput';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface Props {
   cuota:    Cuota;
@@ -73,7 +74,7 @@ export function PagarCuotaModal({ cuota, contrato, onClose }: Props) {
           setStep('done');
           setTimeout(onClose, 1200);
         },
-        onError: (err: any) => {
+        onError: (err: ErrorApi) => {
           setError(err.response?.data?.message ?? 'Error al registrar el pago');
           setStep('form');
         },

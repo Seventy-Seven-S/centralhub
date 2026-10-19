@@ -12,6 +12,7 @@ import { useCortes, usePendientesCorte, fetchCorte, type PagoCorte, type GastoPo
 import { resumenReparto, validarCorte, type Egresos } from '@/lib/corte';
 import { ComprobanteCorte } from '@/components/pdf/ComprobanteCorte';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface Categoria { id: string; name: string }
 const CAT_DUENO = 'Dueño del terreno';
@@ -65,7 +66,8 @@ function GenerarCorteModal({ projectId, projectCode, duenoDelProyecto, onClose, 
         dueno: dueno.trim(), duenoCategoryId: catDueno.id, notas: notas.trim() || undefined,
       });
       onDone(data.data.id);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err?.response?.data?.message ?? 'No se pudo registrar el corte');
     } finally { setSaving(false); }
   }

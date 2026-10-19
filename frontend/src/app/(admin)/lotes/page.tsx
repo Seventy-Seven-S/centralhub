@@ -13,6 +13,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { InputMoneda } from '@/components/ui/InputMoneda';
 import { aNumero } from '@/lib/formatoMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 const INE_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const INE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -108,7 +109,8 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
     try {
       await updateLote.mutateAsync({ lotId: lote.id, data: { areaM2, basePrice, currentPrice } });
       onClose();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err.response?.data?.message || 'Error al guardar el lote');
     }
   };
@@ -141,7 +143,8 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
 
       await reserveLot.mutateAsync({ lotId: lote.id, formData });
       onClose();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err.response?.data?.message || 'Error al apartar el lote');
     }
   };

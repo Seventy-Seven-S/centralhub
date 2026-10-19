@@ -34,6 +34,7 @@ import { abrirReciboComision } from '@/components/pdf/ReciboComision';
 import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpers';
 import { reciboPropsDesdeLog, reciboPropsDesdePago } from '@/lib/reimpresion';
 import { resumenPagado } from '@/lib/resumenPagado';
+import type { ErrorApi } from '@/lib/errorApi';
 
 // ── Status maps ───────────────────────────────────────────────────────────────
 const CONTRACT_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -140,7 +141,8 @@ export default function ContratoDetallePage({ params }: { params: Promise<{ id: 
         const { data } = await api.get(`/payments/${pago.id}/recibo`);
         props = reciboPropsDesdeLog(data.data);
         qrDataUri = await buildQrDataUri(buildValidacionUrl(data.data.id));
-      } catch (err: any) {
+      } catch (caught) {
+        const err = caught as ErrorApi;
         if (err?.response?.status !== 404) throw err;
         // Los pagos migrados no traen balanceAfter; el saldo se deriva de
         // los pagos confirmados del contrato en vez de salir en cero.

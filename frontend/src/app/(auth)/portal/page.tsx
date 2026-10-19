@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth.store';
 import {
   PantallaAcceso, Input, MensajeError, BotonPrincipal, Encabezado,
 } from '@/components/portal/PantallaAcceso';
+import type { ErrorApi } from '@/lib/errorApi';
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function PortalLoginPage() {
@@ -42,7 +43,8 @@ export default function PortalLoginPage() {
       document.cookie = `user_role=CLIENT; path=/; max-age=${60 * 60 * 24 * 7}`;
 
       router.push('/mis-contratos');
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       const status = err.response?.status;
       // Las cuentas nuevas nacen inactivas hasta que el cliente usa su enlace;
       // el backend responde en inglés y eso no le dice qué hacer.

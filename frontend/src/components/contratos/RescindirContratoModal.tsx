@@ -5,6 +5,7 @@ import { X, Upload, AlertTriangle } from 'lucide-react';
 import { validarRescision, type RescisionForm } from '@/lib/rescision';
 import { todayLocalISO } from '@/lib/utils';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface Props {
   contratoId: string;
@@ -48,7 +49,8 @@ export function RescindirContratoModal({ contratoId, etiqueta, onClose, onDone }
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || 'No se pudo rescindir el contrato');
       onDone();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err.message || 'No se pudo rescindir el contrato');
     } finally {
       setSaving(false);

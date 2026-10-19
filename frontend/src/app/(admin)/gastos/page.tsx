@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useGastos';
 import { formatCurrency, todayLocalISO } from '@/lib/utils';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 const PAGE_SIZE = 20;
 
@@ -134,7 +135,8 @@ function ExpenseModal({ expense, projectId, categories, projects, onClose }: Exp
         await createMutation.mutateAsync(dto);
       }
       onClose();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err?.response?.data?.message ?? 'Error al guardar el gasto');
     }
   }
@@ -323,7 +325,8 @@ function CategoryModal({ category, onClose }: CategoryModalProps) {
         await createMutation.mutateAsync({ name: form.name, description: form.description || undefined });
       }
       onClose();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err?.response?.data?.message ?? 'Error al guardar');
     }
   }

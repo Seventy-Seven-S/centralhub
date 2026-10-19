@@ -7,6 +7,7 @@ import { Sun, Moon } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
+import type { ErrorApi } from '@/lib/errorApi';
 
 type Step = 'credentials' | 'verify';
 
@@ -132,7 +133,8 @@ export default function LoginPage() {
       }
 
       setStep('verify');
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err.response?.data?.message || 'Credenciales incorrectas.');
     } finally {
       setLoading(false);
@@ -158,7 +160,8 @@ export default function LoginPage() {
       document.cookie = `user_role=${user.role}; path=/; max-age=${60 * 60 * 24 * 7}`;
 
       router.push(user.role === 'CLIENT' ? '/mis-contratos' : '/dashboard');
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err.response?.data?.message || 'Código incorrecto o expirado.');
     } finally {
       setLoading(false);

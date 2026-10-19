@@ -11,6 +11,7 @@ import { buildValidacionUrl, buildQrDataUri } from '@/components/pdf/reciboHelpe
 import { useMoneyInput } from '@/hooks/useMoneyInput';
 import api from '@/lib/api';
 import { formatCurrency, formatLotsLabel, todayLocalISO, normalizeForSearch } from '@/lib/utils';
+import type { ErrorApi } from '@/lib/errorApi';
 
 type Step = 'pick' | 'form' | 'saving' | 'generating' | 'done';
 
@@ -123,7 +124,8 @@ export function RegistrarPagoModal({ onClose }: { onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       setStep('done');
       setTimeout(onClose, 1200);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err?.response?.data?.message ?? 'Error al registrar el pago');
       setStep('form');
     }

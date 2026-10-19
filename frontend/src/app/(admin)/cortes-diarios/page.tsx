@@ -12,6 +12,7 @@ import { useCortesDiarios, useRecibirCorte, useCorteDiario, useResumenDiario, Co
 import { useRole } from '@/hooks/useRole';
 import { formatCurrency, formatDateUTC } from '@/lib/utils';
 import { InputMoneda } from '@/components/ui/InputMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 function Badge({ status }: { status: CorteDiario['status'] }) {
   const recibido = status === 'RECIBIDO';
@@ -46,7 +47,7 @@ function RecibirModal({ corte, onClose }: { corte: CorteDiario; onClose: () => v
     if (hayDiferencia && !nota.trim()) return setError('Hay una diferencia: explica en la nota a qué se debe');
     recibir.mutate(
       { id: corte.id, recibido: montoNum, notaAdmin: nota.trim() || undefined },
-      { onSuccess: onClose, onError: (err: any) => setError(err.response?.data?.message ?? 'No se pudo registrar') },
+      { onSuccess: onClose, onError: (err: ErrorApi) => setError(err.response?.data?.message ?? 'No se pudo registrar') },
     );
   }
 

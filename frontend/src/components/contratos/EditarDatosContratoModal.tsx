@@ -10,6 +10,7 @@ import {
   cambiosDelFormulario, validarFormulario, mesDeFecha,
   DatosContrato, FormEdicion,
 } from '@/lib/edicionContratoForm';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface Props {
   contratoId: string;
@@ -60,7 +61,8 @@ export function EditarDatosContratoModal({
     try {
       await api.patch(`/contracts/${contratoId}/datos`, { ...cambios, motivo: motivo.trim() });
       onDone();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       setError(err?.response?.data?.message ?? 'No se pudo guardar el cambio');
     } finally {
       setSaving(false);

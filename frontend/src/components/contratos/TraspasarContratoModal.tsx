@@ -9,6 +9,7 @@ import { useLotes } from '@/hooks/useLotes';
 import { InputMoneda } from '@/components/ui/InputMoneda';
 import { ClienteNuevoEnTraspaso } from './ClienteNuevoEnTraspaso';
 import { validarFormularioTraspaso, resumenDinero, listaDe } from './traspasoForm';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface Props {
   contratoId: string;
@@ -130,8 +131,9 @@ export function TraspasarContratoModal({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? 'No se pudo registrar el traspaso');
       onDone();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (caught) {
+      const err = caught as ErrorApi;
+      setError(err.message ?? null);
     } finally {
       setSaving(false);
     }

@@ -13,6 +13,7 @@ import { validarDatosDelCliente } from '@/lib/datosCliente';
 import { PLAZOS_COMUNES, validarPlazo, etiquetaPlazo } from '@/lib/plazoContrato';
 import { mesSiguienteA, fechaInicioDesdeMes } from '@/lib/mesPrimeraMensualidad';
 import { precioDeLotes, resumenLotes, validarCotitulares, Cotitular } from '@/lib/contratoMultiLote';
+import type { ErrorApi } from '@/lib/errorApi';
 
 function formatDate(d: string | Date | null | undefined): string {
   if (!d) return '—';
@@ -326,12 +327,13 @@ export default function NuevoContratoPage() {
       }
 
       router.push(`/contratos/${contractId}${comisionGastoId ? `?reciboComision=${comisionGastoId}` : ''}`);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ErrorApi;
       const apiError = err?.response?.data;
       if (apiError?.code === 'TOTAL_UPFRONT_EXCEEDS_PRICE') {
         // Mostrar mensaje accionable del backend SIN resetear el form.
         // El usuario puede volver al paso 2, ajustar el enganche y reintentar.
-        setSubmitError(apiError.message);
+        setSubmitError(apiError.message ?? '');
         return;
       }
       setSubmitError(apiError?.message || err.message || 'Error al generar el contrato');

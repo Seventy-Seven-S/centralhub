@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { UserPlus, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { validarDatosDelCliente } from '@/lib/datosCliente';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface Props {
   /** Lo que la secretaria ya había tecleado en la búsqueda. */
@@ -55,7 +56,8 @@ export function ClienteNuevoEnTraspaso({ nombreTecleado, onCreado, onCancelar }:
       });
       const creado = data.data.client;
       onCreado({ id: creado.id, firstName: creado.firstName, lastName: creado.lastName });
-    } catch (e: any) {
+    } catch (caught) {
+      const e = caught as ErrorApi;
       setError(e?.response?.data?.message ?? 'No se pudo dar de alta al cliente');
     } finally {
       setGuardando(false);

@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { InputMoneda } from '@/components/ui/InputMoneda';
 import { aNumero } from '@/lib/formatoMoneda';
+import type { ErrorApi } from '@/lib/errorApi';
 
 interface LoteOpcion { lotId: string; etiqueta: string; precio: number }
 
@@ -57,7 +58,8 @@ export function SepararLoteModal({ contratoId, etiqueta, onClose, onDone }: Prop
         const p: VistaPrevia = data.data;
         setPrevia(p);
         if (!lotId && p.lotes.length) setLotId(p.lotes[0].lotId);
-      } catch (e: any) {
+      } catch (caught) {
+        const e = caught as ErrorApi;
         if (vivo) setError(e?.response?.data?.message ?? 'No se pudo cargar el contrato');
       } finally {
         if (vivo) setCargando(false);
@@ -93,7 +95,8 @@ export function SepararLoteModal({ contratoId, etiqueta, onClose, onDone }: Prop
         lotId, precioQueSeVa: precioNum, montoQueSeVa: montoNum, motivo: motivo.trim(),
       });
       onDone(data.data.codigoNuevo);
-    } catch (e: any) {
+    } catch (caught) {
+      const e = caught as ErrorApi;
       setError(e?.response?.data?.message ?? 'No se pudo separar el lote');
     } finally {
       setGuardando(false);
