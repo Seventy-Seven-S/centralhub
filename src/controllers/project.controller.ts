@@ -61,6 +61,18 @@ async function cifrasDelProyecto(projectId: string, sinCortes = false) {
   };
 }
 
+/**
+ * Lo que cada rol recibe de las cifras. El AGENT ve en la tarjeta contratos,
+ * lotes, valor total y lo pendiente por entregar, pero no los ingresos ni los
+ * egresos (la pantalla los esconde con hideIngresos): esos no deben ni viajar.
+ */
+export function cifrasParaRol<T extends object>(proyecto: T, role: string | undefined): T {
+  if (role === 'ADMIN' || role === 'MANAGER') return proyecto;
+  const { totalIngresos: _i, totalEgresos: _e, otrosIngresos: _o, diferencia: _d, ...resto } =
+    proyecto as T & { totalIngresos?: unknown; totalEgresos?: unknown; otrosIngresos?: unknown; diferencia?: unknown };
+  return resto as T;
+}
+
 export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
   // Los proyectos ocultos no salen en el selector ni en el listado. Un ADMIN
   // puede pedirlos con ?incluirOcultos=true — ocultar no es prohibir el
@@ -72,7 +84,7 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
   });
 
   const enriched = await Promise.all(
-    projects.map(async (p) => ({ ...p, ...(await cifrasDelProyecto(p.id, p.sinCortes)) })),
+    projects.map(async (p) => cifrasParaRol({ ...p, ...(await cifrasDelProyecto(p.id, p.sinCortes)) }, req.user?.role)),
   );
 
   res.status(200).json({
@@ -90,10 +102,10 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
     throw new ApiError(404, 'Project not found');
   }
 
-  const enriched = {
+  const enriched = cifrasParaRol({
     ...project,
     ...(await cifrasDelProyecto(id, project.sinCortes)),
-  };
+  }, req.user?.role);
 
   res.status(200).json({
     status: 'success',
