@@ -83,7 +83,7 @@ describe('rescindContract', () => {
     await contractService.rescindContract('c-1', input({ refundAmount: 25000 }));
     expect(mocks.tx.payment.create).toHaveBeenCalledOnce();
     const data = mocks.tx.payment.create.mock.calls[0][0].data;
-    expect(data).toMatchObject({ contractId: 'c-1', clientId: 'cl-1', paymentType: 'RESCISSION_REFUND', amount: -25000, status: 'CONFIRMED' });
+    expect(data).toMatchObject({ contractId: 'c-1', clientId: 'cl-1', paymentType: 'RESCISSION_REFUND', paymentMethod: 'CASH', amount: -25000, status: 'CONFIRMED' });
   });
 
   it('la devolución sale como gasto de Cancelaciones ligado a su pago, para descontarse en el corte', async () => {

@@ -176,7 +176,9 @@ export const traspasoService = {
             contractId: contratoDestinoId,
             clientId: input.clienteNuevoId,
             paymentType: PaymentType.TRASPASO_ENTRADA,
-            paymentMethod: PaymentMethod.TRANSFER,
+            // En efectivo, como todo lo que registra el equipo. No entra al
+            // corte diario: ver NO_ES_COBRO_DE_CAJA en corteDiario.service.
+            paymentMethod: PaymentMethod.CASH,
             amount: montoRespetado,
             paymentDate: fecha,
             concept: `Abono por traspaso #${numero} desde ${origen.codigoLegado ?? origen.contractNumber}`,

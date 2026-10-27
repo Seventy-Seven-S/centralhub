@@ -656,7 +656,9 @@ export class ContractService {
             contractId: id,
             clientId: contract.clientId,
             paymentType: PaymentType.RESCISSION_REFUND,
-            paymentMethod: PaymentMethod.TRANSFER,
+            // En efectivo, como todo lo que registra el equipo. No entra al
+            // corte diario: ver NO_ES_COBRO_DE_CAJA en corteDiario.service.
+            paymentMethod: PaymentMethod.CASH,
             amount: -refund,
             paymentDate: rescindedAt,
             concept: 'Devolución por rescisión de contrato',

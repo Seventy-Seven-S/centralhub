@@ -29,6 +29,15 @@ const PAGO_SELECT = {
   },
 } as const;
 
+// Lo que el corte diario NO cuenta: no es dinero que pase por la mano de quien
+// cobra. La devolución al cancelar se paga aparte y ya se registra como gasto
+// de Cancelaciones; el abono de un traspaso solo se mueve de un contrato a
+// otro. Antes iban marcados como transferencia y caían en "otros"; ahora se
+// registran en efectivo (lo pidió el equipo) y por eso hay que dejarlos fuera,
+// o el efectivo a entregar saldría descuadrado.
+const NO_ES_COBRO_DE_CAJA = ['RESCISSION_REFUND', 'TRASPASO_ENTRADA'] as const;
+const SOLO_COBROS_DE_CAJA = { paymentType: { notIn: [...NO_ES_COBRO_DE_CAJA] } };
+
 const aPagoDelDia = (p: any): PagoDelDia => ({
   amount: p.amount,
   paymentMethod: p.paymentMethod,
@@ -50,6 +59,7 @@ export const corteDiarioService = {
         corteDiarioId: null,
         status: PaymentStatus.CONFIRMED,
         paymentDate: { gte: desde, lte: hasta },
+        ...SOLO_COBROS_DE_CAJA,
       },
       select: PAGO_SELECT,
       orderBy: { paymentDate: 'asc' },
@@ -72,6 +82,7 @@ export const corteDiarioService = {
           corteDiarioId: null,
           status: PaymentStatus.CONFIRMED,
           paymentDate: { gte: desde, lte: hasta },
+          ...SOLO_COBROS_DE_CAJA,
         },
         select: { id: true, amount: true, paymentMethod: true, contract: { select: { project: { select: { code: true, name: true } } } } },
       });
@@ -155,6 +166,7 @@ export const corteDiarioService = {
           status: PaymentStatus.CONFIRMED,
           createdBy: { not: null },
           paymentDate: { gte: desde, lte: hasta },
+          ...SOLO_COBROS_DE_CAJA,
         },
         select: { createdBy: true },
         distinct: ['createdBy'],

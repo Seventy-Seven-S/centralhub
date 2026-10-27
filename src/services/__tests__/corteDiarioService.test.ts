@@ -53,6 +53,22 @@ describe('cerrar — el corte nace del efectivo que esa persona cobró hoy', () 
     expect(where).toMatchObject({ createdBy: 'marisol', corteDiarioId: null, status: 'CONFIRMED' });
   });
 
+  it('deja fuera devoluciones y traspasos: no pasan por la mano de quien cobra', async () => {
+    mocks.tx.payment.findMany.mockResolvedValue([pagoCash('p1', 100)]);
+    await corteDiarioService.cerrar({ userId: 'marisol', declarado: 100 });
+
+    const where = mocks.tx.payment.findMany.mock.calls[0][0].where;
+    expect(where.paymentType).toEqual({ notIn: ['RESCISSION_REFUND', 'TRASPASO_ENTRADA'] });
+  });
+
+  it('"mi día" tampoco muestra devoluciones ni traspasos', async () => {
+    mocks.prisma.payment.findMany.mockResolvedValue([]);
+    await corteDiarioService.miDia('marisol');
+
+    const where = mocks.prisma.payment.findMany.mock.calls[0][0].where;
+    expect(where.paymentType).toEqual({ notIn: ['RESCISSION_REFUND', 'TRASPASO_ENTRADA'] });
+  });
+
   it('un día sin cobros no se puede cerrar', async () => {
     mocks.tx.payment.findMany.mockResolvedValue([]);
     await expect(corteDiarioService.cerrar({ userId: 'marisol', declarado: 0 }))

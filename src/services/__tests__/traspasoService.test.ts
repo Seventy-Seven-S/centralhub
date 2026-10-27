@@ -66,7 +66,7 @@ describe('crear — reubicación (otro proyecto)', () => {
     await traspasoService.crear(baseInput);
     const creados = mocks.tx.payment.create.mock.calls.map(c => c[0].data);
     expect(creados).toHaveLength(1);
-    expect(creados[0]).toMatchObject({ contractId: 'c-destino', paymentType: 'TRASPASO_ENTRADA', amount: 10000 });
+    expect(creados[0]).toMatchObject({ contractId: 'c-destino', paymentType: 'TRASPASO_ENTRADA', paymentMethod: 'CASH', amount: 10000 });
     expect(creados.every(p => p.amount > 0)).toBe(true);
     expect(creados.some(p => p.contractId === 'c-origen')).toBe(false);
   });
