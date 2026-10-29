@@ -50,4 +50,20 @@ describe('resolveStoredSelection', () => {
   it('id inexistente cae a null', () => {
     expect(resolveStoredSelection(projects, 'zzz')).toBeNull();
   });
+
+  describe('obligatorio (socio: no existe "Todos")', () => {
+    const lista = [{ id: 'MON1' }, { id: 'VDB' }];
+    it('sin nada guardado → el primer proyecto', () => {
+      expect(resolveStoredSelection(lista, null, true)).toBe('MON1');
+    });
+    it('respeta el guardado si sigue en su lista', () => {
+      expect(resolveStoredSelection(lista, 'VDB', true)).toBe('VDB');
+    });
+    it('uno guardado que no es suyo (otro usuario en la misma compu) → el primero suyo', () => {
+      expect(resolveStoredSelection(lista, 'JSA1', true)).toBe('MON1');
+    });
+    it('sin proyectos → null', () => {
+      expect(resolveStoredSelection([], null, true)).toBeNull();
+    });
+  });
 });

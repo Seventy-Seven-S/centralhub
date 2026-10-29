@@ -19,8 +19,9 @@ async function fetchVendedores(): Promise<Vendedor[]> {
 
 // ── Query hooks ───────────────────────────────────────────────────────────────
 
-export function useVendedores() {
+export function useVendedores(enabled = true) {
   return useQuery<Vendedor[]>({
+    enabled,
     queryKey:  ['vendedores'],
     queryFn:   fetchVendedores,
     staleTime: 60_000,

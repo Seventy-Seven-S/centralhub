@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, Pencil, ToggleLeft, ToggleRight, AlertCircle, X } from 'lucide-react';
 import api from '@/lib/api';
+import { useProyectos } from '@/hooks/useProyectos';
 import { normalizeForSearch } from '@/lib/utils';
 import type { ErrorApi } from '@/lib/errorApi';
 
@@ -13,18 +14,21 @@ interface UsuarioInterno {
   email:     string;
   firstName: string;
   lastName:  string;
-  role:      'ADMIN' | 'MANAGER' | 'AGENT';
+  role:      'ADMIN' | 'MANAGER' | 'AGENT' | 'SOCIO';
   status:    'ACTIVE' | 'INACTIVE';
+  // Solo el SOCIO tiene proyectos asignados; para los demás viene vacío.
+  proyectosSocio?: Array<{ project: { id: string; code: string; name: string } }>;
   lastLogin: string | null;
   createdAt: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ROLE_LABELS: Record<string, string> = { ADMIN: 'Administrador', MANAGER: 'Gerente', AGENT: 'Agente' };
+const ROLE_LABELS: Record<string, string> = { ADMIN: 'Administrador', MANAGER: 'Gerente', AGENT: 'Agente', SOCIO: 'Socio' };
 const ROLE_STYLES: Record<string, { bg: string; color: string }> = {
   ADMIN:   { bg: 'var(--accent-pale)',         color: 'var(--accent)' },
   MANAGER: { bg: 'var(--gold-pale)',            color: 'var(--gold)' },
   AGENT:   { bg: 'rgba(74,140,63,0.08)',        color: 'var(--accent-hover)' },
+  SOCIO:   { bg: 'var(--bg-tertiary)',          color: 'var(--text-primary)' },
 };
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -79,15 +83,25 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
     email:     usuario?.email     ?? '',
     password:  '',
     role:      (usuario?.role ?? 'AGENT') as string,
+    proyectos: (usuario?.proyectosSocio ?? []).map(p => p.project.id),
   });
   const [error, setError] = useState('');
+  const { data: todosLosProyectos = [] } = useProyectos();
+  const esSocio = form.role === 'SOCIO';
+  const alternarProyecto = (id: string) => setForm(f => ({
+    ...f, proyectos: f.proyectos.includes(id) ? f.proyectos.filter(x => x !== id) : [...f.proyectos, id],
+  }));
 
   const mutation = useMutation({
     mutationFn: async (values: typeof form) => {
       if (isEdit) {
-        await api.put(`/users/${usuario!.id}`, { firstName: values.firstName, lastName: values.lastName, role: values.role, email: values.email });
+        await api.put(`/users/${usuario!.id}`, {
+          firstName: values.firstName, lastName: values.lastName, role: values.role, email: values.email,
+          ...(values.role === 'SOCIO' && { proyectos: values.proyectos }),
+        });
       } else {
-        await api.post('/users', values);
+        const { proyectos, ...resto } = values;
+        await api.post('/users', { ...resto, ...(values.role === 'SOCIO' && { proyectos }) });
       }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['usuarios'] }); onClose(); },
@@ -100,6 +114,7 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
     if (!form.firstName || !form.lastName || !form.role) return setError('Completa todos los campos');
     if (!form.email) return setError('El email es requerido');
     if (!isEdit && !form.password) return setError('La contraseña es requerida');
+    if (esSocio && form.proyectos.length === 0) return setError('Elige al menos un proyecto para el socio');
     mutation.mutate(form);
   }
 
@@ -185,8 +200,26 @@ function UsuarioModal({ usuario, onClose }: ModalProps) {
               <option value="ADMIN">Administrador</option>
               <option value="MANAGER">Gerente</option>
               <option value="AGENT">Agente</option>
+              <option value="SOCIO">Socio (dueño, solo consulta)</option>
             </select>
           </div>
+
+          {esSocio && (
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Proyectos que puede consultar</label>
+              <div className="rounded-xl p-2 max-h-48 overflow-y-auto space-y-0.5" style={{ border: '1px solid var(--border)' }}>
+                {todosLosProyectos.map(p => (
+                  <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--text-primary)' }}>
+                    <input type="checkbox" checked={form.proyectos.includes(p.id)} onChange={() => alternarProyecto(p.id)} />
+                    {p.name} <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>{p.code}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                Verá dashboard, proyectos, lotes, ingresos, gastos e informe solo de estos proyectos, sin poder modificar nada.
+              </p>
+            </div>
+          )}
 
           {error && (
             <p className="text-xs px-3 py-2 rounded-lg"
@@ -309,7 +342,14 @@ export default function UsuariosPage() {
                       {u.firstName} {u.lastName}
                     </td>
                     <td className="px-5 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
-                    <td className="px-5 py-3.5"><RoleBadge role={u.role} /></td>
+                    <td className="px-5 py-3.5">
+                      <RoleBadge role={u.role} />
+                      {u.role === 'SOCIO' && !!u.proyectosSocio?.length && (
+                        <span className="ml-2 text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                          {u.proyectosSocio.map(p => p.project.code).join(' · ')}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-center"><StatusBadge status={u.status} /></td>
                     <td className="px-5 py-3.5 text-right text-xs whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
                       {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('es-MX') : '—'}

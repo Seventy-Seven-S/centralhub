@@ -1,9 +1,13 @@
 'use client';
 
 import { useProjectSelection } from '@/contexts/ProjectContext';
+import { useRole } from '@/hooks/useRole';
 
 export default function ProjectSelector() {
   const { selectedProjectId, setSelectedProjectId, projects, isLoading } = useProjectSelection();
+  // Un socio siempre consulta un proyecto a la vez: el backend no le responde
+  // "todos", así que la opción ni se ofrece.
+  const { isSocio } = useRole();
 
   return (
     <select
@@ -18,7 +22,7 @@ export default function ProjectSelector() {
         color: 'var(--text-primary)',
       }}
     >
-      <option value="">Todos los proyectos</option>
+      {!isSocio && <option value="">Todos los proyectos</option>}
       {projects.map((p) => (
         <option key={p.id} value={p.id}>
           {p.name}

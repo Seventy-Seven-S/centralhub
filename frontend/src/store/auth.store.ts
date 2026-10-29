@@ -6,7 +6,7 @@ interface AuthUser {
   id:        string;
   email:     string;
   name:      string;
-  role:      'ADMIN' | 'MANAGER' | 'AGENT' | 'CLIENT';
+  role:      'ADMIN' | 'MANAGER' | 'AGENT' | 'SOCIO' | 'CLIENT';
   clientId?: string;
   // Cliente que entró con la contraseña vieja adivinable: el portal no le
   // muestra nada hasta que la cambie.

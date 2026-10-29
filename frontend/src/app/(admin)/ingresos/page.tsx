@@ -19,9 +19,10 @@ interface Ingreso {
   amount: number;
   paymentDate: string;
   concept: string;
+  // Al SOCIO le llegan sin id ni número de contrato (ver pagoParaSocio en el backend).
   contract: {
-    id: string; contractNumber: string; codigoLegado: string | null;
-    client: { firstName: string; lastName: string };
+    id: string | null; contractNumber?: string; codigoLegado: string | null;
+    client: { firstName: string; lastName: string } | null;
     lots: Array<{ lot: { manzana: number; lotNumber: string } }>;
   };
   corte: { id: string; numero: number; fecha: string } | null;
@@ -31,8 +32,10 @@ const PAGE_SIZE = 50;
 
 export default function IngresosPage() {
   const router = useRouter();
-  const { isAdmin } = useRole();
   const { selectedProjectId } = useProjectSelection();
+  const { isAdmin, isSocio } = useRole();
+  // El socio consulta los ingresos de su proyecto, sin entrar a contratos.
+  const puedeVer = isAdmin || (isSocio && !!selectedProjectId);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [q, setQ] = useState('');
@@ -43,7 +46,7 @@ export default function IngresosPage() {
   // que un MANAGER que llegue por URL vea una pantalla de error en vez de un
   // mensaje claro, y de paso no dispara la petición.
   const { data: ingresos = [], isLoading, isError } = useQuery<Ingreso[]>({
-    enabled: isAdmin,
+    enabled: puedeVer,
     queryKey: ['ingresos', selectedProjectId ?? 'all', desde, hasta],
     queryFn: async () => (await api.get('/payments', { params: { projectId: selectedProjectId ?? undefined, startDate: desde || undefined, endDate: hasta ? `${hasta}T23:59:59` : undefined, status: 'CONFIRMED' } })).data.data,
   });
@@ -54,7 +57,7 @@ export default function IngresosPage() {
   const buscados = useMemo(() => {
     const n = normalizeForSearch(q.trim());
     const list = n
-      ? ingresos.filter(i => normalizeForSearch(`${i.contract.client.firstName} ${i.contract.client.lastName}`).includes(n) || normalizeForSearch(i.contract.codigoLegado ?? '').includes(n) || normalizeForSearch(i.paymentNumber).includes(n))
+      ? ingresos.filter(i => normalizeForSearch(`${i.contract.client?.firstName ?? ''} ${i.contract.client?.lastName ?? ''}`).includes(n) || normalizeForSearch(i.contract.codigoLegado ?? '').includes(n) || normalizeForSearch(i.paymentNumber).includes(n))
       : ingresos;
     return [...list].sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
   }, [ingresos, q]);
@@ -69,7 +72,7 @@ export default function IngresosPage() {
   const pagina = filtrados.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const inputStyle = { border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-primary)' };
 
-  if (!isAdmin) {
+  if (!isAdmin && !isSocio) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <AlertCircle className="w-10 h-10" style={{ color: 'var(--gold)' }} />
@@ -118,22 +121,23 @@ export default function IngresosPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
-                    {['Fecha', 'Folio', 'Código', 'Cliente', 'Lote', 'Concepto', 'Tipo', 'Corte', 'Monto'].map((h, i) => (
-                      <th key={h} className={`px-4 py-3 font-semibold whitespace-nowrap ${i === 8 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-secondary)' }}>{h}</th>
+                    {/* La columna de liquidación es del ADMIN: al socio se le reporta por aquí, no con cortes. */}
+                    {['Fecha', 'Folio', 'Código', 'Cliente', 'Lote', 'Concepto', 'Tipo', ...(isSocio ? [] : ['Corte']), 'Monto'].map((h, i, todas) => (
+                      <th key={h} className={`px-4 py-3 font-semibold whitespace-nowrap ${i === todas.length - 1 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-secondary)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {pagina.map(i => (
-                    <tr key={i.id} onClick={() => router.push(`/contratos/${i.contract.id}`)} className="cursor-pointer hover:bg-[var(--bg-secondary)]" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <tr key={i.id} onClick={i.contract.id && !isSocio ? () => router.push(`/contratos/${i.contract.id}`) : undefined} className={i.contract.id && !isSocio ? 'cursor-pointer hover:bg-[var(--bg-secondary)]' : ''} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatDateUTC(i.paymentDate, 'short')}</td>
                       <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{i.paymentNumber}</td>
                       <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{i.contract.codigoLegado ?? '—'}</td>
-                      <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{i.contract.client.firstName} {i.contract.client.lastName}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{i.contract.client ? `${i.contract.client.firstName} ${i.contract.client.lastName}` : '—'}</td>
                       <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{i.contract.lots.map(l => `M${l.lot.manzana}-${l.lot.lotNumber}`).join(' ')}</td>
                       <td className="px-4 py-2.5 max-w-[220px] truncate" style={{ color: 'var(--text-secondary)' }}>{i.concept}</td>
                       <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{etiquetaTipo(i.paymentType)}</td>
-                      <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: i.corte ? 'var(--text-secondary)' : 'var(--gold)' }}>{i.corte ? `#${i.corte.numero}` : 'Pendiente'}</td>
+                      {!isSocio && <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: i.corte ? 'var(--text-secondary)' : 'var(--gold)' }}>{i.corte ? `#${i.corte.numero}` : 'Pendiente'}</td>}
                       <td className="px-4 py-2.5 text-right font-semibold whitespace-nowrap" style={{ color: i.amount < 0 ? 'var(--danger)' : 'var(--accent)' }}>{formatCurrency(i.amount)}</td>
                     </tr>
                   ))}

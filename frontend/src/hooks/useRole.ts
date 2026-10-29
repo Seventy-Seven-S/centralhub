@@ -8,6 +8,8 @@ export function useRole() {
     isAdmin:            role === 'ADMIN',
     isManager:          role === 'MANAGER',
     isAgent:            role === 'AGENT',
+    // Dueño de uno o más proyectos: solo consulta, nada de capturar ni editar.
+    isSocio:            role === 'SOCIO',
     canAccessDashboard: role === 'ADMIN' || role === 'MANAGER',
     canManageContracts: role === 'ADMIN' || role === 'MANAGER',
     canOnlyViewLots:    role === 'AGENT',

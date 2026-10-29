@@ -51,7 +51,7 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [editBase,    setEditBase]    = useState(String(lote.basePrice || ''));
   const [editCurrent, setEditCurrent] = useState(String(lote.currentPrice || ''));
   const updateLote = useUpdateLote();
-  const { isAdmin, isManager, isAgent } = useRole();
+  const { isAdmin, isManager, isAgent, isSocio } = useRole();
   const canEdit = isAdmin || isManager;
   const [clientName,  setClientName]  = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -65,7 +65,8 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
   const [ineFile,     setIneFile]     = useState<File | null>(null);
   const [openingIne,  setOpeningIne]  = useState(false);
   const reserveLot = useReserveLot();
-  const { data: vendedores = [] } = useVendedores();
+  // El socio no aparta: tampoco necesita (ni puede pedir) la lista de vendedores.
+  const { data: vendedores = [] } = useVendedores(!isSocio);
 
   const handleVerIne = async () => {
     if (!lote.ineDocument) return;
@@ -268,7 +269,7 @@ function LoteModal({ lote, onClose }: { lote: Lote; onClose: () => void }) {
                 </>
               )}
             </div>
-            {lote.status === 'AVAILABLE' && (
+            {lote.status === 'AVAILABLE' && !isSocio && (
               <div className="px-6 pb-5">
                 <button
                   onClick={() => setShowApartarForm(true)}

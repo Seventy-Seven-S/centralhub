@@ -10,6 +10,8 @@ import { ProjectProvider } from '@/contexts/ProjectContext';
 // El AGENT solo ve lotes, proyectos y su corte.
 const AGENT_RESTRICTED = ['/dashboard', '/clientes', '/contratos', '/nuevo-contrato', '/cuotas', '/gastos'];
 const ADMIN_ONLY       = ['/usuarios'];
+// El SOCIO solo consulta estas pantallas; cualquier otra lo regresa al dashboard.
+const SOCIO_PERMITIDAS = ['/dashboard', '/proyectos', '/lotes', '/ingresos', '/gastos', '/informe'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -31,6 +33,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/login');
     } else if (user?.role === 'CLIENT') {
       router.replace('/mis-contratos');
+    } else if (user?.role === 'SOCIO' && !SOCIO_PERMITIDAS.some(r => pathname === r || pathname.startsWith(r + '/'))) {
+      router.replace('/dashboard');
     } else if (user?.role === 'AGENT' && AGENT_RESTRICTED.some(r => pathname.startsWith(r))) {
       router.replace('/lotes');
     } else if (user?.role !== 'ADMIN' && ADMIN_ONLY.some(r => pathname.startsWith(r))) {

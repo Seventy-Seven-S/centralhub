@@ -25,11 +25,15 @@ export function writeStoredProjectId(storage: Writable, id: string | null): void
  *   - null → null ("Todos los proyectos").
  *   - id presente en la lista → ese id.
  *   - id que ya no existe → null (fallback a "Todos").
+ *   - `obligatorio` (no existe "Todos"): en vez de null, el primer proyecto.
  */
 export function resolveStoredSelection(
   projects: { id: string }[],
   storedId: string | null,
+  obligatorio = false,
 ): string | null {
-  if (storedId === null) return null;
-  return projects.some((p) => p.id === storedId) ? storedId : null;
+  const resuelto = storedId !== null && projects.some((p) => p.id === storedId) ? storedId : null;
+  // Sin "Todos" (el socio): a falta de selección válida, el primer proyecto.
+  if (resuelto === null && obligatorio) return projects[0]?.id ?? null;
+  return resuelto;
 }

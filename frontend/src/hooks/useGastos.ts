@@ -110,8 +110,9 @@ export function useExpenseCategories() {
 }
 
 /** Sin projectId trae los gastos de TODOS los proyectos visibles. */
-export function useExpensesByProject(projectId: string, filters?: ExpenseFilters) {
+export function useExpensesByProject(projectId: string, filters?: ExpenseFilters, enabled = true) {
   return useQuery<Expense[]>({
+    enabled,
     queryKey: ['expenses', projectId || 'todos', filters],
     queryFn:  () => (projectId ? fetchExpensesByProject(projectId, filters) : fetchAllExpenses(filters)),
     staleTime: 30_000,

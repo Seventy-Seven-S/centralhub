@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useProyectos, type Proyecto } from '@/hooks/useProyectos';
+import { useRole } from '@/hooks/useRole';
 import {
   readStoredProjectId,
   writeStoredProjectId,
@@ -20,6 +21,7 @@ const ProjectContext = createContext<ProjectSelectionValue | undefined>(undefine
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const { data: projects = [], isLoading } = useProyectos();
+  const { isSocio } = useRole();
   const [selectedProjectId, setSelectedProjectIdState] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -28,16 +30,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading || hydrated) return;
     const stored = readStoredProjectId(window.localStorage);
-    const resolved = resolveStoredSelection(projects, stored);
+    const resolved = resolveStoredSelection(projects, stored, isSocio);
     if (resolved !== stored) writeStoredProjectId(window.localStorage, resolved);
     // Se queda en el efecto: depende de localStorage (solo en el navegador,
     // leerlo en el render rompe la hidratación) y escribe en él.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedProjectIdState(resolved);
     setHydrated(true);
-  }, [isLoading, hydrated, projects]);
+  }, [isLoading, hydrated, projects, isSocio]);
 
   const setSelectedProjectId = (id: string | null) => {
+    if (id === null && isSocio) return;
     setSelectedProjectIdState(id);
     writeStoredProjectId(window.localStorage, id);
   };

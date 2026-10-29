@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { abrirReciboComision } from '@/components/pdf/ReciboComision';
 import { useProyectos } from '@/hooks/useProyectos';
+import { useRole } from '@/hooks/useRole';
+import { useProjectSelection } from '@/contexts/ProjectContext';
 import {
   useExpenseCategories, useExpensesByProject,
   useCreateExpense, useUpdateExpense, useDeleteExpense,
@@ -391,7 +393,13 @@ function CategoryModal({ category, onClose }: CategoryModalProps) {
 
 export default function GastosPage() {
   // ── Filters state ──────────────────────────────────────────────────────────
-  const [selectedProject, setSelectedProject] = useState('');
+  const [proyectoElegido, setSelectedProject] = useState('');
+  // El SOCIO solo consulta: sin capturar, editar, borrar ni administrar
+  // categorías, y siempre un proyecto suyo (el backend no le responde
+  // "todos"). Arranca en el proyecto elegido en el menú.
+  const { isSocio } = useRole();
+  const { selectedProjectId: proyectoDelMenu } = useProjectSelection();
+  const selectedProject = isSocio ? (proyectoElegido || proyectoDelMenu || '') : proyectoElegido;
   const [selectedCategory, setSelectedCategory] = useState('');
   // Sub-filtro por proyecto, solo cuando se están viendo todos.
   const [subProyecto, setSubProyecto] = useState<string | null>(null);
@@ -417,7 +425,7 @@ export default function GastosPage() {
     dateTo:   dateTo   || undefined,
   };
 
-  const { data: todosLosGastos = [], isLoading: loadingExpenses } = useExpensesByProject(selectedProject, filters);
+  const { data: todosLosGastos = [], isLoading: loadingExpenses } = useExpensesByProject(selectedProject, filters, !isSocio || !!selectedProject);
 
   const resumenCategorias = useMemo(() => resumirGastosPorCategoria(todosLosGastos), [todosLosGastos]);
   // Los gastos de la categoría elegida, antes de acotar por proyecto: de ahí
@@ -480,14 +488,16 @@ export default function GastosPage() {
               : 'Todos los proyectos'}
           </p>
         </div>
-        <button
-          onClick={() => setExpenseModal({ open: true, expense: null })}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition hover:opacity-90 shrink-0"
-          style={{ backgroundColor: 'var(--accent)' }}
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo Gasto
-        </button>
+        {!isSocio && (
+          <button
+            onClick={() => setExpenseModal({ open: true, expense: null })}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition hover:opacity-90 shrink-0"
+            style={{ backgroundColor: 'var(--accent)' }}
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo Gasto
+          </button>
+        )}
       </div>
 
       {/* ── KPIs ── */}
@@ -521,7 +531,7 @@ export default function GastosPage() {
           className="px-3 py-2.5 text-sm rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/50 transition cursor-pointer"
           style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         >
-          <option value="">Todos los proyectos</option>
+          {!isSocio && <option value="">Todos los proyectos</option>}
           {proyectos.map(p => (
             <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
           ))}
@@ -617,13 +627,15 @@ export default function GastosPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Receipt className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
             <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>No hay gastos registrados para este proyecto</p>
-            <button
-              onClick={() => setExpenseModal({ open: true, expense: null })}
-              className="text-sm font-medium transition hover:opacity-80"
-              style={{ color: 'var(--accent)' }}
-            >
-              Registrar primer gasto
-            </button>
+            {!isSocio && (
+              <button
+                onClick={() => setExpenseModal({ open: true, expense: null })}
+                className="text-sm font-medium transition hover:opacity-80"
+                style={{ color: 'var(--accent)' }}
+              >
+                Registrar primer gasto
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -636,7 +648,7 @@ export default function GastosPage() {
                     <th className="text-left px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Categoría</th>
                     <th className="text-left px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Descripción</th>
                     <th className="text-right px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Monto</th>
-                    <th className="text-center px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Acciones</th>
+                    {!isSocio && <th className="text-center px-5 py-3.5 font-semibold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -673,7 +685,7 @@ export default function GastosPage() {
                         <td className="px-5 py-3.5 text-right font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                           {formatCurrency(Number(expense.amount))}
                         </td>
-                        <td className="px-5 py-3.5 text-center">
+                        {!isSocio && <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
                             {expense.category?.name === 'Asesores' && expense.beneficiario && (
                               <button
@@ -702,11 +714,11 @@ export default function GastosPage() {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                        </td>
+                        </td>}
                       </tr>
 
                       {/* Confirm delete inline */}
-                      {confirmDelete === expense.id && (
+                      {confirmDelete === expense.id && !isSocio && (
                         <tr key={`${expense.id}-confirm`} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td colSpan={6} className="px-5 py-3">
                             <div className="flex items-center justify-between rounded-xl px-4 py-2.5"
@@ -771,7 +783,7 @@ export default function GastosPage() {
       </div>
 
       {/* ── Sección categorías ── */}
-      <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+      {!isSocio && <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
         <button
           onClick={() => setShowCategories(v => !v)}
           className="flex items-center justify-between w-full px-5 py-4 transition hover:bg-[var(--bg-secondary)]"
@@ -855,7 +867,7 @@ export default function GastosPage() {
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Modals ── */}
       {expenseModal.open && (

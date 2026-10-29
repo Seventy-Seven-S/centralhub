@@ -25,14 +25,14 @@ interface ContratoRow {
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
-function useContratosByProject(projectId: string) {
+function useContratosByProject(projectId: string, enabled = true) {
   return useQuery<ContratoRow[]>({
     queryKey: ['contratos', 'proyecto', projectId],
     queryFn:  async () => {
       const { data } = await api.get('/contracts', { params: { projectId } });
       return data.data;
     },
-    enabled:   !!projectId,
+    enabled:   enabled && !!projectId,
     staleTime: 60_000,
   });
 }
@@ -82,9 +82,10 @@ export default function ProyectoDetallePage({ params }: { params: Promise<{ id: 
   const [page,   setPage]   = useState(1);
   const [sortBy, setSortBy] = useState('reciente');
 
-  const { canOnlyViewLots } = useRole();
+  const { canOnlyViewLots, isSocio } = useRole();
   const { data: proyecto, isLoading: loadingProyecto, isError } = useProyectoById(id);
-  const { data: contratos = [], isLoading: loadingContratos }   = useContratosByProject(id);
+  // Los contratos traen clientes y saldos: el socio no los ve (ni los pide).
+  const { data: contratos = [], isLoading: loadingContratos }   = useContratosByProject(id, !isSocio);
 
   const sorted = useMemo(() => {
     const list = [...contratos];
@@ -175,7 +176,7 @@ export default function ProyectoDetallePage({ params }: { params: Promise<{ id: 
       {proyecto.reparto && <RepartoProyecto reparto={proyecto.reparto} />}
 
       {/* ── SECCIÓN 4: Contratos ── */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      {!isSocio && <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">Contratos del proyecto</h3>
           <div className="flex items-center gap-3">
@@ -290,7 +291,7 @@ export default function ProyectoDetallePage({ params }: { params: Promise<{ id: 
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
     </div>
   );

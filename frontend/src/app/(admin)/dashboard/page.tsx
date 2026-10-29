@@ -378,14 +378,16 @@ function MoraTable({ mora, loading }: { mora: CuotaEnMora[] | undefined; loading
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('ingresos');
-  const { canAccessDashboard, isAdmin } = useRole();
+  const { canAccessDashboard, isAdmin, isSocio } = useRole();
   const { selectedProjectId, selectedProject } = useProjectSelection();
   // Solo ADMIN pide el resumen del negocio: /dashboard/summary ahora responde
-  // 403 a MANAGER, así que ni siquiera se dispara la consulta.
-  const { data, isLoading, isError, error } = useDashboardSummary(selectedProjectId ?? undefined, isAdmin);
+  // 403 a MANAGER, así que ni siquiera se dispara la consulta. El SOCIO lo ve
+  // de su proyecto, y espera a que el selector tenga uno (nunca pide "todos").
+  const veResumen = isAdmin || (isSocio && !!selectedProjectId);
+  const { data, isLoading, isError, error } = useDashboardSummary(selectedProjectId ?? undefined, veResumen);
   const { data: mora, isLoading: moraLoading } = useMoraDetail(selectedProjectId ?? undefined, isAdmin && activeTab === 'mora');
 
-  if (!canAccessDashboard) {
+  if (!canAccessDashboard && !isSocio) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <div className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -399,9 +401,9 @@ export default function DashboardPage() {
   }
 
   // Las secretarias ven su tablero de trabajo, no los totales del negocio.
-  if (!isAdmin) return <DashboardOperativo />;
+  if (!isAdmin && !isSocio) return <DashboardOperativo />;
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading || !veResumen) return <DashboardSkeleton />;
 
   if (isError) {
     return (
@@ -450,7 +452,8 @@ export default function DashboardPage() {
 
       {/* Tab selector */}
       <div className="flex gap-2 flex-wrap">
-        {TABS.map(tab => (
+        {/* La mora trae nombres y teléfonos de clientes: el socio no la ve. */}
+        {TABS.filter(tab => !(isSocio && tab.id === 'mora')).map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -482,7 +485,7 @@ export default function DashboardPage() {
           />
         )}
         {activeTab === 'cuotas'   && <CuotasChart porStatus={data.cuotas.porStatus} />}
-        {activeTab === 'mora'     && <MoraTable mora={mora} loading={moraLoading} />}
+        {activeTab === 'mora' && !isSocio && <MoraTable mora={mora} loading={moraLoading} />}
         {activeTab === 'plazos'   && <DistribucionPlazo data={data.distribucionPlazo} />}
       </div>
 

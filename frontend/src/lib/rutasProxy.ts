@@ -15,6 +15,7 @@ export const ADMIN_ROUTES = [
   '/dashboard',
   '/dinero-retenido',
   '/gastos',
+  '/informe',
   '/ingresos',
   '/lotes',
   '/mi-corte',

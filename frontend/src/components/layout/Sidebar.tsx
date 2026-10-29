@@ -6,9 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, FileText,
   Calendar, Map, LogOut, Home, X, UserCog, Sun, Moon, Receipt, DollarSign,
-  CreditCard, Banknote, MailWarning,
+  CreditCard, Banknote, MailWarning, BarChart3,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/app/providers';
@@ -22,13 +22,16 @@ import { RegistrarPagoModal } from '@/components/pagos/RegistrarPagoModal';
 // pantallas con totales del negocio quedan fuera de su menú — y también
 // cerradas en el backend, porque esconder el link no impide entrar por URL.
 // Gastos SÍ se queda: ellas lo capturan y corrigen a diario.
+//
+// El SOCIO (dueño de un proyecto) solo consulta: dashboard, proyectos, lotes,
+// ingresos, gastos y el informe, siempre de sus proyectos.
 type NavItem = { label: string; href: string; icon: typeof LayoutDashboard; roles?: string[] };
 
 const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: 'Operación',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER'] },
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER', 'SOCIO'] },
       { label: 'Proyectos', href: '/proyectos', icon: Building2 },
       { label: 'Lotes',     href: '/lotes',     icon: Map },
       { label: 'Contratos', href: '/contratos', icon: FileText,  roles: ['ADMIN', 'MANAGER'] },
@@ -41,12 +44,13 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { label: 'Mi corte',        href: '/mi-corte',       icon: Banknote,   roles: ['MANAGER', 'AGENT'] },
       { label: 'Cortes diarios',  href: '/cortes-diarios', icon: Banknote,   roles: ['ADMIN'] },
-      { label: 'Ingresos',        href: '/ingresos',       icon: DollarSign, roles: ['ADMIN'] },
+      { label: 'Ingresos',        href: '/ingresos',       icon: DollarSign, roles: ['ADMIN', 'SOCIO'] },
       // "Liquidaciones" era "Cortes": con el corte diario encima, dos cosas
       // distintas se llamaban igual. Ésta es la entrega al dueño del terreno.
       { label: 'Liquidaciones',   href: '/cortes',         icon: FileText,   roles: ['ADMIN'] },
       { label: 'Dinero retenido', href: '/dinero-retenido', icon: DollarSign, roles: ['ADMIN'] },
-      { label: 'Gastos',     href: '/gastos',     icon: Receipt,     roles: ['ADMIN', 'MANAGER'] },
+      { label: 'Gastos',     href: '/gastos',     icon: Receipt,     roles: ['ADMIN', 'MANAGER', 'SOCIO'] },
+      { label: 'Informe',    href: '/informe',    icon: BarChart3,   roles: ['ADMIN', 'SOCIO'] },
     ],
   },
   {
@@ -70,6 +74,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN:   'Administrador',
   MANAGER: 'Gerente',
   AGENT:   'Agente',
+  SOCIO:   'Socio',
   CLIENT:  'Cliente',
 };
 
@@ -95,8 +100,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   });
   const indicador: Record<string, number> = { '/recibos-fallidos': recibosFallidos };
 
+  const queryClient = useQueryClient();
+
   function handleLogout() {
     logout();
+    // Lo consultado se queda en memoria: sin esto, quien entre después en la
+    // misma computadora (un socio, tras el admin) vería por un momento los
+    // proyectos y cifras de la sesión anterior.
+    queryClient.clear();
     document.cookie = 'auth_token=; path=/; max-age=0';
     document.cookie = 'user_role=; path=/; max-age=0';
     router.push('/login');

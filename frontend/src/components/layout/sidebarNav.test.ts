@@ -61,4 +61,14 @@ describe('navParaRol — qué ve cada rol en el menú', () => {
       expect(navParaRol(rol).every(g => g.items.length > 0)).toBe(true);
     }
   });
+
+  it('SOCIO: exactamente sus pantallas de consulta, nada operativo', () => {
+    expect(hrefs('SOCIO').sort()).toEqual(['/dashboard', '/gastos', '/informe', '/ingresos', '/lotes', '/proyectos']);
+  });
+
+  it('el Informe es del ADMIN y del SOCIO, no de las secretarias', () => {
+    expect(hrefs('ADMIN')).toContain('/informe');
+    expect(hrefs('MANAGER')).not.toContain('/informe');
+    expect(hrefs('AGENT')).not.toContain('/informe');
+  });
 });
