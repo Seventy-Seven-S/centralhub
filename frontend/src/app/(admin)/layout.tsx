@@ -43,6 +43,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [isAuthenticated, user, router, pathname]);
 
   if (!isAuthenticated || user?.role === 'CLIENT') return null;
+  // Ni siquiera se dibuja una pantalla que no le toca al socio: si no, alcanza
+  // a pedir sus datos (el backend los niega) antes de que lo redirijan.
+  const socioFueraDeAlcance = user?.role === 'SOCIO'
+    && !SOCIO_PERMITIDAS.some(r => pathname === r || pathname.startsWith(r + '/'));
 
   return (
     <ProjectProvider>
@@ -73,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
-          {children}
+          {socioFueraDeAlcance ? null : children}
         </main>
       </div>
     </ProjectProvider>

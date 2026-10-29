@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart3, AlertCircle, Download } from 'lucide-react';
 import api from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+// Siempre con centavos, como en un estado de cuenta: con el formato general
+// unos meses salían "$1,549,734.5" y otros "$443,882".
+const pesos = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 import { useProjectSelection } from '@/contexts/ProjectContext';
 import { useRole } from '@/hooks/useRole';
 
@@ -131,16 +133,16 @@ export default function InformePage() {
                 {filas.map(f => (
                   <tr key={f.periodo} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td className="px-5 py-2.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{f.mes}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums whitespace-nowrap" style={{ color: f.ingresos < 0 ? 'var(--danger)' : 'var(--text-primary)' }}>{formatCurrency(f.ingresos)}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(f.egresos)}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums whitespace-nowrap" style={{ color: f.ingresos < 0 ? 'var(--danger)' : 'var(--text-primary)' }}>{pesos(f.ingresos)}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{pesos(f.egresos)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
                   <td className="px-5 py-3 font-bold" style={{ color: 'var(--text-primary)' }}>Total</td>
-                  <td className="px-5 py-3 text-right font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(informe.totales.ingresos)}</td>
-                  <td className="px-5 py-3 text-right font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{formatCurrency(informe.totales.egresos)}</td>
+                  <td className="px-5 py-3 text-right font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{pesos(informe.totales.ingresos)}</td>
+                  <td className="px-5 py-3 text-right font-bold tabular-nums whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{pesos(informe.totales.egresos)}</td>
                 </tr>
               </tfoot>
             </table>
