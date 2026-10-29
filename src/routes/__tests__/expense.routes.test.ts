@@ -22,11 +22,13 @@ function pasa(role: string) {
 }
 
 describe('expense.routes — solo ADMIN y MANAGER', () => {
-  it('primero autentica y luego autoriza, antes de cualquier ruta', () => {
+  it('primero autentica; las únicas rutas antes del authorize general son las lecturas del socio', () => {
     const stack = (expenseRouter as any).stack;
     expect(stack[0].handle).toBe(authenticate);
-    expect(stack[1].route).toBeUndefined();
-    expect(stack.slice(2).every((l: any) => l.route)).toBe(true);
+    const general = stack.findIndex((l: any, i: number) => i > 0 && !l.route);
+    const antes = stack.slice(1, general).map((l: any) => `${Object.keys(l.route.methods)[0].toUpperCase()} ${l.route.path}`);
+    expect(antes).toEqual(['GET /categories', 'GET /project/:projectId/summary', 'GET /project/:projectId']);
+    expect(stack.slice(general + 1).every((l: any) => l.route)).toBe(true);
   });
 
   it('ADMIN y MANAGER pasan (las secretarias capturan y corrigen gastos a diario)', () => {

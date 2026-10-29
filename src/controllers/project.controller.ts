@@ -8,6 +8,7 @@ import { round2 } from '../utils/money';
 import { wherePendienteDeCorte, whereGastoPorDescontar } from '../services/lib/cortePendiente';
 import { whereIngresoReal } from '../services/lib/ingresoReal';
 import { repartoDelProyecto, guardarAcuerdo } from '../services/reparto.service';
+import { esSocio, proyectosDelSocio } from '../middlewares/alcanceProyectos';
 
 /**
  * Cifras de un proyecto: contratos vivos, lotes por estado y finanzas.
@@ -65,9 +66,10 @@ async function cifrasDelProyecto(projectId: string, sinCortes = false) {
  * Lo que cada rol recibe de las cifras. El AGENT ve en la tarjeta contratos,
  * lotes, valor total y lo pendiente por entregar, pero no los ingresos ni los
  * egresos (la pantalla los esconde con hideIngresos): esos no deben ni viajar.
+ * El SOCIO sí los recibe: son las cifras de su propio proyecto.
  */
 export function cifrasParaRol<T extends object>(proyecto: T, role: string | undefined): T {
-  if (role === 'ADMIN' || role === 'MANAGER') return proyecto;
+  if (role === 'ADMIN' || role === 'MANAGER' || role === 'SOCIO') return proyecto;
   const { totalIngresos: _i, totalEgresos: _e, otrosIngresos: _o, diferencia: _d, ...resto } =
     proyecto as T & { totalIngresos?: unknown; totalEgresos?: unknown; otrosIngresos?: unknown; diferencia?: unknown };
   return resto as T;
@@ -78,8 +80,12 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
   // puede pedirlos con ?incluirOcultos=true — ocultar no es prohibir el
   // acceso, es sacarlos de la operación diaria y de los totales.
   const incluirOcultos = req.query.incluirOcultos === 'true' && req.user?.role === 'ADMIN';
+  // Un SOCIO solo ve los proyectos que tiene asignados, ocultos o no.
+  const where = esSocio(req)
+    ? { id: { in: await proyectosDelSocio(req.user!.userId) } }
+    : whereProyectoVisible(undefined, { incluirOcultos });
   const projects = await prisma.project.findMany({
-    where: whereProyectoVisible(undefined, { incluirOcultos }),
+    where,
     orderBy: { createdAt: 'desc' },
   });
 

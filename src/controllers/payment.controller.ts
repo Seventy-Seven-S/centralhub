@@ -3,6 +3,42 @@ import { Request, Response } from 'express';
 import paymentService from '../services/payment.service';
 import { UpdatePaymentDto, PaymentFilters } from '../types/payment.types';
 import { obtenerReciboPorPago } from '../services/reciboLog.service';
+import { esSocio } from '../middlewares/alcanceProyectos';
+
+interface PagoListado {
+  id: string; paymentNumber: string; paymentType: string; paymentMethod: string;
+  amount: number; paymentDate: Date; concept: string; status: string;
+  contract?: { codigoLegado: string | null; client: { firstName: string; lastName: string } | null; lots?: unknown } | null;
+  corte?: unknown;
+}
+
+/**
+ * Lo que un SOCIO recibe de cada ingreso: lo que se lee en la tabla y nada
+ * más. Lista blanca, no lista negra: el pago trae notas, referencia, quién lo
+ * capturó, el saldo del contrato e ids de cliente y contrato, y cualquier
+ * campo nuevo quedaría expuesto si solo se borraran los conocidos. Sin el id
+ * del contrato la pantalla tampoco puede enlazarlo.
+ */
+export function pagoParaSocio(p: PagoListado) {
+  const c = p.contract;
+  return {
+    id: p.id,
+    paymentNumber: p.paymentNumber,
+    paymentType: p.paymentType,
+    paymentMethod: p.paymentMethod,
+    amount: p.amount,
+    paymentDate: p.paymentDate,
+    concept: p.concept,
+    status: p.status,
+    contract: {
+      id: null,
+      codigoLegado: c?.codigoLegado ?? null,
+      client: c?.client ? { firstName: c.client.firstName, lastName: c.client.lastName } : null,
+      lots: c?.lots ?? [],
+    },
+    corte: p.corte ?? null,
+  };
+}
 
 export class PaymentController {
   // POST /api/v1/payments — registra una mensualidad (servicio unificado)
@@ -29,15 +65,18 @@ export class PaymentController {
       // Ingresos): solo ADMIN. Filtrado por contrato es operativo y lo
       // necesita cualquiera que cobre, así que ahí no se restringe.
       // Esconderlo solo en el menú no bastaba: la URL seguía respondiendo.
-      const contractId = (req.query.contractId as string | undefined)?.trim();
-      if (!contractId && req.user?.role !== 'ADMIN') {
+      // Un SOCIO llega aquí ya acotado a un proyecto suyo (soloProyectoDelSocio);
+      // contrato y cliente se le ignoran: no son filtros de su pantalla.
+      const socio = esSocio(req);
+      const contractId = socio ? undefined : (req.query.contractId as string | undefined)?.trim();
+      if (!contractId && !socio && req.user?.role !== 'ADMIN') {
         res.status(403).json({ success: false, message: 'No tienes permiso para ver el listado global de ingresos' });
         return;
       }
 
       const filters: PaymentFilters = {
-        contractId: req.query.contractId as string,
-        clientId: req.query.clientId as string,
+        contractId,
+        clientId: socio ? undefined : req.query.clientId as string,
         projectId: req.query.projectId as string,
         status: req.query.status as any,
         paymentMethod: req.query.paymentMethod as any,
@@ -47,8 +86,9 @@ export class PaymentController {
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
       };
 
-      const payments = await paymentService.getPayments(filters);
-      
+      const pagos = await paymentService.getPayments(filters);
+      const payments = socio ? (pagos as PagoListado[]).map(pagoParaSocio) : pagos;
+
       res.status(200).json({
         success: true,
         data: payments,

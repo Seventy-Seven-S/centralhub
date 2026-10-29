@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { authenticate, authorize } from '../middlewares/auth';
+import { soloProyectoDelSocio } from '../middlewares/alcanceProyectos';
 import {
   getAllProjects,
   getProjectById,
@@ -16,10 +17,12 @@ const router = Router();
 // Los tres roles del equipo ven proyectos (tarjetas, selector de proyecto y
 // detalle). Al AGENT se le quitan los ingresos y egresos en el controller,
 // porque su pantalla no los muestra — ver cifrasParaRol.
-const equipo = authorize('ADMIN', 'MANAGER', 'AGENT');
+// El SOCIO también los consulta, pero solo los suyos: el listado se le filtra
+// en el controller y el detalle de uno ajeno responde 403.
+const lectura = authorize('ADMIN', 'MANAGER', 'AGENT', 'SOCIO');
 
-router.get('/', authenticate, equipo, getAllProjects);
-router.get('/:id', authenticate, equipo, getProjectById);
+router.get('/', authenticate, lectura, getAllProjects);
+router.get('/:id', authenticate, lectura, soloProyectoDelSocio('params', 'id'), getProjectById);
 
 // Acuerdo de reparto con el dueño del terreno: es el trato del arquitecto, no
 // un dato operativo. Ninguna pantalla lo muestra a las secretarias ni a los

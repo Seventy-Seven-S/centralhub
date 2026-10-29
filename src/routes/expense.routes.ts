@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import expenseController from '../controllers/expense.controller';
 import { authenticate, authorize } from '../middlewares/auth';
+import { soloProyectoDelSocio } from '../middlewares/alcanceProyectos';
 
 const router = Router();
 
@@ -11,11 +12,19 @@ router.use(authenticate);
 // selector de asesores del alta de contrato y el recibo de comisión. El AGENT
 // no tiene ninguna pantalla que lea gastos — antes podía ver todos con solo
 // tener sesión.
+//
+// El SOCIO solo CONSULTA los gastos de un proyecto suyo (y las categorías,
+// para filtrar). Esas lecturas van antes del authorize general; todo lo demás
+// sigue siendo solo de ADMIN y MANAGER.
+const lecturaConSocio = [authorize('ADMIN', 'MANAGER', 'SOCIO'), soloProyectoDelSocio('params')];
+router.get('/categories',                 authorize('ADMIN', 'MANAGER', 'SOCIO'), expenseController.getAllCategories);
+router.get('/project/:projectId/summary', ...lecturaConSocio, expenseController.getProjectExpenseSummary);
+router.get('/project/:projectId',         ...lecturaConSocio, expenseController.getExpensesByProject);
+
 router.use(authorize('ADMIN', 'MANAGER'));
 
 // ── Categories ──────────────────────────────────────────────────────────────
 router.post('/categories',       expenseController.createCategory);
-router.get('/categories',        expenseController.getAllCategories);
 router.put('/categories/:id',    expenseController.updateCategory);
 router.delete('/categories/:id', expenseController.deleteCategory);
 
@@ -25,8 +34,6 @@ router.post('/',                               expenseController.createExpense);
 // como un id de gasto.
 router.get('/',                                expenseController.getAllExpenses);
 router.get('/beneficiarios',                   expenseController.getBeneficiarios);
-router.get('/project/:projectId/summary',      expenseController.getProjectExpenseSummary);
-router.get('/project/:projectId',              expenseController.getExpensesByProject);
 router.get('/:id',                             expenseController.getExpenseById);
 router.put('/:id',                             expenseController.updateExpense);
 router.delete('/:id',                          expenseController.deleteExpense);

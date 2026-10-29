@@ -16,6 +16,9 @@ enum UserRole {
   MANAGER
   AGENT
   VIEWER
+  // Dueño o inversionista de uno o más proyectos: solo consulta, y solo los
+  // proyectos que tiene asignados (ProyectoSocio). Ver middlewares/alcanceProyectos.ts.
+  SOCIO
 }
 
 enum UserStatus {
@@ -64,8 +67,25 @@ model User {
 
   otrosIngresos      OtroIngreso[]  @relation("OtroIngresoCreatedBy")
 
+  // Proyectos que un SOCIO puede consultar. Para los demás roles no aplica.
+  proyectosSocio     ProyectoSocio[]
+
   @@map("users")
   cambiosContrato   CambioContrato[]
+}
+
+// Qué proyectos puede consultar cada usuario con rol SOCIO.
+model ProyectoSocio {
+  userId    String   @map("user_id")
+  projectId String   @map("project_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@index([projectId])
+  @@map("proyectos_socio")
 }
 
 model RefreshToken {
@@ -191,6 +211,7 @@ model Project {
   cortes            Corte[]
   compromisosTerreno CompromisoTerreno[]
   acuerdoReparto     AcuerdoReparto?
+  socios             ProyectoSocio[]
 
   @@map("projects")
   otrosIngresos      OtroIngreso[]

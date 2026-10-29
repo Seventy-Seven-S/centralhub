@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import dashboardController from '../controllers/dashboard.controller';
 import { authenticate, authorize } from '../middlewares/auth';
+import { soloProyectoDelSocio } from '../middlewares/alcanceProyectos';
 
 const router = Router();
 
@@ -10,7 +11,8 @@ router.use(authenticate);
 // KPIs del NEGOCIO (ingresos, egresos, diferencia, ingresos por mes) — solo
 // ADMIN. Las secretarias trabajan con clientes enfrente y tenían estos montos
 // en pantalla; esconderlos en la UI no bastaba porque el dato ya viajaba.
-router.get('/summary', authorize('ADMIN'), dashboardController.getSummary.bind(dashboardController));
+// El SOCIO los ve de sus proyectos, uno a la vez.
+router.get('/summary', authorize('ADMIN', 'SOCIO'), soloProyectoDelSocio(), dashboardController.getSummary.bind(dashboardController));
 
 // Dashboard de trabajo: sus cobros del día y sus pendientes, sin totales del
 // negocio. Es lo que ve un MANAGER.

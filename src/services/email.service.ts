@@ -425,6 +425,7 @@ const ROLE_LABELS_ES: Record<string, string> = {
   ADMIN:   'Administrador',
   MANAGER: 'Gerente',
   AGENT:   'Agente',
+  SOCIO:   'Socio',
 };
 
 /**

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import lotController from '../controllers/lot.controller';
 import { authenticate, authorize } from '../middlewares/auth';
+import { soloProyectoDelSocio, soloLoteDelSocio } from '../middlewares/alcanceProyectos';
 import { MAX_INE_FILE_SIZE } from '../services/ineDocument';
 import { handleMulterUpload } from '../middlewares/handleMulterUpload';
 
@@ -29,8 +30,11 @@ const adminManagerOrAgent = authorize('ADMIN', 'MANAGER', 'AGENT');
 // Lo que cada uno recibe se recorta en el controller: el AGENT no recibe
 // contacto de apartados ajenos ni comprador/saldo de lotes vendidos — ver
 // scopeLotPII. Explícito para que un rol nuevo no herede la lectura.
-router.get('/',    adminManagerOrAgent, lotController.getAll);
-router.get('/:id', adminManagerOrAgent, lotController.getById);
+// El SOCIO también ve lotes, solo de sus proyectos, y scopeLotPII le quita
+// el comprador y el contacto del apartado igual que al AGENT.
+const lectura = authorize('ADMIN', 'MANAGER', 'AGENT', 'SOCIO');
+router.get('/',    lectura, soloProyectoDelSocio(), lotController.getAll);
+router.get('/:id', lectura, soloLoteDelSocio(), lotController.getById);
 
 // Escritura — solo ADMIN y MANAGER
 router.post('/',   adminOrManager, lotController.create);

@@ -6,7 +6,25 @@ import { ApiError, asyncHandler } from '../middlewares/errorHandler';
 import { normalizeEmail } from '../utils/normalizeEmail';
 import { sendStaffWelcomeEmail } from '../services/email.service';
 
-const INTERNAL_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'AGENT'];
+const INTERNAL_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'AGENT', 'SOCIO'];
+
+// Lo que se devuelve de cada usuario. Los proyectos solo aplican al SOCIO
+// (para los demás la lista viene vacía).
+const USER_SELECT = {
+  id: true, email: true, firstName: true, lastName: true, role: true, status: true, createdAt: true,
+  proyectosSocio: { select: { project: { select: { id: true, code: true, name: true } } } },
+} as const;
+
+/** Un SOCIO tiene que quedar con al menos un proyecto, y todos deben existir. */
+async function validarProyectosSocio(proyectos: unknown): Promise<string[]> {
+  if (!Array.isArray(proyectos) || proyectos.some(p => typeof p !== 'string' || !p))
+    throw new ApiError(400, 'Indica los proyectos del socio');
+  const ids = [...new Set(proyectos as string[])];
+  if (ids.length === 0) throw new ApiError(400, 'Un socio necesita al menos un proyecto');
+  const existen = await prisma.project.count({ where: { id: { in: ids } } });
+  if (existen !== ids.length) throw new ApiError(400, 'Algún proyecto no existe');
+  return ids;
+}
 
 // Validación deliberadamente laxa: el correo real se prueba solo cuando llega
 // el código 2FA. Aquí solo atajamos dedazos obvios (sin @, sin dominio).
@@ -30,17 +48,14 @@ export const getSellers = asyncHandler(async (_req: Request, res: Response) => {
 export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
   const users = await prisma.user.findMany({
     where: { role: { in: INTERNAL_ROLES } },
-    select: {
-      id: true, email: true, firstName: true, lastName: true,
-      role: true, status: true, lastLogin: true, createdAt: true,
-    },
+    select: { ...USER_SELECT, lastLogin: true },
     orderBy: { createdAt: 'desc' },
   });
   res.json({ status: 'success', data: { users } });
 });
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
-  const { password, firstName, lastName, role } = req.body;
+  const { password, firstName, lastName, role, proyectos } = req.body;
 
   if (!req.body.email || !password || !firstName || !lastName || !role)
     throw new ApiError(400, 'All fields are required');
@@ -51,10 +66,15 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new ApiError(400, 'Email already registered');
 
+  const idsProyectos = role === 'SOCIO' ? await validarProyectosSocio(proyectos) : [];
+
   const hashed = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    data: { email, password: hashed, firstName, lastName, role },
-    select: { id: true, email: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
+    data: {
+      email, password: hashed, firstName, lastName, role,
+      ...(idsProyectos.length && { proyectosSocio: { create: idsProyectos.map(projectId => ({ projectId })) } }),
+    },
+    select: USER_SELECT,
   });
 
   // Sus credenciales por correo. No bloquea el alta: si Resend falla, el
@@ -67,7 +87,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { firstName, lastName, role } = req.body;
+  const { firstName, lastName, role, proyectos } = req.body;
 
   if (role && !INTERNAL_ROLES.includes(role))
     throw new ApiError(400, 'Invalid role');
@@ -87,10 +107,23 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 
   // Rol previo para saber si de verdad cambia: el formulario manda el rol
   // aunque solo se haya corregido el nombre, y eso no debe sacarlo del sistema.
-  const previo = role
+  const previo = role || proyectos !== undefined
     ? await prisma.user.findUnique({ where: { id }, select: { role: true } })
     : null;
   const cambiaRol = !!role && !!previo && previo.role !== role;
+
+  // Proyectos del socio: se reemplazan completos cuando llegan, o cuando
+  // alguien pasa a ser SOCIO (que no puede quedar sin proyectos). Quien deja
+  // de ser SOCIO pierde los que tenía. Los permisos se leen de la base en cada
+  // consulta, así que el cambio aplica al instante, sin cerrar su sesión.
+  const rolFinal = role ?? previo?.role;
+  let proyectosSocio: { deleteMany: object; create?: Array<{ projectId: string }> } | undefined;
+  if (rolFinal === 'SOCIO' && (cambiaRol || proyectos !== undefined)) {
+    const ids = await validarProyectosSocio(proyectos);
+    proyectosSocio = { deleteMany: {}, create: ids.map(projectId => ({ projectId })) };
+  } else if (cambiaRol && previo?.role === 'SOCIO') {
+    proyectosSocio = { deleteMany: {} };
+  }
 
   const user = await prisma.user.update({
     where: { id },
@@ -99,8 +132,9 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
       ...(lastName && { lastName }),
       ...(role && { role }),
       ...(email && { email }),
+      ...(proyectosSocio && { proyectosSocio }),
     },
-    select: { id: true, email: true, firstName: true, lastName: true, role: true, status: true, createdAt: true },
+    select: USER_SELECT,
   });
 
   // Los JWT ya emitidos llevan el email y el rol viejos adentro. Al cambiar la

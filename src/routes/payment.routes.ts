@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import paymentController from '../controllers/payment.controller';
 import { authenticate, authorize } from '../middlewares/auth';
 import { asyncHandler } from '../middlewares/errorHandler';
+import { soloProyectoDelSocio } from '../middlewares/alcanceProyectos';
 import { recibosConEnvioFallido, contarRecibosConEnvioFallido, reenviarRecibo } from '../services/reciboLog.service';
 
 const router = Router();
@@ -30,7 +31,9 @@ router.post('/recibos/:id/reenviar', soloAdmin, asyncHandler(async (req: Request
 }));
 
 router.post('/',   adminOrManager, paymentController.create);
-router.get('/',    adminOrManager, paymentController.getAll);
+// El SOCIO consulta los ingresos de un proyecto suyo, con solo lo que se lee
+// en la tabla (ver pagoParaSocio). El detalle y el recibo no son para él.
+router.get('/',    authorize('ADMIN', 'MANAGER', 'SOCIO'), soloProyectoDelSocio(), paymentController.getAll);
 router.get('/:id/recibo', adminOrManager, paymentController.getRecibo);
 router.get('/:id', adminOrManager, paymentController.getById);
 router.put('/:id', adminOrManager, paymentController.update);

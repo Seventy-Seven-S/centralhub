@@ -27,6 +27,7 @@ import portalRoutes from './routes/portal.routes';
 import verificacionRoutes from './routes/verificacion.routes';
 import documentRoutes from './routes/document.routes';
 import notificationRoutes from './routes/notification.routes';
+import informeRoutes from './routes/informe.routes';
 
 const app: Application = express();
 
@@ -145,6 +146,7 @@ app.use(`/api/${API_VERSION}/cortes`, corteRoutes);
 app.use(`/api/${API_VERSION}/cortes-diarios`, corteDiarioRoutes);
 app.use(`/api/${API_VERSION}/traspasos`, traspasoRoutes);
 app.use(`/api/${API_VERSION}/notifications`, notificationRoutes);
+app.use(`/api/${API_VERSION}/informes`, informeRoutes);
 app.use(`/api/${API_VERSION}/portal`, portalRoutes);
 app.use(`/api/${API_VERSION}/verificar`, verificacionRoutes);
 
